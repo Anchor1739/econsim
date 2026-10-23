@@ -1143,6 +1143,158 @@ input:checked + .slider:before {
   line-height: 1.6;
 }
 
+/* Synchronized Sticky Telemetry & Real-Time HUD */
+@media (min-width: 992px) {
+  .lab-sticky-right {
+    position: sticky;
+    top: 76px;
+    align-self: flex-start;
+    max-height: calc(100vh - 95px);
+    overflow-y: auto;
+    padding-right: 4px;
+    scrollbar-width: thin;
+  }
+}
+
+.lab-live-hud-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+  background: var(--surface-card, var(--card-bg));
+  border: 1.5px solid rgba(36, 121, 101, 0.35);
+  box-shadow: 0 4px 16px rgba(36, 121, 101, 0.08);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 18px;
+}
+
+.lab-hud-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lab-hud-metric-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.lab-hud-metric-value {
+  font-family: var(--font-mono, monospace);
+  font-size: 16px;
+  font-weight: 800;
+  transition: color 0.2s ease;
+}
+
+.lab-mobile-floating-hud {
+  display: none;
+}
+
+@media (max-width: 991px) {
+  .lab-mobile-floating-hud {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    position: fixed;
+    bottom: 64px;
+    left: 10px;
+    right: 10px;
+    background: rgba(13, 20, 36, 0.95);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--jade);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    border-radius: 12px;
+    padding: 10px 14px;
+    z-index: 50;
+    color: white;
+  }
+}
+
+/* Compact Scenario Selector Chips */
+.lab-scenarios-compact {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scrollbar-width: thin;
+}
+
+.lab-scenario-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--card-bg);
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.lab-scenario-chip:hover {
+  border-color: var(--jade);
+  background: var(--bg);
+}
+
+.lab-scenario-chip.active {
+  border-color: var(--jade);
+  background: var(--jade-light);
+  color: var(--jade);
+  box-shadow: 0 0 0 1px var(--jade);
+}
+
+/* Dedicated Corporate Radar Styling */
+.radar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+
+@media (max-width: 600px) {
+  .radar-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.radar-card {
+  background: var(--card-bg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.radar-card:hover {
+  border-color: rgba(36, 121, 101, 0.5);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+.radar-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--jade), var(--accent, #38bdf8));
+  opacity: 0.8;
+}
+
 
 
 

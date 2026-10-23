@@ -111,6 +111,7 @@ if (str_starts_with($path, '/api/')) {
     $router->post('/api/lab/generate', [ProfileController::class, 'generateAiScenario']);
     $router->post('/api/lab/briefing', [ProfileController::class, 'runScenarioLabBriefing']);
     $router->post('/api/lab/run', [ProfileController::class, 'runScenarioLab']);
+    $router->get('/api/radar', [ProfileController::class, 'getCorporateRadar']);
 
     // Real Mode Funding & Payment Gateways (Flutterwave & Korapay)
     $router->post('/api/funding/initialize', [PaymentController::class, 'initialize']);

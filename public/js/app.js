@@ -73,6 +73,14 @@ let state = {
     aiBriefing: null,
     isBriefingLoading: false,
     openPrimers: {},
+    isAiBoxOpen: false,
+  },
+  radar: {
+    companies: [],
+    selectedSector: 'all',
+    searchQuery: '',
+    macroBaseline: null,
+    isLoading: false,
   },
 };
 
@@ -270,6 +278,7 @@ function render() {
     case 'leaderboard': content = renderLeaderboardPage(); break;
     case 'mentor': content = renderMentorPage(); break;
     case 'lab': content = renderScenarioLab(); break;
+    case 'radar': content = renderCorporateRadarPage(); break;
     case 'profile': content = renderProfilePage(); break;
     case 'settings': content = renderSettingsPage(); break;
     default: content = renderDashboard(); break;
@@ -634,6 +643,11 @@ function renderAppShell(innerHtml) {
       icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.31L4.2 19.37A2 2 0 0 0 5.92 22h12.16a2 2 0 0 0 1.72-2.63L14 9.31V2"/></svg>` 
     },
     { 
+      id: 'radar', 
+      label: 'Corporate Radar', 
+      icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/><path d="M12 6a6 6 0 0 1 6 6"/><circle cx="12" cy="12" r="2"/></svg>` 
+    },
+    { 
       id: 'leaderboard', 
       label: 'Leaderboard', 
       icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34c3.48-1.07 6-4.28 6-8.66V3H4v3c0 4.38 2.52 7.59 6 8.66z"/></svg>` 
@@ -856,6 +870,10 @@ function renderAppShell(innerHtml) {
             <button class="nav-item ${state.page === 'lab' ? 'active' : ''}" onclick="navigate('lab'); closeMobileDrawer();">
               <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 2v7.31L4.2 19.37A2 2 0 0 0 5.92 22h12.16a2 2 0 0 0 1.72-2.63L14 9.31V2"/></svg></span>
               <span class="text">Scenario Lab</span>
+            </button>
+            <button class="nav-item ${state.page === 'radar' ? 'active' : ''}" onclick="navigate('radar'); closeMobileDrawer();">
+              <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/><path d="M12 6a6 6 0 0 1 6 6"/><circle cx="12" cy="12" r="2"/></svg></span>
+              <span class="text">Corporate Radar</span>
             </button>
             <button class="nav-item ${state.page === 'leaderboard' ? 'active' : ''}" onclick="navigate('leaderboard'); closeMobileDrawer();">
               <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34c3.48-1.07 6-4.28 6-8.66V3H4v3c0 4.38 2.52 7.59 6 8.66z"/></svg></span>
@@ -1519,6 +1537,8 @@ function renderScenarioLab() {
   const pwrColor = res.purchasing_power < 35 ? 'var(--red)' : (res.purchasing_power < 55 ? 'var(--orange)' : 'var(--jade)');
   const debtColor = res.debt_service_burden > 70 ? 'var(--red)' : (res.debt_service_burden > 55 ? 'var(--orange)' : 'var(--jade)');
   const marginColor = res.margin_stress < 0 ? 'var(--red)' : (res.margin_stress < 8 ? 'var(--orange)' : 'var(--jade)');
+  const supplyColor = (res.supply_chain_stress || 65) > 70 ? 'var(--red)' : ((res.supply_chain_stress || 65) > 50 ? 'var(--orange)' : 'var(--jade)');
+  const corpColor = (res.corporate_health || 55) < 45 ? 'var(--red)' : ((res.corporate_health || 55) < 65 ? 'var(--orange)' : 'var(--jade)');
 
   const defs = lab.definitions || {};
 
@@ -1535,17 +1555,26 @@ function renderScenarioLab() {
     { slug: 'healthcare', name: 'Healthcare & Pharma', icon: '🏥' },
   ];
 
+  const selectedSc = (lab.scenarios || []).find(s => s.id === lab.selectedScenarioId) || (lab.scenarios && lab.scenarios[0]) || null;
+
   return `
-    <div class="page-head">
-      <div>
-        <div class="eyebrow">MULTIVARIATE ECONOMIC & INDUSTRY SIMULATION LAB</div>
-        <h1>Scenario Lab</h1>
-        <p>Calibrate empirical policy levers, test supply & demand shocks, and observe real-time equilibrium transmission across sectors.</p>
+    <div class="page-head" style="margin-bottom: 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
+        <div>
+          <div class="eyebrow">MULTIVARIATE ECONOMIC & INDUSTRY SIMULATION LAB</div>
+          <h1 style="margin: 2px 0 6px;">Scenario Lab</h1>
+          <p style="margin: 0; font-size: 13.5px; color: var(--muted); max-width: 800px;">
+            Calibrate empirical policy levers, test supply & demand shocks, and observe real-time equilibrium transmission across sectors.
+          </p>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="navigate('radar')">
+          <span>📡 Public Corporate Radar (20 Tickers) ↗</span>
+        </button>
       </div>
     </div>
 
     <!-- Industry Selector Pills -->
-    <div class="lab-industry-pills">
+    <div class="lab-industry-pills" style="margin-bottom: 14px;">
       ${indList.map(ind => `
         <button type="button" class="lab-industry-pill ${lab.selectedIndustry === ind.slug ? 'active' : ''}" onclick="selectLabIndustry('${ind.slug}')">
           <span>${ind.icon || '📊'}</span>
@@ -1554,67 +1583,80 @@ function renderScenarioLab() {
       `).join('')}
     </div>
 
+    <!-- Crisis & Policy Scenarios Compact Selector Ribbon -->
+    <div style="background: var(--card-bg); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; margin-bottom: 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="eyebrow" style="color: var(--navy); margin: 0;">CRISIS & POLICY SCENARIO PRESETS</span>
+          <span style="font-size: 11px; color: var(--muted);">${(lab.scenarios || []).length} available in ${currentInd.name}</span>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-toggle-ai-box" style="font-size: 11px; padding: 4px 10px;" onclick="toggleLabAiBox()">
+          <span>${lab.isAiBoxOpen ? '✕ Close AI Generator' : '✨ Custom AI Dilemma'}</span>
+        </button>
+      </div>
+
+      <div class="lab-scenarios-compact">
+        ${(lab.scenarios && lab.scenarios.length > 0) ? lab.scenarios.map(sc => `
+          <button type="button" class="lab-scenario-chip ${lab.selectedScenarioId === sc.id ? 'active' : ''}" onclick="selectLabScenario('${sc.id}')">
+            <span>⚡</span>
+            <span>${sc.title}</span>
+            ${lab.selectedScenarioId === sc.id ? '<span class="badge badge-enabled" style="font-size: 9px; padding: 1px 5px; margin-left: 4px;">ACTIVE</span>' : ''}
+          </button>
+        `).join('') : '<div class="muted" style="font-size: 12px;">Loading presets...</div>'}
+      </div>
+
+      <!-- Collapsible Custom AI Scenario Prompt Box -->
+      <div id="lab-ai-box" style="display: ${lab.isAiBoxOpen ? 'block' : 'none'}; margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--line);">
+        <form onsubmit="handleGenerateAiScenario(event)">
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <input class="input" id="lab-ai-prompt" placeholder="E.g., Crude drops to $50, FX hits ₦2,200, fuel surges 30%..." style="font-size: 12.5px; flex: 1; min-width: 260px;" required>
+            <button type="submit" class="btn btn-secondary" style="white-space: nowrap;" id="btn-gen-ai-scenario">
+              ${lab.isAiGenLoading ? 'Generating...' : 'Synthesize AI Shock'}
+            </button>
+          </div>
+          <small style="color: var(--muted); font-size: 11px; display: block; margin-top: 4px;">Synthesizes a calibrated macroeconomic scenario on demand.</small>
+        </form>
+      </div>
+    </div>
+
+    <!-- Main Multivariate Simulation Grid -->
     <div class="two-col" style="align-items: flex-start; gap: 24px;">
-      <!-- Left Column: Scenarios & Policy Levers -->
+      
+      <!-- Left Column: Levers & Direct Real-Time Telemetry HUD -->
       <div style="display: flex; flex-direction: column; gap: 20px;">
         
-        <!-- Active Sector Header -->
-        <div class="panel" style="border-left: 4px solid var(--jade);">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <div class="eyebrow" style="color: var(--jade);">${currentInd.name.toUpperCase()} SECTOR</div>
-            <span class="badge badge-enabled">Empirical Model Active</span>
-          </div>
-          <h2 style="margin: 0 0 6px; font-size: 18px; display: flex; align-items: center; gap: 8px;">
-            <span>${currentInd.icon || '🏦'}</span>
-            <span>${currentInd.name}</span>
-          </h2>
-          <p style="font-size: 13px; color: var(--muted); margin: 0;">${currentInd.tagline || ''}</p>
-        </div>
-
-        <!-- Scenarios Selection -->
+        <!-- Macroeconomic Levers (Positioned at TOP for Instant Zero-Scroll Interaction) -->
         <div class="panel">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-            <div class="eyebrow">CRISIS & POLICY SCENARIOS</div>
-            <span style="font-size: 12px; color: var(--muted);">${(lab.scenarios || []).length} Presets Available</span>
-          </div>
-          <div id="lab-scenarios-container">
-            ${(lab.scenarios && lab.scenarios.length > 0) ? lab.scenarios.map(sc => `
-              <div class="lab-scenario-card ${lab.selectedScenarioId === sc.id ? 'active' : ''}" onclick="selectLabScenario('${sc.id}')">
-                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px;">
-                  <strong style="font-size: 14px; color: var(--text);">${sc.title}</strong>
-                  ${lab.selectedScenarioId === sc.id ? '<span class="badge badge-enabled" style="font-size: 10px;">ACTIVE</span>' : ''}
-                </div>
-                <p style="font-size: 12.5px; color: var(--muted); margin: 4px 0 8px; line-height: 1.5;">${sc.description}</p>
-                <div style="font-size: 11.5px; color: var(--navy); background: rgba(36,121,101,0.06); padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(36,121,101,0.15);">
-                  <b>Core Dilemma:</b> ${sc.core_dilemma || 'Evaluate transmission channels and strategic counter-measures.'}
-                </div>
-              </div>
-            `).join('') : renderScenarioSkeleton(2)}
-          </div>
-
-          <!-- Custom AI Scenario Prompt Box -->
-          <div style="margin-top: 18px; border-top: 1px dashed var(--line); padding-top: 16px;">
-            <div class="eyebrow" style="margin-bottom: 8px; color: var(--navy);">✨ GENERATE CUSTOM AI DILEMMA</div>
-            <form onsubmit="handleGenerateAiScenario(event)">
-              <div style="display: flex; gap: 8px;">
-                <input class="input" id="lab-ai-prompt" placeholder="E.g., Crude drops to $50, FX hits ₦2,200, fuel surges 30%..." style="font-size: 12.5px;" required>
-                <button type="submit" class="btn btn-secondary" style="white-space: nowrap;" id="btn-gen-ai-scenario">
-                  ${lab.isAiGenLoading ? 'Generating...' : 'Synthesize AI'}
-                </button>
-              </div>
-              <small style="color: var(--muted); font-size: 11px; display: block; margin-top: 4px;">Synthesizes a calibrated macroeconomic scenario on demand.</small>
-            </form>
-          </div>
-        </div>
-
-        <!-- Macroeconomic Levers -->
-        <div class="panel">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
             <div>
-              <div class="eyebrow">CALIBRATE LEVERS</div>
-              <h2 style="font-size: 16px; margin: 4px 0 0;">Macroeconomic & Industry Policy Controls</h2>
+              <div class="eyebrow" style="color: var(--jade);">CALIBRATE LEVERS</div>
+              <h2 style="font-size: 16px; margin: 2px 0 0;">Macroeconomic & Industry Policy Controls</h2>
             </div>
             <button class="btn btn-secondary" style="font-size: 11.5px; padding: 4px 10px;" onclick="resetLabParameters()">↺ Reset Baseline</button>
+          </div>
+
+          <!-- Synchronized Live Telemetry HUD Strip (Changes in real-time as sliders drag) -->
+          <div class="lab-live-hud-strip">
+            <div class="lab-hud-metric">
+              <span class="lab-hud-metric-label">12M Inflation</span>
+              <span class="lab-hud-metric-value" id="hud-val-inf" style="color: ${infColor};">${res.projected_inflation}%</span>
+            </div>
+            <div class="lab-hud-metric">
+              <span class="lab-hud-metric-label">Credit Impulse</span>
+              <span class="lab-hud-metric-value" id="hud-val-credit" style="color: ${creditColor};">${res.credit_impulse} / 100</span>
+            </div>
+            <div class="lab-hud-metric">
+              <span class="lab-hud-metric-label">Logistics Strain</span>
+              <span class="lab-hud-metric-value" id="hud-val-supply" style="color: ${supplyColor};">${res.supply_chain_stress || 65} / 100</span>
+            </div>
+            <div class="lab-hud-metric">
+              <span class="lab-hud-metric-label">Listed Solvency</span>
+              <span class="lab-hud-metric-value" id="hud-val-corp" style="color: ${corpColor};">${res.corporate_health || 55} / 100</span>
+            </div>
+            <div class="lab-hud-metric">
+              <span class="lab-hud-metric-label">Gross Margin</span>
+              <span class="lab-hud-metric-value" id="hud-val-margin" style="color: ${marginColor};">${res.margin_stress > 0 ? '+' : ''}${res.margin_stress}%</span>
+            </div>
           </div>
 
           <!-- Lever 1: MPR -->
@@ -1636,10 +1678,29 @@ function renderScenarioLab() {
           ${renderLeverBox('spend_impulse', 'Fiscal Spending / Deficit Impulse', p.spend_impulse ?? 14.0, 1, 25, 0.5, '% GDP', '1% Austerity', '25% Expansionary', defs.spend_impulse)}
 
         </div>
+
+        <!-- Active Sector & Dilemma Specification Card -->
+        ${selectedSc ? `
+          <div class="panel" style="border-left: 4px solid var(--jade);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <span class="eyebrow" style="color: var(--jade);">${currentInd.name.toUpperCase()} SECTOR</span>
+              <span class="badge badge-enabled" style="font-size: 10px;">Empirical Model Active</span>
+            </div>
+            <h3 style="margin: 0 0 6px; font-size: 16px; display: flex; align-items: center; gap: 8px;">
+              <span>${currentInd.icon || '🏦'}</span>
+              <span>${selectedSc.title}</span>
+            </h3>
+            <p style="font-size: 12.5px; color: var(--muted); margin: 4px 0 10px; line-height: 1.5;">${selectedSc.description}</p>
+            <div style="font-size: 12px; color: var(--navy); background: rgba(36,121,101,0.06); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(36,121,101,0.15); line-height: 1.5;">
+              <b>Strategic Dilemma:</b> ${selectedSc.core_dilemma || 'Evaluate transmission channels and strategic counter-measures.'}
+            </div>
+          </div>
+        ` : ''}
+
       </div>
 
-      <!-- Right Column: Equilibrium Gauges & AI Briefing -->
-      <div style="display: flex; flex-direction: column; gap: 20px;">
+      <!-- Right Column: Equilibrium Gauges, Corporate Radar & AI Briefing (Sticky Desktop Viewport) -->
+      <div class="lab-sticky-right" style="display: flex; flex-direction: column; gap: 20px;">
         
         <!-- Live Gauges Panel -->
         <div class="panel">
@@ -1734,10 +1795,10 @@ function renderScenarioLab() {
           <div class="lab-gauge-card">
             <div class="lab-gauge-header">
               <span style="font-size: 13px; font-weight: 600;">Supply Chain & Logistics Disruption Strain</span>
-              <span class="lab-val-badge" id="gauge-val-supply" style="color: ${(res.supply_chain_stress || 65) > 70 ? 'var(--red)' : ((res.supply_chain_stress || 65) > 50 ? 'var(--orange)' : 'var(--jade)')}; font-size: 16px;">${res.supply_chain_stress || 65} / 100</span>
+              <span class="lab-val-badge" id="gauge-val-supply" style="color: ${supplyColor}; font-size: 16px;">${res.supply_chain_stress || 65} / 100</span>
             </div>
             <div class="lab-gauge-bar">
-              <div class="lab-gauge-fill" id="gauge-bar-supply" style="width: ${res.supply_chain_stress || 65}%; background: ${(res.supply_chain_stress || 65) > 70 ? 'var(--red)' : ((res.supply_chain_stress || 65) > 50 ? 'var(--orange)' : 'var(--jade)')};"></div>
+              <div class="lab-gauge-fill" id="gauge-bar-supply" style="width: ${res.supply_chain_stress || 65}%; background: ${supplyColor};"></div>
             </div>
             <small id="gauge-sub-supply" style="font-size: 11.5px; color: var(--muted);">
               ${(res.supply_chain_stress || 65) > 70 ? 'Port congestion, demurrage fees, and diesel haulage costs severely squeezing inventory velocity' : 'Manageable transport corridors and warehouse turnover'}
@@ -1748,10 +1809,10 @@ function renderScenarioLab() {
           <div class="lab-gauge-card">
             <div class="lab-gauge-header">
               <span style="font-size: 13px; font-weight: 600;">NGX Listed Corporate Solvency & Earnings Index</span>
-              <span class="lab-val-badge" id="gauge-val-corp" style="color: ${(res.corporate_health || 55) < 45 ? 'var(--red)' : ((res.corporate_health || 55) < 65 ? 'var(--orange)' : 'var(--jade)')}; font-size: 16px;">${res.corporate_health || 55} / 100</span>
+              <span class="lab-val-badge" id="gauge-val-corp" style="color: ${corpColor}; font-size: 16px;">${res.corporate_health || 55} / 100</span>
             </div>
             <div class="lab-gauge-bar">
-              <div class="lab-gauge-fill" id="gauge-bar-corp" style="width: ${res.corporate_health || 55}%; background: ${(res.corporate_health || 55) < 45 ? 'var(--red)' : ((res.corporate_health || 55) < 65 ? 'var(--orange)' : 'var(--jade)')};"></div>
+              <div class="lab-gauge-fill" id="gauge-bar-corp" style="width: ${res.corporate_health || 55}%; background: ${corpColor};"></div>
             </div>
             <small id="gauge-sub-corp" style="font-size: 11.5px; color: var(--muted);">
               ${(res.corporate_health || 55) < 45 ? 'Elevated unhedged FX balance sheet losses and 30%+ commercial loan servicing strains' : 'Stable debt service coverage ratios and pricing power across listed public firms'}
@@ -1767,12 +1828,16 @@ function renderScenarioLab() {
 
         <!-- Public Listed Equities Transmission Radar (NGX & African Bourses) -->
         <div class="panel">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <div class="eyebrow" style="color: var(--jade);">PUBLIC CORPORATE RADAR</div>
-            <span class="badge" style="background: rgba(36,121,101,0.12); color: var(--jade); font-size: 11px;">NGX & African Exchanges</span>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+            <div>
+              <div class="eyebrow" style="color: var(--jade);">PUBLIC CORPORATE RADAR</div>
+              <h2 style="font-size: 16px; margin: 2px 0 0;">Public Equities & Supply Chain Transmission</h2>
+            </div>
+            <button class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 4px 10px;" onclick="navigate('radar')">
+              Open Full Radar (20 Stocks) ↗
+            </button>
           </div>
-          <h2 style="font-size: 16px; margin: 0 0 6px;">Public Equities & Supply Chain Transmission</h2>
-          <p style="font-size: 12.5px; color: var(--muted); margin-bottom: 14px;">
+          <p style="font-size: 12px; color: var(--muted); margin-bottom: 14px;">
             Real-time sensitivity radar evaluating how currently dialed policy rates, diesel fuel, and currency levels permeate listed corporate earnings and supply chains.
           </p>
 
@@ -1802,6 +1867,26 @@ function renderScenarioLab() {
           </div>
         </div>
 
+      </div>
+    </div>
+
+    <!-- Mobile Floating Telemetry HUD (Always visible on mobile without scrolling) -->
+    <div class="lab-mobile-floating-hud" id="lab-mobile-hud">
+      <div style="font-size: 11px; display: flex; flex-direction: column; align-items: center;">
+        <span style="opacity: 0.7; font-size: 9px; text-transform: uppercase;">Inflation</span>
+        <b id="mob-hud-inf" style="color: ${infColor}; font-size: 13px;">${res.projected_inflation}%</b>
+      </div>
+      <div style="font-size: 11px; display: flex; flex-direction: column; align-items: center;">
+        <span style="opacity: 0.7; font-size: 9px; text-transform: uppercase;">Credit</span>
+        <b id="mob-hud-credit" style="color: ${creditColor}; font-size: 13px;">${res.credit_impulse}</b>
+      </div>
+      <div style="font-size: 11px; display: flex; flex-direction: column; align-items: center;">
+        <span style="opacity: 0.7; font-size: 9px; text-transform: uppercase;">Logistics</span>
+        <b id="mob-hud-supply" style="color: ${supplyColor}; font-size: 13px;">${res.supply_chain_stress || 65}</b>
+      </div>
+      <div style="font-size: 11px; display: flex; flex-direction: column; align-items: center;">
+        <span style="opacity: 0.7; font-size: 9px; text-transform: uppercase;">Margin</span>
+        <b id="mob-hud-margin" style="color: ${marginColor}; font-size: 13px;">${res.margin_stress > 0 ? '+' : ''}${res.margin_stress}%</b>
       </div>
     </div>
   `;
@@ -1895,6 +1980,185 @@ function renderLabBriefingOutput() {
       <div style="color: var(--text);">${contentHtml}</div>
     </div>
   `;
+}
+
+// -------------------------------------------------------------
+// Dedicated Public Corporate Radar View (NGX & African Bourses)
+// -------------------------------------------------------------
+function renderCorporateRadarPage() {
+  const radar = state.radar || {};
+  const companies = radar.companies || [];
+  const base = radar.macroBaseline || { mpr: 27.25, fx_rate: 1650, fuel_price: 1050, inflation: 32.5 };
+  const sector = radar.selectedSector || 'all';
+
+  const sectors = [
+    { id: 'all', label: 'All Public Sectors', icon: '🌐' },
+    { id: 'energy', label: 'Energy & Power Utilities', icon: '⚡' },
+    { id: 'capital-markets', label: 'Banking & Financial Services', icon: '🏦' },
+    { id: 'manufacturing', label: 'Industrial & Building Materials', icon: '🏭' },
+    { id: 'fmcg', label: 'Consumer Goods & FMCG', icon: '🛒' },
+    { id: 'agriculture', label: 'Agriculture & Agro-Allied', icon: '🌾' },
+    { id: 'telecoms', label: 'Telecoms & Digital Infrastructure', icon: '📱' },
+    { id: 'healthcare', label: 'Healthcare & Pharma', icon: '🏥' },
+  ];
+
+  return `
+    <div class="page-head" style="margin-bottom: 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+        <div>
+          <div class="eyebrow" style="color: var(--jade);">NGX & PAN-AFRICAN PUBLIC CORPORATE RADAR</div>
+          <h1 style="margin: 4px 0 8px;">Public Corporate Radar</h1>
+          <p style="max-width: 820px; font-size: 14px; color: var(--muted); margin: 0;">
+            Institutional sensitivity surveillance tracking 20 listed African blue-chips, captive power transitions, port supply chain constraints, and monetary transmission across the Nigerian Exchange (NGX) and African bourses.
+          </p>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+          <button class="btn btn-secondary" onclick="navigate('lab')">
+            <span>⚙️ Calibrate in Scenario Lab</span>
+          </button>
+          <button class="btn btn-primary" onclick="navigate('predictor')">
+            <span>📈 View Active Forecasts</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Macro Equilibrium Baseline Strip -->
+    <div class="panel" style="background: linear-gradient(135deg, rgba(36,121,101,0.06), rgba(15,23,42,0.4)); border: 1px solid rgba(36,121,101,0.25); padding: 16px 20px; margin-bottom: 24px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+        <span class="eyebrow" style="color: var(--jade); margin: 0;">TRANSMISSION BASELINE CORRIDOR</span>
+        <span class="badge badge-enabled" style="font-size: 11px;">Empirical NGX Feed Synchronized</span>
+      </div>
+      <div style="grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px;">
+        <div>
+          <span style="font-size: 11px; color: var(--muted); text-transform: uppercase; font-weight: 700; display: block;">Benchmark Policy (MPR)</span>
+          <b style="font-size: 17px; font-family: monospace; color: var(--text);">${base.mpr ?? 27.25}%</b>
+        </div>
+        <div>
+          <span style="font-size: 11px; color: var(--muted); text-transform: uppercase; font-weight: 700; display: block;">FX Reference Corridor</span>
+          <b style="font-size: 17px; font-family: monospace; color: var(--text);">₦${base.fx_rate ?? 1650} / $</b>
+        </div>
+        <div>
+          <span style="font-size: 11px; color: var(--muted); text-transform: uppercase; font-weight: 700; display: block;">Industrial Diesel</span>
+          <b style="font-size: 17px; font-family: monospace; color: var(--text);">₦${base.fuel_price ?? 1050} / L</b>
+        </div>
+        <div>
+          <span style="font-size: 11px; color: var(--muted); text-transform: uppercase; font-weight: 700; display: block;">Supply Chain Friction</span>
+          <b style="font-size: 17px; font-family: monospace; color: var(--orange);">65 / 100</b>
+        </div>
+        <div>
+          <span style="font-size: 11px; color: var(--muted); text-transform: uppercase; font-weight: 700; display: block;">Solvency & Capital Buffers</span>
+          <b style="font-size: 17px; font-family: monospace; color: var(--jade);">58 / 100</b>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filter and Search Toolbar -->
+    <div style="display: flex; flex-direction: column; gap: 14px; margin-bottom: 20px;">
+      <!-- Search Input -->
+      <div style="position: relative; max-width: 500px;">
+        <input 
+          class="input" 
+          id="radar-search-input" 
+          type="text" 
+          placeholder="Filter by ticker (e.g. DANGCEM, MTNN, SEPLAT) or company..." 
+          value="${state.radar.searchQuery || ''}" 
+          oninput="filterRadarSearch(this.value)"
+          style="padding-left: 36px; font-size: 13.5px;"
+        >
+        <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 14px; opacity: 0.6;">🔍</span>
+      </div>
+
+      <!-- Sector Filter Pills -->
+      <div class="lab-industry-pills" style="margin: 0; padding-bottom: 4px;">
+        ${sectors.map(s => `
+          <button 
+            type="button" 
+            class="lab-industry-pill ${sector === s.id ? 'active' : ''}" 
+            onclick="selectRadarSector('${s.id}')"
+          >
+            <span>${s.icon}</span>
+            <span>${s.label}</span>
+          </button>
+        `).join('')}
+      </div>
+    </div>
+
+    <!-- Corporate Radar Grid -->
+    <div id="corporate-radar-grid" class="radar-grid">
+      ${companies.length > 0 ? renderRadarCardsHtml(companies) : `
+        <div style="grid-column: 1 / -1; text-align: center; padding: 48px 20px; color: var(--muted); background: var(--card-bg); border: 1px dashed var(--line); border-radius: 12px;">
+          <div class="spinner" style="margin: 0 auto 12px; width: 24px; height: 24px;"></div>
+          Loading corporate radar surveillance data...
+        </div>
+      `}
+    </div>
+  `;
+}
+
+function renderRadarCardsHtml(companies) {
+  const query = (state.radar.searchQuery || '').trim().toLowerCase();
+  const filtered = (companies || []).filter(c => {
+    if (!query) return true;
+    const matchName = (c.company || '').toLowerCase().includes(query);
+    const matchTicker = (c.ticker || '').toLowerCase().includes(query);
+    const matchSector = (c.sector || '').toLowerCase().includes(query);
+    const matchRisk = (c.risk_factor || '').toLowerCase().includes(query);
+    return matchName || matchTicker || matchSector || matchRisk;
+  });
+
+  if (filtered.length === 0) {
+    return `
+      <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: var(--muted); background: var(--card-bg); border: 1px dashed var(--line); border-radius: 12px;">
+        No listed companies match your search filter "<b>${escapeHtml(query)}</b>".
+      </div>
+    `;
+  }
+
+  return filtered.map(c => `
+    <div class="radar-card" id="radar-card-${(c.ticker || '').replace(/[^a-zA-Z0-9]/g, '_')}">
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <h3 style="font-size: 15px; margin: 0; font-weight: 700; color: var(--text);">${c.company}</h3>
+              <span class="market-tag" style="font-size: 11px; font-weight: 800; padding: 2px 8px; background: rgba(36,121,101,0.12); color: var(--jade); border: 1px solid rgba(36,121,101,0.25);">${c.ticker}</span>
+            </div>
+            <span style="font-size: 11.5px; color: var(--muted); margin-top: 2px; display: inline-block;">${c.sector}</span>
+          </div>
+          <span class="badge" style="font-size: 10px; font-weight: 700; text-transform: uppercase; background: var(--surface-card, rgba(255,255,255,0.05)); border: 1px solid var(--line);">
+            ${c.industry || 'Macro'}
+          </span>
+        </div>
+
+        <div style="background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin: 10px 0;">
+          <div style="font-size: 11px; color: var(--muted); text-transform: uppercase; font-weight: 700; margin-bottom: 2px;">Sensitivity Stance</div>
+          <div style="font-size: 13px; font-weight: 600; color: var(--text);">${c.impact || 'Balanced Stance'}</div>
+        </div>
+
+        ${c.status ? `
+          <div style="margin: 8px 0; font-size: 12px; display: flex; align-items: baseline; gap: 6px;">
+            <b style="color: var(--navy); font-size: 11.5px; white-space: nowrap;">Operational Catalyst:</b>
+            <span style="color: var(--text);">${c.status}</span>
+          </div>
+        ` : ''}
+
+        <div style="font-size: 12px; color: var(--muted); line-height: 1.5; margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--line);">
+          <b style="color: var(--navy); display: block; font-size: 11px; margin-bottom: 2px; text-transform: uppercase;">Supply Chain & Capital Vulnerability</b>
+          <span>${c.risk_factor || c.risk || 'General macroeconomic exposure'}</span>
+        </div>
+      </div>
+
+      <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+        <button class="btn btn-secondary btn-sm" style="font-size: 11.5px; padding: 6px 12px; flex: 1;" onclick="handleRadarToPredictor('${c.ticker}')">
+          <span>Trade Forecast Contract ↗</span>
+        </button>
+        <button class="btn btn-outline btn-sm" style="font-size: 11.5px; padding: 6px 12px;" onclick="navigate('lab')">
+          <span>Simulate Levers ⚙️</span>
+        </button>
+      </div>
+    </div>
+  `).join('');
 }
 
 // -------------------------------------------------------------
@@ -2185,6 +2449,8 @@ function attachViewEvents() {
     loadChallengeReportData(state.currentChallengeId);
   } else if (state.page === 'lab') {
     loadScenarioLabData(state.lab.selectedIndustry);
+  } else if (state.page === 'radar') {
+    loadCorporateRadarData();
   }
 }
 
@@ -3120,7 +3386,32 @@ function updateLabSlider(key, val) {
   const pwrColor = res.purchasing_power < 35 ? 'var(--red)' : (res.purchasing_power < 55 ? 'var(--orange)' : 'var(--jade)');
   const debtColor = res.debt_service_burden > 70 ? 'var(--red)' : (res.debt_service_burden > 55 ? 'var(--orange)' : 'var(--jade)');
   const marginColor = res.margin_stress < 0 ? 'var(--red)' : (res.margin_stress < 8 ? 'var(--orange)' : 'var(--jade)');
+  const supplyColor = (res.supply_chain_stress || 65) > 70 ? 'var(--red)' : ((res.supply_chain_stress || 65) > 50 ? 'var(--orange)' : 'var(--jade)');
+  const corpColor = (res.corporate_health || 55) < 45 ? 'var(--red)' : ((res.corporate_health || 55) < 65 ? 'var(--orange)' : 'var(--jade)');
 
+  // 1. LIVE TELEMETRY HUD STRIP (Right atop Levers Panel)
+  const hudInf = document.getElementById('hud-val-inf');
+  if (hudInf) { hudInf.textContent = res.projected_inflation + '%'; hudInf.style.color = infColor; }
+  const hudCredit = document.getElementById('hud-val-credit');
+  if (hudCredit) { hudCredit.textContent = res.credit_impulse + ' / 100'; hudCredit.style.color = creditColor; }
+  const hudSupply = document.getElementById('hud-val-supply');
+  if (hudSupply) { hudSupply.textContent = (res.supply_chain_stress || 65) + ' / 100'; hudSupply.style.color = supplyColor; }
+  const hudCorp = document.getElementById('hud-val-corp');
+  if (hudCorp) { hudCorp.textContent = (res.corporate_health || 55) + ' / 100'; hudCorp.style.color = corpColor; }
+  const hudMargin = document.getElementById('hud-val-margin');
+  if (hudMargin) { hudMargin.textContent = (res.margin_stress > 0 ? '+' : '') + res.margin_stress + '%'; hudMargin.style.color = marginColor; }
+
+  // 2. MOBILE FLOATING HUD (Pinned to bottom of viewport)
+  const mobInf = document.getElementById('mob-hud-inf');
+  if (mobInf) { mobInf.textContent = res.projected_inflation + '%'; mobInf.style.color = infColor; }
+  const mobCredit = document.getElementById('mob-hud-credit');
+  if (mobCredit) { mobCredit.textContent = res.credit_impulse; mobCredit.style.color = creditColor; }
+  const mobSupply = document.getElementById('mob-hud-supply');
+  if (mobSupply) { mobSupply.textContent = (res.supply_chain_stress || 65); mobSupply.style.color = supplyColor; }
+  const mobMargin = document.getElementById('mob-hud-margin');
+  if (mobMargin) { mobMargin.textContent = (res.margin_stress > 0 ? '+' : '') + res.margin_stress + '%'; mobMargin.style.color = marginColor; }
+
+  // 3. FULL GAUGES
   const gValInf = document.getElementById('gauge-val-inf');
   const gBarInf = document.getElementById('gauge-bar-inf');
   const gSubInf = document.getElementById('gauge-sub-inf');
@@ -3184,7 +3475,6 @@ function updateLabSlider(key, val) {
   }
 
   // Live updates for Supply Chain & Listed Corporate Health
-  const supplyColor = (res.supply_chain_stress || 65) > 70 ? 'var(--red)' : ((res.supply_chain_stress || 65) > 50 ? 'var(--orange)' : 'var(--jade)');
   const gValSupply = document.getElementById('gauge-val-supply');
   const gBarSupply = document.getElementById('gauge-bar-supply');
   const gSubSupply = document.getElementById('gauge-sub-supply');
@@ -3194,7 +3484,6 @@ function updateLabSlider(key, val) {
     gSubSupply.textContent = (res.supply_chain_stress || 65) > 70 ? 'Port congestion, demurrage fees, and diesel haulage costs severely squeezing inventory velocity' : 'Manageable transport corridors and warehouse turnover';
   }
 
-  const corpColor = (res.corporate_health || 55) < 45 ? 'var(--red)' : ((res.corporate_health || 55) < 65 ? 'var(--orange)' : 'var(--jade)');
   const gValCorp = document.getElementById('gauge-val-corp');
   const gBarCorp = document.getElementById('gauge-bar-corp');
   const gSubCorp = document.getElementById('gauge-sub-corp');
@@ -3234,6 +3523,11 @@ function renderCorporateRadarList(radar) {
       <div style="font-size: 11.5px; color: var(--muted); line-height: 1.45; border-top: 1px dashed var(--line); padding-top: 6px; margin-top: 6px;">
         <b style="color: var(--navy);">Supply Chain / Power / Capital Factor:</b> ${c.risk_factor || c.risk || ''}
       </div>
+      <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+        <button class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 3px 10px;" onclick="handleRadarToPredictor('${c.ticker}')">
+          <span>Trade Forecast Contract ↗</span>
+        </button>
+      </div>
     </div>
   `).join('');
 }
@@ -3244,6 +3538,19 @@ function toggleLabPrimer(key) {
   const el = document.getElementById('lab-primer-' + key);
   if (el) {
     el.style.display = state.lab.openPrimers[key] ? 'block' : 'none';
+  }
+}
+
+function toggleLabAiBox() {
+  if (!state.lab) state.lab = {};
+  state.lab.isAiBoxOpen = !state.lab.isAiBoxOpen;
+  const box = document.getElementById('lab-ai-box');
+  const btn = document.getElementById('btn-toggle-ai-box');
+  if (box) {
+    box.style.display = state.lab.isAiBoxOpen ? 'block' : 'none';
+  }
+  if (btn) {
+    btn.innerHTML = `<span>${state.lab.isAiBoxOpen ? '✕ Close AI Generator' : '✨ Custom AI Dilemma'}</span>`;
   }
 }
 
@@ -3262,7 +3569,7 @@ function resetLabParameters() {
     };
   }
   runLocalLabSimulation();
-  navigate('lab');
+  render();
 }
 
 function selectLabIndustry(slug) {
@@ -3283,7 +3590,89 @@ function selectLabScenario(id) {
     state.lab.params = { ...s.default_params };
   }
   runLocalLabSimulation();
-  navigate('lab');
+  render();
+}
+
+// -------------------------------------------------------------
+// Corporate Radar State Management & Handlers
+// -------------------------------------------------------------
+async function loadCorporateRadarData(force = false) {
+  if (state.radar.isLoading) return;
+  state.radar.isLoading = true;
+
+  try {
+    const sector = state.radar.selectedSector || 'all';
+    const res = await api.get(`/radar?sector=${encodeURIComponent(sector)}`);
+    if (res && res.data) {
+      state.radar.companies = res.data.companies || [];
+      state.radar.macroBaseline = res.data.macro_baseline || null;
+      if (state.page === 'radar') {
+        const grid = document.getElementById('corporate-radar-grid');
+        if (grid) {
+          grid.innerHTML = renderRadarCardsHtml(state.radar.companies);
+        } else {
+          render();
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load corporate radar:', err);
+  } finally {
+    state.radar.isLoading = false;
+  }
+}
+
+function selectRadarSector(sector) {
+  state.radar.selectedSector = sector;
+  loadCorporateRadarData(true);
+  if (state.page === 'radar') {
+    render();
+  }
+}
+
+function filterRadarSearch(query) {
+  state.radar.searchQuery = query;
+  const grid = document.getElementById('corporate-radar-grid');
+  if (grid) {
+    grid.innerHTML = renderRadarCardsHtml(state.radar.companies || []);
+  }
+}
+
+function handleRadarToPredictor(ticker) {
+  const tickerMap = {
+    'DANGCEM.NG': 'dangote-cement-q4',
+    'NESTLE.NG': 'cbn-mpr-hike',
+    'MTNN.NG': 'nibss-instant-payments-growth',
+    'SEPLAT.NG': 'brent-crude-dec',
+    'GEREGU.NG': 'brent-crude-dec',
+    'BUAFOODS.NG': 'nigerian-food-inflation',
+    'GTCO.NG': 'cbn-mpr-hike',
+    'ZENITHBANK.NG': 'cbn-mpr-hike',
+    'ACCESSCORP.NG': 'cbn-mpr-hike',
+    'BUACEMENT.NG': 'dangote-cement-q4',
+    'WAPCO.NG': 'dangote-cement-q4',
+    'NB.NG': 'nigerian-food-inflation',
+    'UNILEVER.NG': 'nigerian-food-inflation',
+    'AIRTELAFRI.NG': 'nibss-instant-payments-growth',
+    'TRANSPOWER.NG': 'brent-crude-dec',
+    'ARADEL.NG': 'brent-crude-dec',
+    'PRESCO.NG': 'nigerian-food-inflation',
+    'OKOMUOIL.NG': 'nigerian-food-inflation',
+    'FIDSON.NG': 'nigerian-food-inflation',
+    'SAFARICOM.NR': 'nibss-instant-payments-growth',
+  };
+
+  const marketSlug = tickerMap[ticker];
+  if (marketSlug && state.markets && state.markets.length > 0) {
+    const market = state.markets.find(m => m.slug === marketSlug);
+    if (market) {
+      navigate('market', { marketId: market.id });
+      return;
+    }
+  }
+
+  // Fallback: navigate to predictor
+  navigate('predictor');
 }
 
 async function loadScenarioLabData(industrySlug = 'monetary', force = false) {

@@ -159,5 +159,25 @@ class ProfileController
             Response::error($e->getMessage(), 400);
         }
     }
+
+    public function getCorporateRadar(): void
+    {
+        $sector = $_GET['sector'] ?? 'all';
+        try {
+            // Baseline simulation across all public corporate tickers
+            $sim = \App\Services\ScenarioLabService::simulate('monetary', []);
+            $radar = $sim['listed_corporate_radar'] ?? [];
+            if ($sector !== 'all') {
+                $radar = array_filter($radar, fn($c) => ($c['industry'] ?? '') === $sector);
+            }
+            Response::success([
+                'companies' => array_values($radar),
+                'macro_baseline' => $sim['parameters'] ?? [],
+                'sector' => $sector,
+            ]);
+        } catch (Throwable $e) {
+            Response::error($e->getMessage(), 500);
+        }
+    }
 }
 
