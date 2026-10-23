@@ -359,6 +359,69 @@ This single adjustment wipes out $36\\%$ of the company's equity base (₦900m /
 - **FMDQ Securities Exchange**: NAFEM Daily FX Turnover, Indicative Rates & Derivatives Bulletin.";
             $source = "FMDQ Derivatives & CBN Foreign Exchange Market Structure";
 
+        } elseif (str_contains($lower, 'stock') || str_contains($lower, 'ngx') || str_contains($lower, 'exchange') || str_contains($lower, 'public') || str_contains($lower, 'equit') || str_contains($lower, 'share') || str_contains($lower, 'recapitaliz')) {
+            $answer = "### 1. Conceptual Framework & Equity Market Transmission (NGX & African Bourses)
+Publicly traded companies on the Nigerian Exchange (NGX) and regional African bourses (GSE, NSE, JSE) serve as the primary barometer of corporate earnings resilience against macroeconomic shocks. Equity valuations reflect discounted future cash flows:
+$$\\text{Enterprise Value (EV)} = \\sum_{t=1}^{n} \\frac{\\text{FCFF}_t}{(1 + \\text{WACC})^t} + \\frac{\\text{Terminal Value}}{(1 + \\text{WACC})^n}$$
+When central banks increase benchmark interest rates (MPR), the Weighted Average Cost of Capital (WACC) rises across all sectors, compressing price-to-earnings (P/E) multiples while debt servicing costs increase.
+
+### 2. African Structural Reality: The Four Public Equity Archetypes
+- **FMCG & Consumer Goods (e.g. Nestle, Nigerian Breweries, Unilever)**: Highly sensitive to unhedged foreign currency debt. Rapid devaluation creates paper net finance losses that temporarily erode retained earnings, forcing aggressive local backward integration.
+- **Telecommunications (e.g. MTN Nigeria, Airtel Africa)**: Operate under USD-indexed tower leases alongside grid power deficits (operating generators across 20,000+ cell sites). Profitability recovery requires tower contract renegotiations and regulatory tariff adjustments.
+- **Industrial Goods & Construction (e.g. Dangote Cement, BUA Cement)**: Exhibit high domestic pricing power and massive operating scale, but rely heavily on interstate road haulage diesel costs and continuous gas pipeline pressure for cement kilns.
+- **Banking Groups (e.g. Zenith, GTCO, Access, UBA, FirstBank)**: Benefit from expanding Net Interest Margins (NIM) under high interest rates, but must navigate CBN ₦500 Billion international recapitalization directives and high Cash Reserve Requirements (CRR).
+
+### 3. Quantitative Formulation: Earnings Per Share (EPS) & Dilution Modeling
+Consider a listed Tier-1 bank with ₦300B existing paid-up capital issuing a ₦200B Rights Offer to meet the CBN ₦500B mandate:
+$$\\text{New Shares Issued} = \\frac{\\text{Capital Required}}{\\text{Subscription Offer Price}}$$
+If the bank generates ₦120B in Net Profit After Tax and shares in issue expand from 30 billion to 45 billion:
+$$\\text{Historical EPS} = \\frac{₦120,000,000,000}{30,000,000,000} = ₦4.00\\text{ / share}$$
+$$\\text{Post-Rights Diluted EPS} = \\frac{₦120,000,000,000}{45,000,000,000} = ₦2.67\\text{ / share}$$
+To prevent a $33\\%$ decline in earnings per share, executive management must deploy the new equity into high-yielding commercial assets, digital fee income, or regional cross-border expansions that generate at least ₦60B in incremental operating profit.
+
+### 4. Executive & Investor Decision Matrix
+- **Capital Structure Restructuring**: Refinance expensive floating bank overdrafts into fixed-rate listed commercial papers (CP) or corporate green bonds.
+- **Dividend Policy Sustainability**: Retain cash earnings during recapitalization cycles rather than paying aggressive cash dividends that drain working capital.
+- **Currency Hedging on Listed Equities**: Investors should overweight listed exporters (Presco, Okomu Oil, Seplat) who earn hard foreign currency while incurring costs in local currency.
+
+### 5. Benchmark Citations & Primary Sources
+- **Nigerian Exchange Group (NGX)**: Daily Market Summaries, ASI Sectoral Indices & Corporate Actions (ngxgroup.com).
+- **Central Bank of Nigeria (CBN)**: Banking Supervision Department Circular on Banking Sector Recapitalization.";
+            $source = "NGX Equity Research & Institutional Corporate Finance Architecture";
+
+        } elseif (str_contains($lower, 'supply') || str_contains($lower, 'chain') || str_contains($lower, 'port') || str_contains($lower, 'logistics') || str_contains($lower, 'haulage') || str_contains($lower, 'freight') || str_contains($lower, 'customs') || str_contains($lower, 'transport')) {
+            $answer = "### 1. Conceptual Framework & Supply Chain Mechanics
+The enterprise supply chain governs the conversion of raw material inputs into monetizable finished inventory. In corporate finance, supply chain efficiency is quantified by the **Cash Conversion Cycle (CCC)**:
+$$\\text{Cash Conversion Cycle (Days)} = \\text{Days Sales of Inventory (DSI)} + \\text{Days Sales Outstanding (DSO)} - \\text{Days Payables Outstanding (DPO)}$$
+Where:
+$$\\text{DSI} = \\frac{\\text{Average Inventory}}{\\text{Cost of Goods Sold (COGS)}} \\times 365$$
+A lengthening CCC represents trapped operational cash that requires expensive short-term working capital bank financing.
+
+### 2. Emerging Market & African Supply Chain Frictions
+In Nigeria and West Africa, supply chain disruptions typically manifest through three compounding friction points:
+- **Port Congestion & Customs Dwell Times**: Dwell time at maritime terminals (Apapa, Tin Can Island) frequently extends to 30–60 days. Importers face demurrage fees, terminal holding charges, and fluctuating customs duty exchange rate benchmarks.
+- **Interstate Haulage & Energy Costs**: Following diesel (Automotive Gas Oil) price deregulation, road freight from coastal ports to northern commercial hubs (Kano, Kaduna) increased over 150%, inflating landed replacement costs for food staples and manufactured components.
+- **Raw Material Import Dependency**: Nigerian manufacturing sectors exhibit an average import dependency ratio of 40%–65%. When foreign currency illiquidity strikes, factory inventory stockouts occur, depressing plant capacity utilization below 50%.
+
+### 3. Quantitative Worked Scenario: Supply Chain Demurrage & Working Capital Drag
+Consider an industrial manufacturing conglomerate with ₦4,000,000,000 annual raw material imports (100 shipping containers per quarter):
+- Average dwell time increases from 14 days to 45 days (31 days delay).
+- Demurrage & storage charges $= ₦65,000\\text{ per container / day}$.
+$$\\text{Demurrage Cost} = 100 \\times 31 \\times ₦65,000 = ₦201,500,000\\text{ per quarter}$$
+$$\\text{Annualized Supply Chain Cash Leakage} = ₦806,000,000$$
+If the firm finances this delay with commercial bank overdraft facilities at $32\\%$ interest, the total financial drag exceeds $₦1,060,000,000$ annually, completely eliminating the firm's operating net margin unless passed entirely to the end customer.
+
+### 4. Executive Decision Matrix & Supply Chain Hedging
+- **Domestic Backward Integration**: Accelerate local supply partnerships (e.g. contracting smallholder sorghum and cassava farmers) to replace imported agricultural and starch inputs.
+- **Decentralized Hub-and-Spoke Warehousing**: Establish buffer inventory hubs in regional trade centers (Ibadan, Abuja, Aba) to insulate retail distribution from transit logjams.
+- **Dual-Fuel Fleet Transition**: Convert haulage truck fleets from high-cost diesel to Compressed Natural Gas (CNG), reducing transport fuel costs by 40%–55%.
+- **Customs Advance Ruling & Authorized Economic Operator (AEO)**: Secure preferential fast-track customs clearance status with the Nigeria Customs Service to bypass physical container inspection delays.
+
+### 5. Benchmark Citations & Primary Sources
+- **Manufacturers Association of Nigeria (MAN)**: Bi-Annual Executive Economic Review on Industrial Capacity & Supply Chains (manufacturersnigeria.org).
+- **Nigerian Ports Authority (NPA) & Shippers' Council**: Port Logistics & Demurrage Statistical Bulletin.";
+            $source = "EconSim Supply Chain & Industrial Logistics Masterclass";
+
         } else {
             $answer = "### 1. Conceptual Framework & Financial Architecture
 Strategic financial problem solving requires a structured **First-Principles Decomposition**:

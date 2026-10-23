@@ -171,6 +171,47 @@ class ScenarioLabService
                     'core_dilemma' => 'How can fintech apps pivot from zero-cost transaction float to sustainable credit underwriting and institutional wealth monetization?',
                 ],
             ],
+            'capital-markets' => [
+                [
+                    'id' => 'cap_1',
+                    'title' => 'NGX Bank Recapitalization & ₦500B Rights Offer Dilution',
+                    'description' => 'The Central Bank of Nigeria mandates all international commercial banks to elevate paid-up capital to ₦500 Billion. Listed Tier-1 banking groups (Zenith, GTCO, Access, UBA, FirstBank) execute massive rights issues and public offers on the Nigerian Exchange (NGX).',
+                    'default_params' => ['mpr' => 27.25, 'inflation' => 31.5, 'crr' => 45.0, 'fx_rate' => 1620, 'spend_impulse' => 12],
+                    'core_dilemma' => 'Can domestic retail and institutional investors absorb over ₦2 Trillion in fresh equity issuances without crashing secondary stock market valuations?',
+                ],
+                [
+                    'id' => 'cap_2',
+                    'title' => 'Foreign Exchange Revaluation Losses & Listed Equity Solvency',
+                    'description' => 'Rapid depreciation of the official Naira exchange rate triggers multi-billion-Naira paper net finance losses on corporate balance sheets holding unhedged dollar trade debt, temporarily wiping out retained earnings across major NGX listed consumer goods and telecom giants.',
+                    'default_params' => ['mpr' => 26.0, 'fx_rate' => 1800, 'fuel_price' => 1100, 'inflation' => 33.5, 'spend_impulse' => 10],
+                    'core_dilemma' => 'How should corporate boards restore positive shareholder equity and defend credit ratings when accounting currency losses breach debt covenants?',
+                ],
+            ],
+            'fmcg' => [
+                [
+                    'id' => 'fmcg_1',
+                    'title' => 'Apapa Port Demurrage & Customs Import Duty Benchmark Surge',
+                    'description' => 'Multinational consumer goods manufacturers (Nestle Nigeria, Nigerian Breweries, Unilever) confront 60-day port clearance delays at Apapa and Tin Can ports, compounded by surging customs duty foreign exchange benchmarks.',
+                    'default_params' => ['fx_rate' => 1700, 'fuel_price' => 1150, 'inflation' => 34.0, 'mpr' => 27.0, 'spend_impulse' => 12],
+                    'core_dilemma' => 'Can FMCG conglomerates accelerate domestic agro-allied backward integration (sorghum, cassava, starch) fast enough to replace imported packaging and grain inputs?',
+                ],
+                [
+                    'id' => 'fmcg_2',
+                    'title' => 'Consumer Wallet Squeeze & Downward Product Resizing (Shrinkflation)',
+                    'description' => 'High food inflation forces urban households to curtail non-essential grocery items. Consumer goods companies must choose between packaging down to smaller sachet price points or losing shelf market share to unbranded regional competitors.',
+                    'default_params' => ['inflation' => 35.0, 'fuel_price' => 1080, 'fx_rate' => 1650, 'mpr' => 26.25, 'spend_impulse' => 11],
+                    'core_dilemma' => 'How can consumer brand managers preserve unit gross margins when price elasticity prevents passing on full production cost inflation?',
+                ],
+            ],
+            'telecoms' => [
+                [
+                    'id' => 'tel_1',
+                    'title' => 'USD-Indexed Tower Leases & Base Station Diesel Inflation',
+                    'description' => 'Telecommunications operators (MTN Nigeria, Airtel Africa) face dual cost inflation: master lease contracts indexed to US Dollars alongside escalating diesel fuel expenses to operate off-grid generators across 20,000+ cell sites.',
+                    'default_params' => ['fx_rate' => 1750, 'fuel_price' => 1200, 'mpr' => 27.0, 'inflation' => 32.5, 'spend_impulse' => 14],
+                    'core_dilemma' => 'What capital expenditure investments in solar-hybrid battery systems and contract renegotiations are required to restore telecom operating profitability?',
+                ],
+            ],
         ];
 
         return $all[$industrySlug] ?? $all['monetary'];
@@ -320,8 +361,62 @@ class ScenarioLabService
             default => round(max(-25, min(20, 10 - ($mpr - 20) * 0.6 - ($projectedInflation - 25) * 0.4)), 1),
         };
 
-        // 7. Sovereign FX Reserve Pressure Rating
+        // 7. Supply Chain & Freight Logistics Stress Index (0-100)
+        // High diesel transport pump price and high import FX clearance rate drive acute supply chain friction
+        $rawSupplyChain = 35 + (($fuelPrice - 700) / 700) * 35 + (($fxRate - 1200) / 800) * 30;
+        $supplyChainStress = (int)round(max(10, min(98, $rawSupplyChain)));
+
+        // 8. NGX Listed Corporate Solvency & Earnings Health Index (0-100)
+        // Evaluates listed public companies (FMCG, Telcos, Industrials, Banks) under debt service (MPR) and FX revaluation losses
+        $rawCorpHealth = 85 - ($mpr - 15) * 1.5 - (($fxRate - 1200) / 1000) * 25 - ($supplyChainStress > 60 ? ($supplyChainStress - 60) * 0.4 : 0);
+        $corporateHealth = (int)round(max(15, min(95, $rawCorpHealth)));
+
+        // 9. Sovereign FX Reserve Pressure Rating
         $fxPressure = ($fxRate > 1800 || $projectedInflation > 38) ? 'Critical Alert' : (($fxRate > 1550) ? 'Elevated Strain' : 'Managed Corridor');
+
+        // 10. Public Listed Equities Transmission Impacts (NGX & African Bourses)
+        $listedTransmission = [
+            'NESTLE' => [
+                'ticker' => 'NESTLE.NG',
+                'company' => 'Nestle Nigeria Plc',
+                'sector' => 'Consumer Goods & FMCG',
+                'impact' => $fxRate > 1600 ? 'High FX Finance Cost Strain' : 'Resilient Cash Flow',
+                'status' => $fxRate > 1650 ? 'Negative Net Profit Margin' : 'Stabilizing Operating Earnings',
+                'risk_factor' => 'Imported raw material dependency (sorghum/packaging substitution in progress)',
+            ],
+            'MTNN' => [
+                'ticker' => 'MTNN.NG',
+                'company' => 'MTN Nigeria Communications',
+                'sector' => 'Telecommunications & Digital',
+                'impact' => ($fuelPrice > 1000 || $fxRate > 1600) ? 'Operating Margin Headwind' : 'Expanding Data EBITDA',
+                'status' => $fxRate > 1700 ? 'Shareholder Equity Retrenchment' : 'Data Traffic Volume Expansion',
+                'risk_factor' => 'Tower company dollar-indexed lease contracts and cell site diesel generators',
+            ],
+            'DANGCEM' => [
+                'ticker' => 'DANGCEM.NG',
+                'company' => 'Dangote Cement Plc',
+                'sector' => 'Industrial Goods',
+                'impact' => $fuelPrice > 1000 ? 'Haulage Freight Escalation' : 'High Domestic Pricing Power',
+                'status' => $fuelPrice > 1150 ? 'Compressed Inter-state Net Margins' : 'Robust Regional Clinker Export Flows',
+                'risk_factor' => 'Gas pipeline supply pressure to kilns & dual-fuel CNG fleet transition',
+            ],
+            'GTCO' => [
+                'ticker' => 'GTCO.NG',
+                'company' => 'Guaranty Trust Holding Co',
+                'sector' => 'Banking & Financial Services',
+                'impact' => $mpr > 24 ? 'Net Interest Margin Expansion' : 'Moderate Credit Growth',
+                'status' => 'CBN ₦500B Recapitalization Well Positioned',
+                'risk_factor' => 'Corporate borrower debt servicing defaults and high cash reserve debits (CRR)',
+            ],
+            'SEPLAT' => [
+                'ticker' => 'SEPLAT.NG',
+                'company' => 'Seplat Energy Plc',
+                'sector' => 'Oil & Gas Upstream',
+                'impact' => $fxRate > 1500 ? 'Hard-Currency Dollar Earning Advantage' : 'Stable Production Free Cash Flow',
+                'status' => 'Mobil Asset Integration Accelerating Production',
+                'risk_factor' => 'Trans-Niger Pipeline security and domestic gas commercial offtake tariffs',
+            ],
+        ];
 
         return [
             'industry' => $industrySlug,
@@ -340,8 +435,11 @@ class ScenarioLabService
                 'purchasing_power' => $purchasingPower,
                 'debt_service_burden' => $debtServiceBurden,
                 'margin_stress' => $marginStress,
+                'supply_chain_stress' => $supplyChainStress,
+                'corporate_health' => $corporateHealth,
                 'fx_pressure' => $fxPressure,
             ],
+            'listed_corporate_radar' => $listedTransmission,
             'status' => 'simulated',
         ];
     }

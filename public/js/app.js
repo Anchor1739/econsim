@@ -1742,10 +1742,54 @@ function renderScenarioLab() {
             </small>
           </div>
 
-          <!-- Gauge 7: Sovereign FX Reserve Pressure -->
+          <!-- Gauge 7: Supply Chain & Freight Logistics Stress -->
+          <div class="lab-gauge-card">
+            <div class="lab-gauge-header">
+              <span style="font-size: 13px; font-weight: 600;">Supply Chain & Logistics Disruption Strain</span>
+              <span class="lab-val-badge" id="gauge-val-supply" style="color: ${(res.supply_chain_stress || 65) > 70 ? 'var(--red)' : ((res.supply_chain_stress || 65) > 50 ? 'var(--orange)' : 'var(--jade)')}; font-size: 16px;">${res.supply_chain_stress || 65} / 100</span>
+            </div>
+            <div class="lab-gauge-bar">
+              <div class="lab-gauge-fill" id="gauge-bar-supply" style="width: ${res.supply_chain_stress || 65}%; background: ${(res.supply_chain_stress || 65) > 70 ? 'var(--red)' : ((res.supply_chain_stress || 65) > 50 ? 'var(--orange)' : 'var(--jade)')};"></div>
+            </div>
+            <small id="gauge-sub-supply" style="font-size: 11.5px; color: var(--muted);">
+              ${(res.supply_chain_stress || 65) > 70 ? 'Port congestion, demurrage fees, and diesel haulage costs severely squeezing inventory velocity' : 'Manageable transport corridors and warehouse turnover'}
+            </small>
+          </div>
+
+          <!-- Gauge 8: NGX Listed Corporate Health & Solvency -->
+          <div class="lab-gauge-card">
+            <div class="lab-gauge-header">
+              <span style="font-size: 13px; font-weight: 600;">NGX Listed Corporate Solvency & Earnings Index</span>
+              <span class="lab-val-badge" id="gauge-val-corp" style="color: ${(res.corporate_health || 55) < 45 ? 'var(--red)' : ((res.corporate_health || 55) < 65 ? 'var(--orange)' : 'var(--jade)')}; font-size: 16px;">${res.corporate_health || 55} / 100</span>
+            </div>
+            <div class="lab-gauge-bar">
+              <div class="lab-gauge-fill" id="gauge-bar-corp" style="width: ${res.corporate_health || 55}%; background: ${(res.corporate_health || 55) < 45 ? 'var(--red)' : ((res.corporate_health || 55) < 65 ? 'var(--orange)' : 'var(--jade)')};"></div>
+            </div>
+            <small id="gauge-sub-corp" style="font-size: 11.5px; color: var(--muted);">
+              ${(res.corporate_health || 55) < 45 ? 'Elevated unhedged FX balance sheet losses and 30%+ commercial loan servicing strains' : 'Stable debt service coverage ratios and pricing power across listed public firms'}
+            </small>
+          </div>
+
+          <!-- Gauge 9: Sovereign FX Reserve Pressure -->
           <div style="background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
             <span style="font-size: 13px; font-weight: 600;">Sovereign FX Buffer Status:</span>
             <span id="gauge-val-fxp" class="badge ${res.fx_pressure === 'Critical Alert' ? 'badge-sandbox' : 'badge-enabled'}" style="${res.fx_pressure === 'Critical Alert' ? 'background: #f87171; color: #fff;' : ''}">${res.fx_pressure}</span>
+          </div>
+        </div>
+
+        <!-- Public Listed Equities Transmission Radar (NGX & African Bourses) -->
+        <div class="panel">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <div class="eyebrow" style="color: var(--jade);">PUBLIC CORPORATE RADAR</div>
+            <span class="badge" style="background: rgba(36,121,101,0.12); color: var(--jade); font-size: 11px;">NGX & African Exchanges</span>
+          </div>
+          <h2 style="font-size: 16px; margin: 0 0 6px;">Public Equities & Supply Chain Transmission</h2>
+          <p style="font-size: 12.5px; color: var(--muted); margin-bottom: 14px;">
+            Real-time sensitivity radar evaluating how currently dialed policy rates, diesel fuel, and currency levels permeate listed corporate earnings and supply chains.
+          </p>
+
+          <div id="lab-corporate-radar-container" style="display: flex; flex-direction: column; gap: 10px;">
+            ${renderCorporateRadarList(res.listed_corporate_radar)}
           </div>
         </div>
 
@@ -3014,7 +3058,58 @@ function runLocalLabSimulation() {
   }
   marginStress = Math.round(Math.max(-35, Math.min(35, marginStress)) * 10) / 10;
 
+  // 7. Supply Chain & Freight Logistics Stress Index (0-100)
+  const rawSupplyChain = 35 + ((fuelPrice - 700) / 700) * 35 + ((fxRate - 1200) / 800) * 30;
+  const supplyChainStress = Math.round(Math.max(10, Math.min(98, rawSupplyChain)));
+
+  // 8. NGX Listed Corporate Solvency & Earnings Index (0-100)
+  const rawCorpHealth = 85 - (mpr - 15) * 1.5 - ((fxRate - 1200) / 1000) * 25 - (supplyChainStress > 60 ? (supplyChainStress - 60) * 0.4 : 0);
+  const corporateHealth = Math.round(Math.max(15, Math.min(95, rawCorpHealth)));
+
   const fxPressure = (fxRate > 1800 || projectedInflation > 38) ? 'Critical Alert' : ((fxRate > 1550) ? 'Elevated Strain' : 'Managed Corridor');
+
+  const listedRadar = {
+    'NESTLE': {
+      ticker: 'NESTLE.NG',
+      company: 'Nestle Nigeria Plc',
+      sector: 'Consumer Goods & FMCG',
+      impact: fxRate > 1600 ? 'High FX Finance Cost Strain' : 'Resilient Cash Flow',
+      status: fxRate > 1650 ? 'Negative Net Profit Margin' : 'Stabilizing Operating Earnings',
+      risk_factor: 'Imported raw material dependency (sorghum & packaging substitution active)',
+    },
+    'MTNN': {
+      ticker: 'MTNN.NG',
+      company: 'MTN Nigeria Communications',
+      sector: 'Telecommunications & Digital',
+      impact: (fuelPrice > 1000 || fxRate > 1600) ? 'Operating Margin Headwind' : 'Expanding Data EBITDA',
+      status: fxRate > 1700 ? 'Shareholder Equity Retrenchment' : 'Data Traffic Volume Expansion',
+      risk_factor: 'Tower company dollar-indexed lease contracts and cell site diesel generators',
+    },
+    'DANGCEM': {
+      ticker: 'DANGCEM.NG',
+      company: 'Dangote Cement Plc',
+      sector: 'Industrial Goods',
+      impact: fuelPrice > 1000 ? 'Haulage Freight Escalation' : 'High Domestic Pricing Power',
+      status: fuelPrice > 1150 ? 'Compressed Inter-state Net Margins' : 'Robust Regional Clinker Export Flows',
+      risk_factor: 'Gas pipeline supply pressure to kilns & dual-fuel CNG fleet transition',
+    },
+    'GTCO': {
+      ticker: 'GTCO.NG',
+      company: 'Guaranty Trust Holding Co',
+      sector: 'Banking & Financial Services',
+      impact: mpr > 24 ? 'Net Interest Margin Expansion' : 'Moderate Credit Growth',
+      status: 'CBN ₦500B Recapitalization Well Positioned',
+      risk_factor: 'Corporate borrower debt servicing defaults and high cash reserve debits (CRR)',
+    },
+    'SEPLAT': {
+      ticker: 'SEPLAT.NG',
+      company: 'Seplat Energy Plc',
+      sector: 'Oil & Gas Upstream',
+      impact: fxRate > 1500 ? 'Hard-Currency Dollar Earning Advantage' : 'Stable Production Free Cash Flow',
+      status: 'Mobil Asset Integration Accelerating Production',
+      risk_factor: 'Trans-Niger Pipeline security and domestic gas commercial offtake tariffs',
+    },
+  };
 
   const results = {
     projected_inflation: projectedInflation,
@@ -3023,7 +3118,10 @@ function runLocalLabSimulation() {
     purchasing_power: purchasingPower,
     debt_service_burden: debtServiceBurden,
     margin_stress: marginStress,
+    supply_chain_stress: supplyChainStress,
+    corporate_health: corporateHealth,
     fx_pressure: fxPressure,
+    listed_corporate_radar: listedRadar,
   };
 
   state.lab.results = results;
@@ -3109,6 +3207,55 @@ function updateLabSlider(key, val) {
     gValFxp.style.background = res.fx_pressure === 'Critical Alert' ? '#f87171' : '';
     gValFxp.style.color = res.fx_pressure === 'Critical Alert' ? '#fff' : '';
   }
+
+  // Live updates for Supply Chain & Listed Corporate Health
+  const supplyColor = (res.supply_chain_stress || 65) > 70 ? 'var(--red)' : ((res.supply_chain_stress || 65) > 50 ? 'var(--orange)' : 'var(--jade)');
+  const gValSupply = document.getElementById('gauge-val-supply');
+  const gBarSupply = document.getElementById('gauge-bar-supply');
+  const gSubSupply = document.getElementById('gauge-sub-supply');
+  if (gValSupply) { gValSupply.textContent = (res.supply_chain_stress || 65) + ' / 100'; gValSupply.style.color = supplyColor; }
+  if (gBarSupply) { gBarSupply.style.width = (res.supply_chain_stress || 65) + '%'; gBarSupply.style.background = supplyColor; }
+  if (gSubSupply) {
+    gSubSupply.textContent = (res.supply_chain_stress || 65) > 70 ? 'Port congestion, demurrage fees, and diesel haulage costs severely squeezing inventory velocity' : 'Manageable transport corridors and warehouse turnover';
+  }
+
+  const corpColor = (res.corporate_health || 55) < 45 ? 'var(--red)' : ((res.corporate_health || 55) < 65 ? 'var(--orange)' : 'var(--jade)');
+  const gValCorp = document.getElementById('gauge-val-corp');
+  const gBarCorp = document.getElementById('gauge-bar-corp');
+  const gSubCorp = document.getElementById('gauge-sub-corp');
+  if (gValCorp) { gValCorp.textContent = (res.corporate_health || 55) + ' / 100'; gValCorp.style.color = corpColor; }
+  if (gBarCorp) { gBarCorp.style.width = (res.corporate_health || 55) + '%'; gBarCorp.style.background = corpColor; }
+  if (gSubCorp) {
+    gSubCorp.textContent = (res.corporate_health || 55) < 45 ? 'Elevated unhedged FX balance sheet losses and 30%+ commercial loan servicing strains' : 'Stable debt service coverage ratios and pricing power across listed public firms';
+  }
+
+  const radarEl = document.getElementById('lab-corporate-radar-container');
+  if (radarEl && res.listed_corporate_radar) {
+    radarEl.innerHTML = renderCorporateRadarList(res.listed_corporate_radar);
+  }
+}
+
+function renderCorporateRadarList(radar) {
+  if (!radar) return '<div class="muted" style="font-size: 12px; padding: 12px;">Calibrate levers to evaluate public corporate sensitivity.</div>';
+  const entries = Object.values(radar);
+  return entries.map(c => `
+    <div style="background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+        <div>
+          <b style="font-size: 13.5px; color: var(--text);">${c.company}</b>
+          <span class="market-tag" style="margin-left: 6px; font-size: 10.5px; font-weight: 700;">${c.ticker}</span>
+        </div>
+        <span class="badge" style="font-size: 11px; background: rgba(36,121,101,0.08); color: var(--jade); font-weight: 700;">${c.sector}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 12px; margin: 6px 0;">
+        <span style="color: var(--muted);">Sensitivity Stance:</span>
+        <b style="color: var(--text);">${c.impact}</b>
+      </div>
+      <div style="font-size: 11.5px; color: var(--muted); line-height: 1.45; border-top: 1px dashed var(--line); padding-top: 6px; margin-top: 6px;">
+        <b style="color: var(--navy);">Supply Chain / Balance Sheet Factor:</b> ${c.risk_factor || c.risk || ''}
+      </div>
+    </div>
+  `).join('');
 }
 
 function toggleLabPrimer(key) {

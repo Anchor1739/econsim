@@ -151,6 +151,96 @@ ECONOMIC_CATALYSTS = [
         ],
         "history": "Commercial 5G launched in 2022-2023 by MTN and Airtel, focusing initially on metropolitan business districts.",
     },
+    {
+        "industry": "fmcg",
+        "title": "Will Nestle Nigeria (NESTLE) achieve positive full-year operating profit following local grain & packaging substitution above 70%?",
+        "slug": "nestle-nigeria-operating-profit-recovery",
+        "definition": "Resolves YES if audited full-year financial statements of Nestle Nigeria Plc published on the NGX confirm positive operating profit (EBIT) exceeding ₦30 Billion.",
+        "source": "Nigerian Exchange Group (NGX) Audited Financial Disclosures (ngxgroup.com)",
+        "days": 120,
+        "metrics": [
+            ["Local Sourcing Ratio (Sorghum, Maize, Starch)", "Reducing dollar import bill for intermediate confectionery and cereal grains."],
+            ["Packaging Glass & Aluminum Supply Chain Lead Times", "Domestic supplier contracts versus imported packaging materials."],
+            ["Unhedged Parent Intercompany USD Debt", "Mitigating foreign exchange net financing charges on the balance sheet."],
+            ["Price Elasticity Across Nutrition & Food Staples", "Consumer retention rates following product repackaging and resizing."]
+        ],
+        "history": "Multinational consumer goods manufacturers on the NGX faced severe currency translation shocks before aggressively prioritizing local agro-allied substitution.",
+    },
+    {
+        "industry": "telecoms",
+        "title": "Will MTN Nigeria (MTNN) restore positive shareholder equity within 4 reporting quarters following tower lease renegotiations?",
+        "slug": "mtn-nigeria-equity-restoration",
+        "definition": "Resolves YES if quarterly financial statements filed by MTN Nigeria Communications Plc on the NGX confirm positive total equity attributable to shareholders.",
+        "source": "NGX Company Announcements & MTN Group Financial Reports",
+        "days": 90,
+        "metrics": [
+            ["Tower Company Contract Indexation (IHS & ATC)", "Transition from dollar-indexed lease contracts to local currency pricing structures."],
+            ["NCC Tariff Review Approvals for Voice and Data", "Regulatory permission for telecom operators to adjust consumer tariffs for inflation."],
+            ["Base Station Diesel Fuel Operating Cost", "Solar hybrid battery retrofits reducing generator fuel costs across 20,000+ cell sites."],
+            ["Fintech Mobile Money (MoMo PSB) Revenue Growth", "Expanding high-margin digital payment and merchant merchant fee transactions."]
+        ],
+        "history": "Unhedged USD lease obligations triggered negative accounting equity for telcos in 2023-2024, prompting structural contract overhauls.",
+    },
+    {
+        "industry": "manufacturing",
+        "title": "Will Dangote Cement (DANGCEM) achieve quarterly sales volume exceeding 7.5 Million Metric Tons despite interstate haulage costs and gas pipeline downtime?",
+        "slug": "dangote-cement-7m-volume-sales",
+        "definition": "Resolves YES if Dangote Cement Plc quarterly earnings report confirms combined Pan-African and Nigerian cement & clinker sales volume exceeding 7.50 million metric tons.",
+        "source": "Dangote Cement Plc Published Financial Disclosures & NGX Filings",
+        "days": 75,
+        "metrics": [
+            ["Captive Gas Pipeline Availability & Pressure", "Mitigating expensive low-pour fuel oil (LPFO) and coal substitution in cement kilns."],
+            ["Dual-Fuel CNG Haulage Fleet Conversion Rate", "Lowering distribution logistics and diesel expenses across 10,000+ delivery trucks."],
+            ["Export Terminal Clinker Shipments from Apapa & Onne", "Seaborne export volumes to West African coastal countries generating hard currency."],
+            ["Public Infrastructure Budget Spending & Concrete Paving", "Federal Ministry of Works concrete road construction contracts."]
+        ],
+        "history": "Cement industrial capacity in Nigeria exceeds 50 million tons, but logistics haulage costs determine regional market profitability.",
+    },
+    {
+        "industry": "capital-markets",
+        "title": "Will at least 4 of Nigeria's Tier-1 international banking groups (FUGAZ) complete their CBN ₦500 Billion minimum recapitalization before the regulatory deadline?",
+        "slug": "tier1-banks-recapitalization-500b",
+        "definition": "Resolves YES if CBN banking supervision updates confirm at least 4 of the 5 Tier-1 international banking groups (Access, FBNH, GTCO, UBA, Zenith) have achieved the required ₦500 Billion paid-up capital and share premium.",
+        "source": "Central Bank of Nigeria (CBN) Banking Supervision Department & NGX Corporate Actions",
+        "days": 150,
+        "metrics": [
+            ["Rights Issues & Public Offer Subscription Rates", "Domestic retail and institutional absorption of equity offerings on the NGX."],
+            ["Foreign Institutional Placement Allocation", "Offshore investor participation and international bookbuilding demand."],
+            ["Cross-Listing Receipts (London LSE & Johannesburg JSE)", "Depositary receipt issuances supporting global capital raises."],
+            ["Private Sector Loan Rationing vs High-Yield Treasury Bills", "Banks deploying capital into risk-free government securities over risky corporate loans."]
+        ],
+        "history": "The CBN issued a landmark recapitalization directive in 2024 to create a $1 Trillion economy banking foundation.",
+    },
+    {
+        "industry": "agriculture",
+        "title": "Will Presco Plc (PRESCO) declare an annual gross revenue exceeding ₦130 Billion driven by domestic crude palm oil deficits and port import tariffs?",
+        "slug": "presco-cpo-revenue-130b",
+        "definition": "Resolves YES if audited annual reports of Presco Plc published on the NGX confirm gross revenue equal to or exceeding ₦130,000,000,000.",
+        "source": "NGX Annual Financial Disclosures & Presco Investor Relations",
+        "days": 110,
+        "metrics": [
+            ["Crude Palm Oil (CPO) Farmgate Realized Price", "Domestic pricing commanding a premium over global Bursa Malaysia benchmarks."],
+            ["Fresh Fruit Bunches (FFB) Plantation Yields", "Oil extraction rate (OER) efficiency across Edo and Delta state processing estates."],
+            ["Port Customs Clearing Tariffs on Competing Edible Oils", "Tariff protections and FX restrictions on vegetable oil and olein imports."],
+            ["Food Processing Industrial Off-Take Demand", "Industrial buying contracts from FMCG soap, biscuit, and instant noodle manufacturers."]
+        ],
+        "history": "Nigeria's domestic palm oil deficit exceeds 1 million metric tons annually, granting local plantation operators strong pricing power.",
+    },
+    {
+        "industry": "energy",
+        "title": "Will Seplat Energy (SEPLAT) average working interest crude and gas production above 65,000 boepd following the Mobil Producing asset integration?",
+        "slug": "seplat-energy-production-65k-boepd",
+        "definition": "Resolves YES if official operations updates of Seplat Energy Plc published on the NGX and London Stock Exchange (LSE) confirm average net working interest production exceeding 65,000 boepd.",
+        "source": "Seplat Energy Operations Reports & Nigerian Upstream Petroleum Regulatory Commission (NUPRC)",
+        "days": 85,
+        "metrics": [
+            ["Trans-Niger Pipeline (TNP) & Amukpe-Escravos Pipeline Uptime", "Alternative crude evacuation routes avoiding vandalism and barge theft."],
+            ["Commercial Gas Offtake by National Grid Power Plants", "Sapele and ANOH gas processing facilities feeding domestic commercial power producers."],
+            ["Crude Oil Theft Mitigation in Niger Delta Corridors", "Joint Task Force surveillance and automated pressure monitoring along trunk lines."],
+            ["NUPRC Regulatory Clearance Approvals", "Ministerial consent and operational integration for offshore shallow-water joint ventures."]
+        ],
+        "history": "Indigenous exploration and production firms have acquired multi-billion-dollar divestment assets from international oil majors in the Niger Delta.",
+    },
 ]
 
 
