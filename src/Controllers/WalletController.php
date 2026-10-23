@@ -46,13 +46,9 @@ class WalletController
     public function getFeatures(): void
     {
         $features = FeatureService::getAllFeatures();
-        $provider = FeatureService::getActiveProvider();
-        $aiModel = FeatureService::getActiveAiModel();
 
         Response::success([
             'features' => $features,
-            'active_provider' => $provider,
-            'active_ai_model' => $aiModel,
         ]);
     }
 

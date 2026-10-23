@@ -472,7 +472,7 @@ class BoardroomService
         if (!$row) {
             return [
                 'status' => 'pending',
-                'message' => 'Evaluation not yet ready. The scheduled Python NVIDIA NIM agent will assess this memo.',
+                'message' => 'Evaluation in progress. The Strategic Adjudication Council is assessing your memo.',
             ];
         }
 

@@ -101,7 +101,7 @@ class BoardroomController
 
         try {
             $res = BoardroomService::submitMemo($user['id'], $id, $answer);
-            Response::success($res, 'Strategy memo received and queued for NVIDIA NIM AI evaluation.');
+            Response::success($res, 'Strategy memo received and queued for executive adjudication.');
         } catch (Throwable $e) {
             Response::error($e->getMessage(), 400);
         }

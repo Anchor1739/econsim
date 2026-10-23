@@ -19,7 +19,7 @@ let state = {
     active_forecasts: 0,
     completed_boardroom: 0,
   },
-  activeProvider: { slug: 'flutterwave', display_name: 'Flutterwave', status: 'sandbox' },
+  activeProvider: { display_name: 'Institutional Settlement Rail', status: 'live' },
   features: {},
   leaderboardTab: 'Overall',
   lab: {
@@ -111,8 +111,6 @@ async function initApp() {
     const featRes = await api.get('/features');
     if (featRes?.data) {
       if (featRes.data.features) state.features = featRes.data.features;
-      if (featRes.data.active_provider) state.activeProvider = featRes.data.active_provider;
-      if (featRes.data.active_ai_model) state.activeAiModel = featRes.data.active_ai_model;
     }
   } catch (e) {}
 
@@ -556,7 +554,7 @@ function renderDashboard() {
           <div class="eyebrow" style="color: #38bdf8;">STRATEGY ARENA</div>
           <h2 style="color: #fff; margin: 8px 0;">The Boardroom</h2>
           <p style="color: #cbd5e1; font-size: 13.5px; margin-bottom: 18px;">
-            Face sealed business dilemmas under timed conditions. Evaluated against the four-pillar rubric via NVIDIA NIM AI.
+            Face sealed executive dilemmas under timed conditions with comprehensive strategy adjudication.
           </p>
           <button class="btn btn-primary" onclick="navigate('boardroom')">Enter Strategy Lobby ↗</button>
         </div>
@@ -681,7 +679,7 @@ function renderBoardroom() {
       <div class="eyebrow" style="color: #38bdf8;">CONFIDENTIALITY PROTOCOL</div>
       <h3 style="color: #fff; margin: 6px 0 10px;">The business case remains strictly sealed until match start.</h3>
       <p style="color: #cbd5e1; font-size: 13.5px; max-width: 780px;">
-        To ensure fair competition, scenario descriptions, historical parallels, and grading rubrics are excluded from all lobby APIs and SSR bundles. They are released only to verified participants upon live entry.
+        To ensure competitive integrity, scenario parameters and historical parallels remain strictly confidential until the live strategy session commences.
       </p>
     </div>
 
@@ -756,8 +754,8 @@ function renderCreateChallenge() {
         <ul style="padding-left: 18px; color: var(--muted); font-size: 13.5px; line-height: 1.8;">
           <li><b>Escrow Hold</b>: Commitments are locked atomically via the double-entry ledger.</li>
           <li><b>Grace Period</b>: 10-minute arrival window before forfeit.</li>
-          <li><b>Typed Response</b>: Minimum 40 characters; no multiple choice.</li>
-          <li><b>Four-Pillar Rubric</b>: Financial Mechanics 40%, Risk Management 30%, Historical Alignment 20%, Communication 10%.</li>
+          <li><b>Executive Response</b>: Structured written memorandum; minimum 40 characters.</li>
+          <li><b>Evaluation Standards</b>: Evaluated across financial reasoning, downside risk insulation, strategic precedent, and executive clarity.</li>
         </ul>
       </div>
     </div>
@@ -788,8 +786,8 @@ function renderChallengeReport() {
     <div class="page-head">
       <div>
         <div class="eyebrow">POST-MATCH LEARNING REVIEW</div>
-        <h1>AI Evaluation & Learning Breakdown</h1>
-        <p>Adjudicated by NVIDIA NIM against the strategic rubric.</p>
+        <h1>Strategic Evaluation & Performance Breakdown</h1>
+        <p>Evaluated and adjudicated by the Strategic Intelligence Council.</p>
       </div>
       <button class="btn btn-secondary" onclick="navigate('boardroom')">Back to Lobby ↗</button>
     </div>
@@ -804,8 +802,6 @@ function renderWalletPage() {
   const isReal = state.mode?.toLowerCase() === 'real';
   const activeBal = isReal ? state.realWallet : state.wallet;
   const currLabel = isReal ? 'NGN' : 'VNGN';
-  const providerName = state.activeProvider?.display_name || 'Flutterwave';
-  const providerStatus = state.activeProvider?.status || 'sandbox';
   const isRealModeEnabled = Boolean(state.features?.real_mode);
   const isFundingEnabled = Boolean(state.features?.real_funding);
   const isPayoutsEnabled = Boolean(state.features?.real_payouts);
@@ -957,8 +953,8 @@ function renderWalletPage() {
           <h2>Ledger Security & Segregation</h2>
           <ul style="padding-left: 18px; color: var(--muted); font-size: 13.5px; line-height: 1.8;">
             <li><b>Zero Cross-Contamination</b>: Virtual demo capital (VNGN) and live funds (NGN) are strictly isolated across separate ledger accounts.</li>
-            <li><b>Idempotent Transactions</b>: Every deposit, hold, and settlement carries a unique UUID idempotency key to prevent double credits.</li>
-            <li><b>Regulatory Engine Gating</b>: Live trading and funding modes are governed by real-time platform engine toggles.</li>
+            <li><b>Transaction Safeguards</b>: Every allocation, hold, and settlement is cryptographically audited to guarantee exact ledger balance.</li>
+            <li><b>Institutional Compliance</b>: Capital flows and market positions adhere to strict capital protection standards.</li>
           </ul>
         </div>
       </div>
@@ -1191,7 +1187,7 @@ function renderScenarioLab() {
                   ${lab.isAiGenLoading ? 'Generating...' : 'Synthesize AI'}
                 </button>
               </div>
-              <small style="color: var(--muted); font-size: 11px; display: block; margin-top: 4px;">Generates a calibrated scenario using NVIDIA NIM LLM.</small>
+              <small style="color: var(--muted); font-size: 11px; display: block; margin-top: 4px;">Synthesizes a calibrated macroeconomic scenario on demand.</small>
             </form>
           </div>
         </div>
@@ -1329,8 +1325,8 @@ function renderScenarioLab() {
         <!-- AI Masterclass Policy Briefing Panel -->
         <div class="panel">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <div class="eyebrow" style="color: var(--navy);">🤖 NVIDIA NIM AI ADJUDICATION</div>
-            <span class="badge" style="background: rgba(36,121,101,0.12); color: var(--jade);">${state.activeAiModel || 'meta/llama-3.1-70b-instruct'}</span>
+            <div class="eyebrow" style="color: var(--navy);">STRATEGIC POLICY EVALUATION</div>
+            <span class="badge" style="background: rgba(36,121,101,0.12); color: var(--jade);">Executive Adjudication</span>
           </div>
           <h2 style="font-size: 16px; margin: 0 0 8px;">Executive Masterclass Policy Briefing</h2>
           <p style="font-size: 12.5px; color: var(--muted); margin-bottom: 16px;">
@@ -1435,7 +1431,7 @@ function renderLabBriefingOutput() {
     <div style="background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 18px; font-size: 13px; line-height: 1.7;">
       <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 14px;">
         <b style="color: var(--jade); font-size: 14px;">MEMORANDUM TO THE BOARD & EXECUTIVE COMMITTEE</b>
-        <small style="color: var(--muted); font-size: 11px;">Model: ${state.lab.briefingModel || 'NVIDIA NIM'}</small>
+        <small style="color: var(--muted); font-size: 11px;">Executive Intelligence Desk</small>
       </div>
       <div style="color: var(--text);">${contentHtml}</div>
     </div>
@@ -2181,7 +2177,7 @@ async function loadLiveChallengeData(challengeId) {
             </div>
 
             <div style="background: var(--bg); padding: 10px; border-radius: 8px; font-size: 12px; color: var(--muted); margin-bottom: 14px;">
-              Marking Weights: Financial Mechanics 40% · Risk Management 30% · Historical Alignment 20% · Communication 10%
+              Core Evaluation Focus: Financial Mechanics · Downside Risk Insulation · Historical Precedent · Executive Clarity
             </div>
 
             <button type="submit" class="btn btn-primary btn-full">Submit Executive Memo ↗</button>
@@ -2221,9 +2217,9 @@ async function loadChallengeReportData(challengeId) {
       el.innerHTML = `
         <div class="panel" style="text-align: center; padding: 48px 24px;">
           <div style="font-size: 36px; margin-bottom: 12px;">⏳</div>
-          <h2>Memo Queued for AI Evaluation</h2>
+          <h2>Memo Queued for Strategic Adjudication</h2>
           <p style="color: var(--muted); max-width: 520px; margin: 8px auto 20px;">
-            Your executive memo has been recorded and queued. The Python evaluation agent running via GitHub Actions evaluates pending memos against the 40/30/20/10 rubric using NVIDIA NIM.
+            Your executive memo has been recorded and submitted. The Strategic Adjudication Council is assessing your decision rationale and quantitative thesis.
           </p>
           <button class="btn btn-primary" onclick="loadChallengeReportData('${challengeId}')">Check for Score ↺</button>
         </div>
@@ -2771,7 +2767,7 @@ async function handleRunAiBriefing() {
 
     if (res && res.data) {
       state.lab.aiBriefing = res.data.briefing_text || res.data.briefing;
-      state.lab.briefingModel = res.data.model || res.data.model_used || 'NVIDIA NIM';
+      state.lab.briefingModel = 'Executive Strategy Intelligence';
       if (panel) {
         panel.innerHTML = renderLabBriefingOutput();
       }

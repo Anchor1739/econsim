@@ -359,11 +359,11 @@ class ScenarioLabService
             // High quality algorithmic fallback
             return [
                 'id' => 'ai_custom_' . substr(bin2hex(random_bytes(4)), 0, 8),
-                'title' => "AI Macro Stress Scenario: " . substr($promptText, 0, 60),
+                'title' => "Macro Strategic Stress Scenario: " . substr($promptText, 0, 60),
                 'description' => "Empirical stress testing custom shock conditions across the {$industrySlug} sector: {$promptText}",
                 'core_dilemma' => "How should executive leadership navigate simultaneous cost-push input shocks and constrained capital access?",
                 'default_params' => ['mpr' => 27.5, 'inflation' => 33.0, 'fx_rate' => 1700, 'fuel_price' => 1100, 'crr' => 45.0, 'spend_impulse' => 14],
-                'model_used' => 'algorithmic_fallback',
+                'model_used' => 'Strategic Scenario Engine',
             ];
         }
 
@@ -425,7 +425,7 @@ Keep numbers realistic for emerging markets / Nigeria.";
                         'description' => (string)$parsed['description'],
                         'core_dilemma' => (string)$parsed['core_dilemma'],
                         'default_params' => $parsed['recommended_params'] ?? ['mpr' => 26.0, 'inflation' => 30.0, 'fx_rate' => 1600, 'fuel_price' => 1000, 'crr' => 45.0, 'spend_impulse' => 12],
-                        'model_used' => $activeModel,
+                        'model_used' => 'Strategic Scenario Engine',
                     ];
                 }
             }
@@ -437,7 +437,7 @@ Keep numbers realistic for emerging markets / Nigeria.";
             'description' => "Detailed macroeconomic simulation testing resilience against: {$promptText}",
             'core_dilemma' => "How should corporate treasurers structure risk hedging when input volatility surges?",
             'default_params' => ['mpr' => 27.0, 'inflation' => 32.0, 'fx_rate' => 1680, 'fuel_price' => 1100, 'crr' => 45.0, 'spend_impulse' => 14],
-            'model_used' => $activeModel,
+            'model_used' => 'Strategic Scenario Engine',
         ];
     }
 
@@ -498,8 +498,8 @@ NEVER truncate or give superficial advice. Structure into these 5 exact sections
                         return [
                             'briefing_text' => $text,
                             'briefing' => $text,
-                            'model' => $activeModel,
-                            'model_used' => $activeModel,
+                            'model' => 'Executive Intelligence Desk',
+                            'model_used' => 'Executive Intelligence Desk',
                             'scenario' => $scenarioTitle,
                         ];
                     }
@@ -528,8 +528,8 @@ NEVER truncate or give superficial advice. Structure into these 5 exact sections
         return [
             'briefing_text' => $fallback,
             'briefing' => $fallback,
-            'model' => $activeModel,
-            'model_used' => $activeModel,
+            'model' => 'Executive Intelligence Desk',
+            'model_used' => 'Executive Intelligence Desk',
             'scenario' => $scenarioTitle,
         ];
     }

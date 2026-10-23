@@ -450,7 +450,7 @@ Ensure your response is thorough, academically rigorous, and directly applicable
             if (!empty($content)) {
                 return [
                     'answer' => trim($content),
-                    'source' => "NVIDIA NIM ({$model}) Adjudication Engine",
+                    'source' => "Strategic Intelligence Desk",
                 ];
             }
         }
