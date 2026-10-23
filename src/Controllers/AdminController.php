@@ -26,7 +26,7 @@ class AdminController
         )) {
             return [
                 'id' => 'system-admin',
-                'email' => 'executive@econsim.app',
+                'email' => 'executive@developing-market.onrender.com',
                 'display_name' => 'Master Administrator',
                 'role' => 'admin',
             ];

@@ -10,10 +10,10 @@ class MailerService
 {
     public static function sendVerificationEmail(string $toEmail, string $displayName, string $codeOrLink): bool
     {
-        $subject = "Verify your EconSim Intelligence Account";
+        $subject = "Verify your Developing Market Account";
         $html = "
             <div style='font-family: Inter, sans-serif; max-width: 600px; margin: auto; padding: 20px; background: #f5f7fa; color: #142841;'>
-                <h2 style='color: #247965;'>Welcome to EconSim, {$displayName}!</h2>
+                <h2 style='color: #247965;'>Welcome to Developing Market, {$displayName}!</h2>
                 <p>You are one step away from exploring our financial simulation terminal with <b>₦500,000</b> in educational virtual capital.</p>
                 <div style='background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e1e7f1; text-align: center; margin: 20px 0;'>
                     <span style='font-size: 14px; color: #68768e; text-transform: uppercase; letter-spacing: 1px;'>Your Verification Code</span>
@@ -28,9 +28,9 @@ class MailerService
 
     public static function sendPasswordResetEmail(string $toEmail, string $displayName, string $resetToken): bool
     {
-        $appUrl = rtrim((string)Env::get('APP_URL', 'http://localhost:8000'), '/');
+        $appUrl = rtrim((string)Env::get('APP_URL', 'https://developing-market.onrender.com'), '/');
         $resetUrl = "{$appUrl}/?page=reset&token={$resetToken}";
-        $subject = "Reset your EconSim Password";
+        $subject = "Reset your Developing Market Password";
         $html = "
             <div style='font-family: Inter, sans-serif; max-width: 600px; margin: auto; padding: 20px; background: #f5f7fa; color: #142841;'>
                 <h2 style='color: #142841;'>Password Reset Request</h2>
@@ -50,8 +50,8 @@ class MailerService
     private static function send(string $toEmail, string $toName, string $subject, string $htmlContent): bool
     {
         $apiKey = Env::get('MAILER_API_KEY');
-        $fromEmail = Env::get('MAILER_FROM_EMAIL', 'noreply@econsim.app');
-        $fromName = Env::get('MAILER_FROM_NAME', 'EconSim');
+        $fromEmail = Env::get('MAILER_FROM_EMAIL', 'onboarding@resend.dev');
+        $fromName = Env::get('MAILER_FROM_NAME', 'Developing Market');
 
         if (empty($apiKey)) {
             // Local / Development logging fallback

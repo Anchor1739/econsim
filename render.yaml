@@ -26,4 +26,4 @@ services:
       - key: MAILER_API_KEY
         sync: false
       - key: MAILER_FROM_EMAIL
-        value: onboarding@econsim.app
+        value: onboarding@resend.dev

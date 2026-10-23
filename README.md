@@ -103,7 +103,7 @@ NVIDIA_MODEL=meta/llama-3.1-70b-instruct
 
 MAILER_PROVIDER=resend
 MAILER_API_KEY=re_your_api_key
-MAILER_FROM_EMAIL=onboarding@econsim.app
+MAILER_FROM_EMAIL=onboarding@resend.dev
 ```
 
 ### 4. Run Migrations & Seed Data
