@@ -264,6 +264,28 @@ class AuthService
         // Attach double-entry balances
         $user['wallet'] = LedgerService::getUserBalances($user['id'], $user['preferred_mode'] ?? 'demo');
 
+        // Fetch actual user activity counts and stats
+        $xpStmt = $pdo->prepare("SELECT COALESCE(SUM(xp), 0) FROM xp_events WHERE user_id = ?");
+        $xpStmt->execute([$user['id']]);
+        $totalXp = (int)$xpStmt->fetchColumn();
+
+        $level = ProfileService::calculateLevel($totalXp);
+
+        $fOpen = $pdo->prepare("SELECT COUNT(*) FROM forecast_positions WHERE user_id = ? AND status = 'open'");
+        $fOpen->execute([$user['id']]);
+        $openForecasts = (int)$fOpen->fetchColumn();
+
+        $bCount = $pdo->prepare("SELECT COUNT(*) FROM boardroom_submissions WHERE user_id = ?");
+        $bCount->execute([$user['id']]);
+        $boardroomCount = (int)$bCount->fetchColumn();
+
+        $user['stats'] = [
+            'xp' => $totalXp,
+            'level' => $level,
+            'active_forecasts' => $openForecasts,
+            'completed_boardroom' => $boardroomCount,
+        ];
+
         return $user;
     }
 

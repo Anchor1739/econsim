@@ -38,6 +38,10 @@ class ProfileService
         $fCount->execute([$userId]);
         $forecastCount = (int)$fCount->fetchColumn();
 
+        $fOpen = $pdo->prepare("SELECT COUNT(*) FROM forecast_positions WHERE user_id = ? AND status = 'open'");
+        $fOpen->execute([$userId]);
+        $openForecastCount = (int)$fOpen->fetchColumn();
+
         $bCount = $pdo->prepare("SELECT COUNT(*) FROM boardroom_submissions WHERE user_id = ?");
         $bCount->execute([$userId]);
         $boardroomCount = (int)$bCount->fetchColumn();
@@ -86,11 +90,15 @@ class ProfileService
             'user' => $user,
             'xp' => $totalXp,
             'level' => $levelInfo,
+            'active_forecasts' => $openForecastCount,
+            'completed_boardroom' => $boardroomCount,
             'activity' => [
                 'forecasts' => $forecastCount,
+                'open_forecasts' => $openForecastCount,
                 'boardroom' => $boardroomCount,
                 'total' => $forecastCount + $boardroomCount,
             ],
+            'wallet' => LedgerService::getUserBalances($userId, $user['preferred_mode'] ?? 'demo'),
             'badges' => $badges,
             'industries' => $industries,
         ];
@@ -220,35 +228,259 @@ class ProfileService
         $q = trim($query);
         $lower = strtolower($q);
 
-        if (str_contains($lower, 'inflation')) {
-            $answer = "Inflation represents the rate of change in the general price level across Nigeria. Look at headline CPI vs. core CPI (which removes volatile food and energy), exchange-rate pass-through, and supply shocks. In Nigeria, food inflation often dominates headline figures due to distribution and seasonal harvests.";
-        } elseif (str_contains($lower, 'cbn') || str_contains($lower, 'rate') || str_contains($lower, 'mpr')) {
-            $answer = "The Monetary Policy Committee (MPC) of the Central Bank of Nigeria sets the Monetary Policy Rate (MPR). An interest-rate hike aims to rein in price pressure, attract capital inflows, and support the naira, but can simultaneously raise private-sector borrowing costs and dampen industrial investment.";
-        } elseif (str_contains($lower, 'runway') || str_contains($lower, 'cash')) {
-            $answer = "Cash Runway = Unrestricted Liquid Cash divided by Net Monthly Cash Burn. For instance, if an agritech or fintech holds ₦42m in cash and operates with a net burn of ₦7m monthly, its runway is 6.0 months before new capital injection is required.";
-        } elseif (str_contains($lower, 'risk')) {
-            $answer = "A robust executive risk framework separates Market Risk (FX/interest volatility), Liquidity Risk (settlement delays), Counterparty Risk (client concentration), and Operational Risk. For each risk, quantify exposure, define decision triggers, and establish contingent mitigation steps.";
+        // 1. Attempt live NVIDIA NIM AI reasoning if API key is present
+        $apiKey = (string)\App\Config\Env::get('NVIDIA_API_KEY', '');
+        if (!empty($apiKey)) {
+            $aiResponse = self::callNvidiaMentor($q, $apiKey);
+            if (!empty($aiResponse)) {
+                return [
+                    'question' => $q,
+                    'answer' => $aiResponse['answer'],
+                    'source' => $aiResponse['source'],
+                ];
+            }
+        }
+
+        // 2. Comprehensive Masterclass Financial Intelligence Fallback (Deep, non-fragmented pedagogical curriculum)
+        if (str_contains($lower, 'inflation') || str_contains($lower, 'cpi') || str_contains($lower, 'price')) {
+            $answer = "### 1. Conceptual Framework & First Principles
+Inflation is the continuous, annualized rate of change in the aggregate price level of a goods-and-services basket. Modern macroeconomic analysis strictly bifurcates inflation into **Headline CPI** (composite basket) and **Core CPI** (which excludes volatile energy, seasonal agricultural produce, and regulated transport tariffs to isolate structural monetary impulse).
+
+### 2. Emerging Markets & Nigerian Macro Dynamics
+In Nigeria, headline inflation is predominantly driven by three interconnected structural transmission channels:
+- **Exchange-Rate Pass-Through (ERPT)**: Nigeria exhibits a high import coefficient for industrial inputs, packaging materials, and capital machinery. A depreciation in the NAFEM FX window translates directly into higher landed replacement costs within 30 to 90 days.
+- **Agricultural Supply Inelasticity & Logistics Frictions**: Food inflation accounts for roughly 51% of the National Bureau of Statistics (NBS) CPI weighting. Transport bottlenecks, interstate levies, post-harvest losses, and security challenges create supply-side price rigidity that interest rate hikes cannot directly resolve.
+- **Fiscal Deficit Monetization**: Historical 'Ways and Means' advances expanded domestic broad money supply (M2/M3), chasing limited domestic output.
+
+### 3. Quantitative Formulation & Worked Numerical Example
+Consider an FMCG conglomerate or agritech operating with ₦1.8B annual turnover and 32% baseline inflation:
+$$\\text{Real Return} = \\frac{1 + \\text{Nominal Yield}}{1 + \\text{Inflation Rate}} - 1$$
+If the firm holds treasury bills yielding $21.5\\%$ while headline inflation is $32.0\\%$:
+$$\\text{Real Return} = \\frac{1 + 0.215}{1 + 0.320} - 1 = \\frac{1.215}{1.320} - 1 = -7.95\\%$$
+Holding cash or nominal risk-free assets under these conditions destroys $7.95\\%$ of real purchasing power annually. Consequently, corporate treasuries must redeploy surplus liquidity into productive working capital inventory, export-earning receivables, or inflation-indexed facilities.
+
+### 4. Executive Decision Matrix & Strategic Levers
+- **Pricing Strategy**: Shift from annual price reviews to indexed, rolling quarterly dynamic pricing tied to replacement cost rather than historical FIFO accounting cost.
+- **Working Capital Buffer**: Extend supplier credit terms from Net 30 to Net 60 while offering 2% prompt settlement discounts to corporate receivables.
+- **Downside Triggers**: If headline CPI accelerates beyond 3% month-on-month, institute an immediate CapEx freeze on non-revenue-generating projects.
+
+### 5. Benchmark Citations & Primary Sources
+- **National Bureau of Statistics (NBS)**: Monthly Consumer Price Index & Inflation Report (nigerianstat.gov.ng).
+- **Central Bank of Nigeria (CBN)**: Monetary Policy Committee (MPC) Communiqué & Half-Year Economic Report.";
+            $source = "EconSim Macroeconomic Reasoning Framework / NBS Benchmark";
+
+        } elseif (str_contains($lower, 'cbn') || str_contains($lower, 'rate') || str_contains($lower, 'mpr') || str_contains($lower, 'monetary')) {
+            $answer = "### 1. Conceptual Framework & Monetary Transmission
+The **Monetary Policy Rate (MPR)** is the benchmark interest rate established by the Central Bank of Nigeria's Monetary Policy Committee (MPC). It functions as the signaling anchor for the entire yield curve. The transmission mechanism operates across four critical channels:
+1. **Interest Rate Channel**: Commercial banks adjust prime and maximum lending rates relative to the MPR + asymmetric corridor.
+2. **Credit Channel**: Stricter Cash Reserve Requirements (CRR) restrict loanable funds in the banking sector.
+3. **Asset Price Channel**: Higher policy rates depress equity multiples (as discount rates rise) while increasing sovereign debt yields.
+4. **Exchange Rate Channel**: Higher real yields attract foreign portfolio investors (FPI) into Open Market Operation (OMO) bills, supporting FX reserves.
+
+### 2. Nigerian Structural Realities
+The MPC frequently deploys an **Asymmetric Corridor** (e.g., +100/-300 bps or +500/-100 bps) around the MPR for Standing Lending Facilities (SLF) and Standing Deposit Facilities (SDF). When the CBN debits commercial banks through discretionary CRR enforcement, interbank lending rates (NIBOR) often spike well above the headline MPR, significantly elevating the cost of corporate working capital facilities.
+
+### 3. Quantitative Formulation & Balance Sheet Impact
+Let a corporate borrower hold a ₦500,000,000 floating-rate credit line tied to $\\text{MPR} + 400\\text{ bps}$.
+- Baseline MPR at $22.75\\%$: Borrowing Rate $= 26.75\\%$. Annual interest cost $= ₦133,750,000$.
+- Following a 250 bps rate hike to $25.25\\%$: Borrowing Rate $= 29.25\\%$. Annual interest cost $= ₦146,250,000$.
+- Incremental cash drain $= ₦12,500,000$ directly out of operating cash flows, requiring either an immediate $2.5\\%$ expansion in EBITDA margin or equivalent overhead rationalization.
+
+### 4. Executive Strategy Matrix
+- **Debt Structure Transformation**: Refinance floating-rate overdrafts into fixed-rate commercial paper (CP) programs or long-term concessionary development facilities (e.g., Bank of Industry intervention funds).
+- **Cash Management**: Optimize treasury balances daily via sweep accounts into high-yielding OMO or Treasury Bills to neutralize borrowing cost drags.
+- **Capex Hurdle Rate**: Revise corporate Internal Rate of Return (IRR) hurdle rates upward to at least $\\text{Cost of Debt} + 500\\text{ bps}$ before approving capital expansions.
+
+### 5. Benchmark Citations & Primary Sources
+- **CBN Monetary Policy Department**: Communiqué of the Monetary Policy Committee (cbn.gov.ng).
+- **FMDQ Exchange**: Sovereign Yield Curve & Daily Interbank Lending Benchmarks (fmdqgroup.com).";
+            $source = "CBN Monetary Policy Communiqué & Macroeconomic Framework";
+
+        } elseif (str_contains($lower, 'runway') || str_contains($lower, 'cash') || str_contains($lower, 'burn') || str_contains($lower, 'liquidity')) {
+            $answer = "### 1. Conceptual Framework & Mathematical Formulation
+**Cash Runway** is the temporal buffer an enterprise possesses before exhausting unrestricted liquid capital, assuming zero incremental revenue expansion:
+$$\\text{Cash Runway (Months)} = \\frac{\\text{Unrestricted Liquid Reserves}}{\\text{Net Monthly Cash Burn Rate}}$$
+Where:
+$$\\text{Net Monthly Cash Burn} = \\text{Total Cash Disbursements (OpEx + Debt Service)} - \\text{Predictable Cash Receipts}$$
+
+### 2. Developing Market Stress Vectors
+In emerging market contexts like Nigeria, standard cash runway calculations become distorted by:
+- **Foreign Exchange Volatility**: Unhedged dollar-denominated software subscriptions, server costs, or imported inputs expand in local currency terms upon devaluation.
+- **Receivable Delays**: Corporate and public sector clients often extend settlement cycles from 30 days to 90–120 days during credit contractions.
+- **Trapped Liquidity**: Funds held in restricted escrow, letters of credit (LC) cash collateral, or statutory tax deposits cannot be counted toward operational runway.
+
+### 3. Quantitative Worked Scenario
+Assume a Lagos-based fintech/logistics enterprise:
+- Gross Liquid Cash: ₦180,000,000.
+- Trapped LC Collateral: ₦30,000,000.
+- **Unrestricted Liquid Reserves**: $₦180\\text{m} - ₦30\\text{m} = ₦150,000,000$.
+- Monthly Operating Expenses (Payroll, Facilities, Cloud): ₦28,000,000.
+- Monthly Cash Inflow (Conservative Cash Collections): ₦16,000,000.
+- **Net Monthly Burn**: $₦28\\text{m} - ₦16\\text{m} = ₦12,000,000$.
+$$\\text{Baseline Runway} = \\frac{₦150,000,000}{₦12,000,000} = 12.5\\text{ Months}$$
+**Stress Test (30% Devaluation + 45-day Debtor Stretch)**:
+- Net Burn expands to ₦17,500,000 due to cloud SaaS dollar adjustments and slower collections.
+$$\\text{Stressed Runway} = \\frac{₦150,000,000}{₦17,500,000} = 8.57\\text{ Months}$$
+
+### 4. Executive Decision Matrix & Runway Optimization
+- **The 9-Month Decision Trigger**: Never initiate equity fundraising with fewer than 6 months of runway. At 9 months remaining, immediately activate non-dilutive bridge financing, receivables discounting, or expense consolidation.
+- **Variable Cost Conversion**: Transition fixed office footprints and server infrastructure to variable, pay-as-you-go capacity.
+- **Liquidity Priority Order**: Cash conservation > Gross Margin expansion > Market share acquisition.
+
+### 5. Benchmark Citations & Primary Sources
+- **Financial Reporting Council of Nigeria (FRCN)**: Going Concern & Liquidity Disclosure Guidelines.
+- **Corporate Treasury Association Benchmarks**: Working Capital & Cash Conversion Cycle Metrics.";
+            $source = "Executive Corporate Treasury & Liquidity Architecture Framework";
+
+        } elseif (str_contains($lower, 'fx') || str_contains($lower, 'dollar') || str_contains($lower, 'naira') || str_contains($lower, 'currency') || str_contains($lower, 'devaluation') || str_contains($lower, 'reserves')) {
+            $answer = "### 1. Conceptual Framework: Real Effective Exchange Rate & Balance of Payments
+The exchange rate between the Nigerian Naira (NGN) and major reserve currencies (USD, EUR, GBP) is fundamentally anchored by the **Balance of Payments (Current Account + Capital Account)**, terms of trade, and interest rate differentials (Purchasing Power Parity & Covered Interest Parity).
+
+### 2. Structural Nigerian Dynamics
+- **Foreign Exchange Windows**: The **NAFEM (Nigerian Autonomous Foreign Exchange Market)** reflects interbank price discovery, driven by oil revenues, diaspora remittances via IMTOs, and Foreign Portfolio Inflow (FPI).
+- **Import Cover Ratio**: Gross external reserves are measured by the months of merchandise import bill they can cover. A minimum of 3.0 months of import cover is standard international practice for sovereign macroeconomic stability; Nigeria historically targets 6.0+ months.
+- **Crude Oil Linkage**: Although the oil sector contributes less than 10% to GDP, it accounts for roughly 80% of foreign exchange earnings, making the exchange rate highly correlated with Brent crude prices and domestic production volume (NNPC/JV output).
+
+### 3. Quantitative Formulation: Unhedged Balance Sheet Exposure
+Consider a manufacturing company with ₦2.5B in equity that borrowed \$2,000,000 in dollar-denominated trade credit when the exchange rate was ₦1,200/\$:
+- Initial Dollar Liability: $₦2,400,000,000$ (\$2m × ₦1,200).
+- If the exchange rate adjusts to ₦1,650/\$:
+$$\\text{Revalued Liability} = \\$2,000,000 \\times ₦1,650 = ₦3,300,000,000$$
+$$\\text{Unrealized FX Loss} = ₦3,300,000,000 - ₦2,400,000,000 = ₦900,000,000$$
+This single adjustment wipes out $36\\%$ of the company's equity base (₦900m / ₦2,500m), triggering immediate loan covenant breaches unless managed through derivative hedges or natural revenue matching.
+
+### 4. Executive Decision Matrix
+- **Natural Hedging**: Match dollar expenditure strictly with dollar-denominated export receivables (e.g., regional West African exports via ECOWAS Trade Liberalization Scheme).
+- **Forward Contracts & NDFs**: Utilize FMDQ-cleared Non-Deliverable Forwards (NDFs) or plain vanilla forward contracts to fix replacement FX rates for verified Letters of Credit (LCs).
+- **Contract Indexation**: Incorporate currency fluctuation clauses in multi-year service contracts allowing price revisions if exchange rates shift beyond ±10%.
+
+### 5. Benchmark Citations & Primary Sources
+- **CBN Daily External Reserves Statistics**: Official 30-Day Moving Average Data (cbn.gov.ng).
+- **FMDQ Securities Exchange**: NAFEM Daily FX Turnover, Indicative Rates & Derivatives Bulletin.";
+            $source = "FMDQ Derivatives & CBN Foreign Exchange Market Structure";
+
         } else {
-            $answer = "To evaluate economic and business dilemmas: 1) Define the core problem and measurable KPIs. 2) Assess fundamental macro drivers. 3) Build base, upside, and downside scenarios. 4) Quantify financial implications before taking action.";
+            $answer = "### 1. Conceptual Framework & Financial Architecture
+Strategic financial problem solving requires a structured **First-Principles Decomposition**:
+1. **Economic Catalyst**: What primary macroeconomic variable is shifting (e.g., interest rate, exchange rate, regulatory mandate, consumer purchasing power)?
+2. **Enterprise Transmission Channel**: How does this variable permeate the enterprise's unit economics (Revenue elasticity, Gross Margin, OpEx inflation, Working Capital, Cost of Capital)?
+3. **Quantitative Sensitivity**: What is the mathematical elasticity of operating profit relative to a 100 bps or 10% variance in the catalyst?
+4. **Execution Trade-offs**: What are the trade-offs between solvency, margin protection, and market positioning?
+
+### 2. Emerging Markets Analytical Lens
+In volatile developing economies, linear financial models consistently fail because volatility is non-linear and feedback loops are compressed. Strategic planning must incorporate:
+- **Scenario Stress Testing**: Evaluating 3 parallel models: Base Case (expected macro trend), Stressed Case (25% FX slip + 300 bps rate hike), and Catastrophic Case (liquidity freeze).
+- **Capital Preservation First**: In emerging markets, companies that prioritize solvency and liquid capital during macro contractions acquire distressed competitors at deep discounts during the subsequent recovery cycle.
+
+### 3. Quantitative Decision Framework
+Before committing capital or approving operational shifts, compute the **Risk-Adjusted Hurdle**:
+$$\\text{Risk-Adjusted Return} = \\frac{\\text{Expected Nominal Cash Flow} \\times (1 - \\text{Probability of Execution Failure})}{\\text{Invested Capital} \\times (1 + \\text{Sovereign Risk Premium})}$$
+If the resulting return does not exceed local risk-free sovereign yields by at least 400 to 600 basis points, the strategic deployment should be deferred.
+
+### 4. Executive Action Plan
+- **Clarify Decision Triggers**: Establish unambiguous, numerical criteria for action (e.g., 'If debtor DSO exceeds 75 days, credit lines to Tier-3 customers are paused immediately').
+- **Align Financial & Operational Key Performance Indicators**: Ensure that operational teams are incentivized on Cash Conversion Cycle (CCC) and Return on Invested Capital (ROIC), not vanity top-line turnover.
+
+### 5. Authoritative References
+- **EconSim Strategic Decision Desk**: 4-Pillar Valuation & Risk Adjudication Matrix.
+- **Harvard Business Review & INSEAD**: Strategy Under Extreme Macroeconomic Uncertainty.";
+            $source = "EconSim Executive Financial Strategy Masterclass";
         }
 
         return [
             'question' => $q,
             'answer' => $answer,
-            'source' => 'EconSim Macroeconomic Reasoning Framework',
+            'source' => $source,
         ];
+    }
+
+    private static function callNvidiaMentor(string $query, string $apiKey): ?array
+    {
+        $url = "https://integrate.api.nvidia.com/v1/chat/completions";
+        $pdo = \App\Config\Database::getConnection();
+
+        // Read active model preference
+        $model = 'meta/llama-3.1-70b-instruct';
+        try {
+            $s = $pdo->query("SELECT value FROM platform_settings WHERE `key` = 'active_ai_model' LIMIT 1")->fetchColumn();
+            if ($s) $model = trim($s);
+        } catch (\Throwable $e) {}
+
+        $systemPrompt = "You are the Senior Financial Economist and Dean of Financial Intelligence at Developing Market (EconSim).
+Your mandate is to provide comprehensive, deeply analytical, and thoroughly educational explanations.
+NEVER truncate, omit essential mechanics, or give brief fragmented summaries.
+Structure every educational response into these exact 5 masterclass sections:
+### 1. Conceptual Framework & First Principles
+### 2. Emerging Markets & Nigerian Macro Dynamics
+### 3. Quantitative Formulation & Worked Numerical Example
+### 4. Executive Decision Matrix & Strategic Trade-offs
+### 5. Benchmark Citations & Primary Sources
+Ensure your response is thorough, academically rigorous, and directly applicable for corporate treasurers, investment analysts, and strategists.";
+
+        $postData = [
+            'model' => $model,
+            'messages' => [
+                ['role' => 'system', 'content' => $systemPrompt],
+                ['role' => 'user', 'content' => $query],
+            ],
+            'temperature' => 0.15,
+            'max_tokens' => 2048,
+        ];
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => json_encode($postData),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                "Authorization: Bearer {$apiKey}",
+            ],
+            CURLOPT_TIMEOUT => 25,
+            CURLOPT_SSL_VERIFYPEER => false,
+        ]);
+
+        $raw = curl_exec($ch);
+        $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($status >= 200 && $status < 300 && !empty($raw)) {
+            $res = json_decode($raw, true);
+            $content = $res['choices'][0]['message']['content'] ?? null;
+            if (!empty($content)) {
+                return [
+                    'answer' => trim($content),
+                    'source' => "NVIDIA NIM ({$model}) Adjudication Engine",
+                ];
+            }
+        }
+
+        return null;
     }
 
     public static function runScenarioLab(string $userId, int $rate, int $inflation, int $spend): array
     {
-        // Macroeconomic educational formulation
-        $modeledInflation = round($inflation - 0.3 * ($rate - 20) + 0.14 * ($spend - 12), 1);
-        $creditIndex = max(10, min(90, (int)round(55 - ($rate - 20) * 1.65)));
-        $investmentIndex = max(10, min(95, (int)round(64 - ($rate - 20) * 1.2 + ($spend - 12) * 0.6)));
+        // Advanced Macroeconomic Educational Formulation
+        $modeledInflation = round($inflation - 0.32 * ($rate - 20) + 0.16 * ($spend - 12), 1);
+        $creditIndex = max(10, min(90, (int)round(55 - ($rate - 20) * 1.8)));
+        $investmentIndex = max(10, min(95, (int)round(64 - ($rate - 20) * 1.4 + ($spend - 12) * 0.75)));
+        $debtServiceRatio = min(98, max(25, (int)round(48 + ($rate - 20) * 1.5 + ($spend - 12) * 1.2)));
 
-        $explanation = $rate > 20
-            ? "A tighter monetary policy rate (above 20%) restrains private lending and cools credit impulse, exerting downward pressure on demand-driven inflation."
-            : "An accommodative monetary policy rate (below 20%) lowers borrowing costs and supports investment, but may heighten inflation risk if supply is inelastic.";
+        $explanation = $rate >= 22
+            ? "### Macroeconomic Assessment: Restrictive Monetary Stance\n\n" .
+              "**1. Price Stability & Monetary Levers**:\n" .
+              "At an MPR of {$rate}%, the central bank enforces restrictive liquidity conditions. High benchmark yields compress commercial bank loanable funds via aggressive CRR sterilization, restraining credit-fueled consumption and dampening headline demand-pull inflation toward {$modeledInflation}%.\n\n" .
+              "**2. Real Economy Trade-offs**:\n" .
+              "The Credit Impulse Index contracts to {$creditIndex}/100 as prime lending rates rise toward " . ($rate + 5) . "%–" . ($rate + 9) . "%. Manufacturing, retail, and agro-processors face acute debt servicing costs, moderating private sector CapEx (Investment Index at {$investmentIndex}/100).\n\n" .
+              "**3. Fiscal & Sovereign Exposure**:\n" .
+              "Higher domestic yields elevate sovereign debt servicing burdens (estimated at {$debtServiceRatio}% of government revenues), narrowing fiscal room for infrastructure disbursements."
+            : "### Macroeconomic Assessment: Accommodative Stance\n\n" .
+              "**1. Liquidity & Capital Formation**:\n" .
+              "With an accommodative MPR of {$rate}%, borrowing costs decline across the interbank curve, encouraging private commercial borrowing (Credit Index at {$creditIndex}/100) and stimulating corporate capital investments (Investment Index at {$investmentIndex}/100).\n\n" .
+              "**2. Inflationary & Currency Risks**:\n" .
+              "With fiscal impulse at {$spend}%, excess liquidity expands broad money supply (M2/M3). In an import-dependent economy with structural supply bottlenecks, real negative interest rates risk exacerbating foreign currency capital flight, pushing projected inflation toward {$modeledInflation}%.\n\n" .
+              "**3. Strategic Imperative**:\n" .
+              "Monetary easing must be matched with targeted sector development facilities to expand domestic productive capacity rather than speculative asset bubbles.";
 
         return [
             'parameters' => ['rate' => $rate, 'inflation' => $inflation, 'spend' => $spend],
@@ -256,12 +488,13 @@ class ProfileService
                 'modeled_inflation' => $modeledInflation,
                 'credit_index' => $creditIndex,
                 'investment_index' => $investmentIndex,
+                'debt_service_ratio' => $debtServiceRatio,
             ],
             'explanation' => $explanation,
         ];
     }
 
-    private static function calculateLevel(int $xp): array
+    public static function calculateLevel(int $xp): array
     {
         if ($xp >= 2000) {
             return ['level' => 3, 'name' => 'Strategic Analyst', 'next_milestone' => 3000, 'progress_pct' => min(100, (int)($xp / 30))];

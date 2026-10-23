@@ -274,6 +274,15 @@ def main():
     conn = get_db()
     cursor = conn.cursor()
 
+    # Fast skip: If at least 7 active contracts already exist and --force is not passed, skip early to conserve Action minutes
+    cursor.execute("SELECT COUNT(*) FROM market_events WHERE state = 'open'")
+    open_count = cursor.fetchone()[0]
+    if open_count >= 7 and "--force" not in sys.argv:
+        print(f"[*] Sufficient active contracts ({open_count} open). Skipping market search/generation. Fast exit (0 sec).")
+        cursor.close()
+        conn.close()
+        sys.exit(0)
+
     ensure_industries(cursor, conn)
     populate_markets(cursor, conn)
 

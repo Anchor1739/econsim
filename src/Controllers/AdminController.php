@@ -193,4 +193,69 @@ class AdminController
 
         Response::success(null, "Market resolved as " . ($outcome ? 'YES' : 'NO') . ". All positions settled via double-entry ledger.");
     }
+
+    public function getAiConfig(): void
+    {
+        $this->requireAdmin();
+        $pdo = Database::getConnection();
+
+        $pdo->exec(
+            "CREATE TABLE IF NOT EXISTS platform_settings (
+                `key` VARCHAR(100) PRIMARY KEY,
+                `value` TEXT NOT NULL,
+                `updated_at` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
+            ) ENGINE=InnoDB"
+        );
+
+        $stmt = $pdo->prepare("SELECT value FROM platform_settings WHERE `key` = 'active_ai_model' LIMIT 1");
+        $stmt->execute();
+        $activeModel = $stmt->fetchColumn() ?: 'meta/llama-3.1-70b-instruct';
+
+        $lastModel = $pdo->query(
+            "SELECT model_id FROM evaluation_runs WHERE evaluation_state = 'complete' ORDER BY completed_at DESC LIMIT 1"
+        )->fetchColumn() ?: 'meta/llama-3.1-70b-instruct';
+
+        $availableModels = [
+            ['id' => 'meta/llama-3.1-70b-instruct', 'name' => 'Llama 3.1 70B Instruct (Flagship)'],
+            ['id' => 'meta/llama-3.3-70b-instruct', 'name' => 'Llama 3.3 70B Instruct (High-Speed Fallback)'],
+            ['id' => 'mistralai/mixtral-8x22b-instruct-v0.1', 'name' => 'Mixtral 8x22B Instruct (Enterprise MoE)'],
+            ['id' => 'meta/llama-3.1-8b-instruct', 'name' => 'Llama 3.1 8B Instruct (High-Throughput / High-Quota)'],
+            ['id' => 'mistralai/mistral-large-2-instruct', 'name' => 'Mistral Large 2 (Deep Reasoning)'],
+        ];
+
+        Response::success([
+            'active_model' => $activeModel,
+            'last_used_model' => $lastModel,
+            'models' => $availableModels,
+        ]);
+    }
+
+    public function updateAiModel(): void
+    {
+        $this->requireAdmin();
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+        $model = trim($body['model'] ?? '');
+
+        if (empty($model)) {
+            Response::error('Model identifier is required.', 400);
+        }
+
+        $pdo = Database::getConnection();
+        $pdo->exec(
+            "CREATE TABLE IF NOT EXISTS platform_settings (
+                `key` VARCHAR(100) PRIMARY KEY,
+                `value` TEXT NOT NULL,
+                `updated_at` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
+            ) ENGINE=InnoDB"
+        );
+
+        $stmt = $pdo->prepare(
+            "INSERT INTO platform_settings (`key`, `value`, `updated_at`) 
+             VALUES ('active_ai_model', :val, NOW(3))
+             ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `updated_at` = NOW(3)"
+        );
+        $stmt->execute([':val' => $model]);
+
+        Response::success(['active_model' => $model], "Active AI adjudication model switched to {$model}.");
+    }
 }

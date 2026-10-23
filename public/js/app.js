@@ -13,6 +13,12 @@ let state = {
   mentorHistory: [],
   wallet: { available: 500000, held: 0, total: 500000 },
   realWallet: { available: 0, held: 0, total: 0 },
+  stats: {
+    xp: 0,
+    level: { level: 1, name: 'Novice Analyst', progress_pct: 0 },
+    active_forecasts: 0,
+    completed_boardroom: 0,
+  },
   activeProvider: { slug: 'flutterwave', display_name: 'Flutterwave', status: 'sandbox' },
   features: {},
   leaderboardTab: 'Overall',
@@ -31,6 +37,27 @@ function applyTheme(t) {
   } else {
     document.body.classList.remove('theme-dark');
   }
+}
+
+function renderMarkdown(md) {
+  if (!md) return '';
+  let html = md
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\$\$(.+?)\$\$/g, '<div class="math-display" style="background: rgba(0,0,0,0.04); padding: 8px 12px; border-radius: 6px; margin: 10px 0; font-family: monospace; overflow-x: auto;"><code>$1</code></div>')
+    .replace(/\$(.+?)\$/g, '<code style="background: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: 4px; font-family: monospace;">$1</code>')
+    .replace(/^### (.*$)/gim, '<h3 style="margin: 18px 0 8px; color: var(--navy); font-size: 15.5px; font-weight: 700;">$1</h3>')
+    .replace(/^## (.*$)/gim, '<h2 style="margin: 22px 0 10px; font-size: 17px; font-weight: 700;">$1</h2>')
+    .replace(/^# (.*$)/gim, '<h1 style="margin: 24px 0 12px; font-size: 19px; font-weight: 700;">$1</h1>')
+    .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+    .replace(/\*(.*?)\*/g, '<i>$1</i>')
+    .replace(/^\- (.*$)/gim, '<li style="margin-left: 18px; margin-bottom: 5px;">$1</li>')
+    .replace(/^\d+\.\s+(.*$)/gim, '<li style="margin-left: 18px; margin-bottom: 5px;">$1</li>')
+    .replace(/\n\n+/g, '</p><p style="margin-bottom: 12px; line-height: 1.75;">')
+    .replace(/\n/g, '<br>');
+
+  return `<p style="margin-bottom: 12px; line-height: 1.75;">${html}</p>`;
 }
 
 async function initApp() {
@@ -53,6 +80,9 @@ async function initApp() {
       state.user = res.data;
       if (res.data.wallet) {
         state.wallet = res.data.wallet;
+      }
+      if (res.data.stats) {
+        state.stats = res.data.stats;
       }
       if (res.data.theme) {
         applyTheme(res.data.theme);
@@ -133,7 +163,10 @@ function renderAppShell(innerHtml) {
   ];
 
   const userInitial = (state.user?.display_name || 'A')[0].toUpperCase();
-  const xp = 1240; // baseline
+  const userXp = state.stats?.xp ?? (state.user?.stats?.xp ?? 0);
+  const userLevel = state.stats?.level ?? (state.user?.stats?.level ?? { level: 1, name: 'Novice Analyst', progress_pct: 0 });
+  const levelNumStr = String(userLevel.level || 1).padStart(2, '0');
+  const levelPct = Math.max(5, Math.min(100, userLevel.progress_pct || 0));
 
   return `
     <div class="app-container">
@@ -160,9 +193,9 @@ function renderAppShell(innerHtml) {
 
         <div class="sidebar-footer">
           <div class="level-card">
-            <b>Strategic Analyst</b>
-            <small>LEVEL 03 · ${xp} XP</small>
-            <div class="progress-bar"><i style="width: 62%;"></i></div>
+            <b>${userLevel.name}</b>
+            <small>LEVEL ${levelNumStr} · ${userXp.toLocaleString()} XP</small>
+            <div class="progress-bar"><i style="width: ${levelPct}%;"></i></div>
           </div>
           <button class="nav-item" onclick="handleLogout()">
             <span>↪</span>
@@ -208,6 +241,11 @@ function renderAppShell(innerHtml) {
 // -------------------------------------------------------------
 function renderDashboard() {
   const name = state.user?.display_name || 'Strategist';
+  const userXp = state.stats?.xp ?? (state.user?.stats?.xp ?? 0);
+  const userLevel = state.stats?.level ?? (state.user?.stats?.level ?? { level: 1, name: 'Novice Analyst', progress_pct: 0 });
+  const levelNumStr = String(userLevel.level || 1).padStart(2, '0');
+  const openForecasts = state.stats?.active_forecasts ?? (state.user?.stats?.active_forecasts ?? 0);
+  const boardroomCount = state.stats?.completed_boardroom ?? (state.user?.stats?.completed_boardroom ?? 0);
 
   return `
     <div class="page-head">
@@ -227,17 +265,17 @@ function renderDashboard() {
       </div>
       <div class="metric-card">
         <span>Financial Literacy XP</span>
-        <strong>1,240 XP</strong>
-        <small>Level 03: Strategic Analyst</small>
+        <strong id="dash-xp">${userXp.toLocaleString()} XP</strong>
+        <small id="dash-level">Level ${levelNumStr}: ${userLevel.name}</small>
       </div>
       <div class="metric-card">
         <span>Active Forecasts</span>
-        <strong>2 Open</strong>
+        <strong id="dash-forecasts">${openForecasts} Open</strong>
         <small>Ledger held commitments</small>
       </div>
       <div class="metric-card">
         <span>Boardroom Sessions</span>
-        <strong>3 Completed</strong>
+        <strong id="dash-boardroom">${boardroomCount} Completed</strong>
         <small>Executive strategy exercises</small>
       </div>
     </div>
@@ -629,40 +667,54 @@ function renderMentorPage() {
     </div>
 
     <div class="two-col">
-      <div class="panel" style="display: flex; flex-direction: column; min-height: 480px;">
-        <div id="mentor-chat-thread" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; margin-bottom: 16px;">
-          <div style="background: var(--bg); padding: 14px; border-radius: 8px;">
-            <b>✧ EconSim Mentor</b>: What economic catalyst or corporate dilemma would you like to examine today?
+      <div class="panel" style="display: flex; flex-direction: column; min-height: 520px;">
+        <div id="mentor-chat-thread" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; margin-bottom: 16px;">
+          <div style="background: var(--bg); padding: 16px; border-radius: 8px; border: 1px solid var(--line);">
+            <b style="color: var(--jade);">✧ Developing Market Senior Economist</b>
+            <p style="margin-top: 6px; font-size: 13.5px; color: var(--text);">
+              Welcome to the Financial Reasoning Desk. Ask about monetary policy transmission, working capital modeling, exchange rate elasticity, or risk architecture. Every explanation is delivered in-depth with first principles, Nigerian real-world dynamics, mathematical formulation, and executive trade-offs.
+            </p>
           </div>
           ${state.mentorHistory.map(m => `
-            <div style="align-self: flex-end; background: var(--navy); color: #fff; padding: 12px 16px; border-radius: 12px; max-width: 80%;">
-              ${m.q}
+            <div style="align-self: flex-end; background: var(--navy); color: #fff; padding: 12px 18px; border-radius: 12px; max-width: 85%; font-size: 14px;">
+              <b>Q:</b> ${m.q}
             </div>
-            <div style="background: var(--bg); border: 1px solid var(--line); padding: 14px 16px; border-radius: 12px; max-width: 90%;">
-              <b style="color: var(--jade);">✧ EconSim Mentor</b>
-              <p style="margin-top: 6px;">${m.a}</p>
-              <small style="color: var(--muted); display: block; margin-top: 8px;">Source: ${m.source || 'Macro Framework'}</small>
+            <div style="background: var(--bg); border: 1px solid var(--line); padding: 18px 20px; border-radius: 12px; max-width: 95%;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid var(--line); padding-bottom: 8px;">
+                <b style="color: var(--jade); font-size: 14px;">✧ Developing Market Senior Economist</b>
+                <span class="sim-tag" style="font-size: 10px;">IN-DEPTH ANALYSIS</span>
+              </div>
+              <div class="mentor-markdown" style="font-size: 14px; line-height: 1.75; color: var(--text);">
+                ${renderMarkdown(m.a)}
+              </div>
+              <div style="margin-top: 14px; padding-top: 8px; border-top: 1px dashed var(--line); display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); flex-wrap: wrap; gap: 4px;">
+                <span>Authoritative Benchmark: <b>${m.source || 'Macroeconomic Reasoning Framework'}</b></span>
+                <span>Pedagogical Adjudication</span>
+              </div>
             </div>
           `).join('')}
         </div>
 
         <form onsubmit="handleAskMentor(event)" style="display: flex; gap: 8px;">
-          <input class="input" id="mentor-input" placeholder="Ask about CBN rates, cash runway, inflation drivers..." required>
-          <button type="submit" class="btn btn-primary">Ask ↗</button>
+          <input class="input" id="mentor-input" placeholder="Ask about CBN monetary transmission, cash runway formulas, FX pass-through..." required>
+          <button type="submit" class="btn btn-primary" style="white-space: nowrap;">Ask Mentor ↗</button>
         </form>
       </div>
 
       <div class="panel">
-        <h2>Quick Prompt Explorations</h2>
+        <div class="eyebrow">CURRICULUM DEEP DIVES</div>
+        <h2 style="margin: 6px 0 14px;">Macroeconomic & Corporate Explorations</h2>
         <div style="display: flex; flex-direction: column; gap: 8px;">
           ${[
-            "What drives inflation in Nigeria?",
-            "How does a CBN rate hike affect lending?",
-            "Calculate cash runway for a startup",
-            "How should a CFO identify risk?",
+            "What drives headline and food inflation in Nigeria?",
+            "How does a CBN rate hike transmit through the banking system?",
+            "How to calculate and stress-test cash runway during 30%+ inflation?",
+            "How does NAFEM currency devaluation affect corporate balance sheets?",
+            "How should a CFO structure a risk management decision matrix?",
+            "What is the impact of fiscal deficit monetization on money supply?",
           ].map(q => `
-            <button class="btn btn-secondary btn-full" style="justify-content: flex-start; text-align: left; font-size: 13px;" onclick="triggerQuickMentor('${q}')">
-              ${q} ↗
+            <button class="btn btn-secondary btn-full" style="justify-content: flex-start; text-align: left; font-size: 12.5px; padding: 10px 12px; line-height: 1.4;" onclick="triggerQuickMentor('${q}')">
+              <span>↗</span> ${q}
             </button>
           `).join('')}
         </div>
@@ -741,6 +793,22 @@ function renderScenarioLab() {
             <span>Private Investment Index</span>
             <strong>${investIdx} / 100</strong>
             <small>Estimated capital expenditure sentiment</small>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top: 16px;">
+          <div class="eyebrow" style="color: var(--jade);">TRANSMISSION MECHANISM</div>
+          <h3 style="margin: 6px 0 10px; font-size: 15px;">Pedagogical Feedback & Policy Trade-offs</h3>
+          <div style="font-size: 13px; line-height: 1.7; color: var(--text);">
+            ${r >= 22 ? `
+              <p><b>1. Price Stability & Monetary Transmission:</b> At an MPR of ${r}%, the central bank enforces restrictive liquidity conditions. High benchmark yields sterilize commercial bank loanable funds, restraining credit-fueled consumption and dampening headline demand-pull inflation toward ${modeledInf}%.</p>
+              <p style="margin-top: 8px;"><b>2. Real Economy Trade-offs:</b> The Credit Impulse Index contracts to ${creditIdx}/100 as prime lending rates rise toward ${r + 6}%–${r + 9}%. Manufacturing, retail, and agro-processors face acute debt servicing costs, moderating private sector CapEx (Investment Index at ${investIdx}/100).</p>
+              <p style="margin-top: 8px;"><b>3. Fiscal Implications:</b> Elevated domestic yields increase sovereign debt servicing costs, narrowing fiscal room for infrastructure disbursements.</p>
+            ` : `
+              <p><b>1. Liquidity & Capital Formation:</b> With an accommodative MPR of ${r}%, borrowing costs decline across the interbank curve, encouraging private commercial borrowing (Credit Index at ${creditIdx}/100) and stimulating corporate capital investments (Investment Index at ${investIdx}/100).</p>
+              <p style="margin-top: 8px;"><b>2. Inflationary & Currency Risks:</b> With fiscal impulse at ${sp}%, excess liquidity expands broad money supply (M2/M3). In an import-dependent economy, real negative interest rates risk capital outflows, pushing projected inflation toward ${modeledInf}%.</p>
+              <p style="margin-top: 8px;"><b>3. Strategic Imperative:</b> Monetary easing must be matched with targeted sector development facilities to expand domestic productive capacity rather than speculative asset bubbles.</p>
+            `}
           </div>
         </div>
       </div>
@@ -1006,9 +1074,41 @@ function attachViewEvents() {
 
 async function loadDashboardData() {
   try {
-    const res = await api.get('/markets');
-    if (res?.data) {
-      state.markets = res.data;
+    const [marketsRes, profileRes] = await Promise.all([
+      api.get('/markets'),
+      api.get('/profile').catch(() => null),
+    ]);
+
+    if (profileRes?.data) {
+      if (profileRes.data.xp !== undefined) state.stats.xp = profileRes.data.xp;
+      if (profileRes.data.level) state.stats.level = profileRes.data.level;
+      if (profileRes.data.active_forecasts !== undefined) state.stats.active_forecasts = profileRes.data.active_forecasts;
+      if (profileRes.data.completed_boardroom !== undefined) state.stats.completed_boardroom = profileRes.data.completed_boardroom;
+      if (profileRes.data.wallet) state.wallet = profileRes.data.wallet;
+
+      // Update dashboard metrics DOM dynamically
+      const xpEl = document.getElementById('dash-xp');
+      const lvlEl = document.getElementById('dash-level');
+      const fcEl = document.getElementById('dash-forecasts');
+      const brEl = document.getElementById('dash-boardroom');
+      const levelNum = String(state.stats.level?.level || 1).padStart(2, '0');
+
+      if (xpEl) xpEl.innerText = `${(state.stats.xp || 0).toLocaleString()} XP`;
+      if (lvlEl) lvlEl.innerText = `Level ${levelNum}: ${state.stats.level?.name || 'Novice Analyst'}`;
+      if (fcEl) fcEl.innerText = `${state.stats.active_forecasts || 0} Open`;
+      if (brEl) brEl.innerText = `${state.stats.completed_boardroom || 0} Completed`;
+
+      // Update sidebar level card
+      const sideName = document.querySelector('.sidebar .level-card b');
+      const sideSmall = document.querySelector('.sidebar .level-card small');
+      const sideBar = document.querySelector('.sidebar .level-card .progress-bar i');
+      if (sideName) sideName.innerText = state.stats.level?.name || 'Novice Analyst';
+      if (sideSmall) sideSmall.innerText = `LEVEL ${levelNum} · ${(state.stats.xp || 0).toLocaleString()} XP`;
+      if (sideBar) sideBar.style.width = `${Math.max(5, Math.min(100, state.stats.level?.progress_pct || 0))}%`;
+    }
+
+    if (marketsRes?.data) {
+      state.markets = marketsRes.data;
       const el = document.getElementById('dashboard-markets-preview');
       if (el) {
         el.innerHTML = state.markets.slice(0, 3).map(m => renderMarketCard(m)).join('');
@@ -1069,6 +1169,7 @@ async function loadMarketDetailData(id) {
     el.innerHTML = `
       <div class="two-col">
         <div>
+          <!-- Market Contract Card -->
           <div class="panel">
             <div class="market-top">
               <span class="market-tag">${m.industry_name}</span>
@@ -1076,32 +1177,90 @@ async function loadMarketDetailData(id) {
             </div>
             <h1 style="font-size: 24px; margin: 8px 0 16px;">${m.title}</h1>
             <div class="prob-split">
-              <span class="yes" style="font-size: 16px;">YES ${prob}%</span>
-              <span class="no" style="font-size: 16px;">NO ${100 - prob}%</span>
+              <span class="yes" style="font-size: 16px; font-weight: bold;">YES ${prob}%</span>
+              <span class="no" style="font-size: 16px; font-weight: bold;">NO ${100 - prob}%</span>
             </div>
-            <div class="prob-bar" style="height: 10px;"><i style="width: ${prob}%;"></i></div>
+            <div class="prob-bar" style="height: 10px; margin: 10px 0;"><i style="width: ${prob}%;"></i></div>
+            <p style="font-size: 13px; color: var(--muted); margin-top: 8px;">
+              <b>Resolution Benchmark Protocol:</b> ${m.outcome_definition || m.title}
+            </p>
           </div>
 
+          <!-- Research Desk Comprehensive Intelligence Briefing -->
           <div class="panel">
-            <div class="eyebrow">RESEARCH DESK</div>
-            <h2>Study Context & Fundamentals</h2>
-            <p style="color: var(--muted); margin-bottom: 16px;">${m.study_summary || 'Evidence and fundamental drivers behind this outcome.'}</p>
+            <div class="eyebrow" style="color: var(--jade);">RESEARCH DESK · DEEP FUNDAMENTALS</div>
+            <h2 style="margin: 8px 0 12px;">Macroeconomic Transmission & Catalyst Analysis</h2>
+            <p style="font-size: 14px; line-height: 1.7; color: var(--text); margin-bottom: 20px;">
+              ${m.study_summary || 'Comprehensive empirical analysis examining the primary transmission mechanisms, regulatory precedents, and liquidity vectors influencing this contract.'}
+            </p>
 
-            <div style="display: flex; flex-direction: column; gap: 12px;">
-              ${(m.metrics || []).map((metric, i) => `
-                <div style="background: var(--bg); padding: 12px; border-radius: 8px; border: 1px solid var(--line);">
-                  <b>0${i+1}. ${metric[0]}</b>
-                  <p style="font-size: 13px; color: var(--muted); margin-top: 4px;">${metric[1]}</p>
+            <h3 style="font-size: 15px; margin-bottom: 12px; color: var(--navy);">Four Critical Transmission Levers</h3>
+            <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px;">
+              ${(m.metrics && m.metrics.length ? m.metrics : [
+                ['Monetary & Yield Curve Dynamics', 'Benchmark interest rate corridor and interbank liquidity transmission.'],
+                ['Exchange Rate Elasticity', 'NAFEM turnover volume, autonomous inflows, and currency pass-through.'],
+                ['Real Sector Credit Impulse', 'Commercial bank loan-to-deposit ratios and private sector investment.'],
+                ['Sovereign Debt Sustainability', 'Domestic debt service to revenue ratios and fiscal financing.'],
+              ]).map((metric, i) => `
+                <div style="background: var(--bg); padding: 14px; border-radius: 8px; border: 1px solid var(--line);">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <b style="font-size: 13.5px; color: var(--text);">0${i+1}. ${metric[0]}</b>
+                    <span class="sim-tag" style="font-size: 10px;">KEY LEVER</span>
+                  </div>
+                  <p style="font-size: 13px; color: var(--muted); line-height: 1.6;">${metric[1]}</p>
                 </div>
               `).join('')}
+            </div>
+
+            <!-- Historical Case Studies & Precedents -->
+            <h3 style="font-size: 15px; margin-bottom: 12px; color: var(--navy);">Historical Precedents & Empirical Cycles</h3>
+            <div style="background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+              ${(m.historical_cases && m.historical_cases.length ? m.historical_cases : [
+                {
+                  period: '2024 Macroeconomic Restructuring Cycle',
+                  action: 'Aggressive MPC tightening (750+ bps) narrowed negative real yields and stimulated FPI inflows into OMO bills, while domestic manufacturing experienced compressed margins.'
+                }
+              ]).map(c => `
+                <div>
+                  <b style="color: var(--jade); font-size: 13.5px;">${c.period || 'Historical Cycle'}:</b>
+                  <p style="font-size: 13px; color: var(--text); margin-top: 4px; line-height: 1.6;">${c.action || 'Empirical policy precedents and market adjustments.'}</p>
+                </div>
+              `).join('')}
+            </div>
+
+            <!-- Two-Sided Analytical Theses -->
+            <h3 style="font-size: 15px; margin-bottom: 12px; color: var(--navy);">Two-Sided Analytical Theses</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px;">
+              <div style="background: var(--jade-light); padding: 14px; border-radius: 8px; border: 1px solid rgba(36, 121, 101, 0.2);">
+                <b style="color: var(--jade); font-size: 13.5px;">The Affirmative (YES) Thesis:</b>
+                <p style="font-size: 12.5px; color: var(--text); margin-top: 6px; line-height: 1.6;">
+                  Persistent inflation pressure, sustained currency pass-through from global energy/freight costs, and central bank resolve to maintain positive real interest yields to anchor capital accounts.
+                </p>
+              </div>
+              <div style="background: var(--red-light); padding: 14px; border-radius: 8px; border: 1px solid rgba(220, 38, 38, 0.2);">
+                <b style="color: var(--red); font-size: 13.5px;">The Countervailing (NO) Thesis:</b>
+                <p style="font-size: 12.5px; color: var(--text); margin-top: 6px; line-height: 1.6;">
+                  Concerns over industrial debt servicing stress, rising non-performing loan (NPL) ratios in banking, and fiscal warnings that elevated borrowing costs stifle domestic employment growth.
+                </p>
+              </div>
+            </div>
+
+            <!-- Authoritative Verification Benchmark -->
+            <div style="padding-top: 14px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; font-size: 12.5px;">
+              <span>Resolution Benchmark: <b>${m.resolution_source || 'Official regulatory announcement'}</b></span>
+              <span class="sim-tag">VERIFIED SOURCE</span>
             </div>
           </div>
         </div>
 
         <div>
+          <!-- Forecast Ticket Form -->
           <div class="panel">
             <div class="eyebrow">FORECAST TICKET</div>
             <h2>Make Your Call</h2>
+            <p style="font-size: 13px; color: var(--muted); margin-bottom: 16px;">
+              Commit educational virtual capital based on fundamental research and record your thesis in the Decision Journal.
+            </p>
 
             <form onsubmit="handlePlaceForecast(event, '${m.id}')">
               <div class="form-group">
@@ -1115,26 +1274,29 @@ async function loadMarketDetailData(id) {
               <div class="form-group" style="margin-top: 14px;">
                 <label>Virtual Capital Stake (₦)</label>
                 <input class="input" type="number" id="forecast-amount" value="5000" min="100" max="${state.wallet.available}" required>
-                <div style="display: flex; gap: 6px; margin-top: 6px;">
-                  ${[1000, 5000, 10000].map(a => `
+                <div style="display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap;">
+                  ${[1000, 5000, 10000, 25000, 50000].map(a => `
                     <button type="button" class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="document.getElementById('forecast-amount').value = ${a}">₦${a.toLocaleString()}</button>
                   `).join('')}
                 </div>
               </div>
 
               <div class="form-group" style="margin-top: 14px;">
-                <label>Optional Decision Journal Thesis</label>
-                <textarea class="textarea" id="forecast-thesis" rows="3" placeholder="Document what evidence supports your expectation..."></textarea>
+                <label>Decision Journal Thesis (Builds Strategic Record & XP)</label>
+                <textarea class="textarea" id="forecast-thesis" rows="4" placeholder="Document your quantitative rationale: 1) What leading indicator gives you high conviction? 2) What downside trigger would invalidate this forecast? 3) What is your expected horizon?"></textarea>
+                <small style="color: var(--muted); font-size: 11.5px; display: block; margin-top: 4px;">
+                  Documenting your decision thesis awards +25 Financial Literacy XP and records your verified reasoning.
+                </small>
               </div>
 
-              <div style="background: var(--bg); padding: 12px; border-radius: 8px; margin: 16px 0; font-size: 13px;">
+              <div style="background: var(--bg); padding: 12px; border-radius: 8px; margin: 16px 0; font-size: 13px; border: 1px solid var(--line);">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
                   <span>Available Balance</span>
-                  <b>${formatMoney(state.wallet.available)}</b>
+                  <b style="color: var(--jade);">${formatMoney(state.wallet.available)}</b>
                 </div>
                 <div style="display: flex; justify-content: space-between;">
-                  <span>Payout Multiplier</span>
-                  <b id="payout-estimate">Illustrative demo return</b>
+                  <span>Estimated Return on Success</span>
+                  <b id="payout-estimate">${formatMoney(Math.round(5000 / (prob / 100)))}</b>
                 </div>
               </div>
 
@@ -1144,6 +1306,18 @@ async function loadMarketDetailData(id) {
         </div>
       </div>
     `;
+
+    // Dynamic payout update on amount input
+    const amtInput = document.getElementById('forecast-amount');
+    if (amtInput) {
+      amtInput.addEventListener('input', () => {
+        const val = parseInt(amtInput.value, 10) || 0;
+        const currentProb = chosenOutcome ? (prob / 100) : ((100 - prob) / 100);
+        const est = currentProb > 0 ? Math.round(val / currentProb) : 0;
+        const outEl = document.getElementById('payout-estimate');
+        if (outEl) outEl.innerText = formatMoney(est);
+      });
+    }
   } catch (e) {}
 }
 
@@ -1565,6 +1739,46 @@ function renderAdminPage() {
       </div>
     </div>
 
+    <!-- AI Model Controls & On-Demand Switcher -->
+    <div class="panel" style="margin-bottom: 24px;">
+      <div class="eyebrow" style="color: var(--jade);">AUTONOMOUS AI ADJUDICATION</div>
+      <h2 style="margin: 8px 0 12px;">NVIDIA NIM Model Engine & On-Demand Failover</h2>
+      <p style="font-size: 13px; color: var(--muted); margin-bottom: 16px;">
+        The system dynamically switches models on demand if rate limits (HTTP 429) or quota constraints are approached. You can also manually switch the active primary model below.
+      </p>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+        <div class="admin-card">
+          <div>
+            <b>Active Primary Model:</b><br>
+            <code id="admin-ai-active-model" style="color: var(--jade); font-size: 13px;">meta/llama-3.1-70b-instruct</code>
+          </div>
+          <span class="badge-enabled">ONLINE</span>
+        </div>
+        <div class="admin-card">
+          <div>
+            <b>Last Adjudicated With:</b><br>
+            <code id="admin-ai-last-model" style="color: var(--muted); font-size: 13px;">meta/llama-3.1-70b-instruct</code>
+          </div>
+          <span class="badge-sandbox">RECORDED</span>
+        </div>
+      </div>
+
+      <div style="margin-top: 16px; display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+        <div class="form-group" style="flex: 1; min-width: 280px; margin-bottom: 0;">
+          <label>Switch Primary Model On-Demand</label>
+          <select class="select" id="admin-ai-model-select">
+            <option value="meta/llama-3.1-70b-instruct">Llama 3.1 70B Instruct (Flagship)</option>
+            <option value="meta/llama-3.3-70b-instruct">Llama 3.3 70B Instruct (High-Speed Fallback)</option>
+            <option value="mistralai/mixtral-8x22b-instruct-v0.1">Mixtral 8x22B Instruct (Enterprise MoE)</option>
+            <option value="meta/llama-3.1-8b-instruct">Llama 3.1 8B Instruct (High-Throughput / High-Quota)</option>
+            <option value="mistralai/mistral-large-2-instruct">Mistral Large 2 (Deep Reasoning)</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" onclick="handleSwitchAiModel()">Apply Model Switch ↗</button>
+      </div>
+    </div>
+
     <!-- Market Creation & Market Resolution -->
     <div class="two-col">
       <!-- Create Market -->
@@ -1627,10 +1841,11 @@ function renderAdminPage() {
 
 async function loadAdminData() {
   try {
-    const [statsRes, featsRes, marketsRes] = await Promise.all([
+    const [statsRes, featsRes, marketsRes, aiRes] = await Promise.all([
       api.get('/admin/stats'),
       api.get('/admin/features'),
       api.get('/markets'),
+      api.get('/admin/ai/model').catch(() => null),
     ]);
 
     // Update stats
@@ -1644,6 +1859,16 @@ async function loadAdminData() {
       if (fEl) fEl.innerText = s.total_forecasts;
       if (cEl) cEl.innerText = s.total_challenges;
       if (vEl) vEl.innerText = '₦' + (s.ledger_volume_vngn || 0).toLocaleString();
+    }
+
+    // Update AI Model Controls
+    if (aiRes?.data) {
+      const actEl = document.getElementById('admin-ai-active-model');
+      const lastEl = document.getElementById('admin-ai-last-model');
+      const selEl = document.getElementById('admin-ai-model-select');
+      if (actEl) actEl.innerText = aiRes.data.active_model;
+      if (lastEl) lastEl.innerText = aiRes.data.last_used_model || aiRes.data.active_model;
+      if (selEl && aiRes.data.active_model) selEl.value = aiRes.data.active_model;
     }
 
     // Update features
@@ -1791,6 +2016,15 @@ async function handleResolveMarket(eventId, outcome) {
       outcome,
     });
     api.toast(res.message || 'Market resolved and settled!', 'success');
+    loadAdminData();
+  } catch (e) {}
+}
+
+async function handleSwitchAiModel() {
+  const model = document.getElementById('admin-ai-model-select').value;
+  try {
+    const res = await api.post('/admin/ai/model', { model });
+    api.toast(res.message || 'AI adjudication model switched successfully!', 'success');
     loadAdminData();
   } catch (e) {}
 }

@@ -2,15 +2,21 @@ name: EconSim AI Evaluation Runner
 
 on:
   schedule:
-    # Run every 10 minutes to poll and evaluate pending Boardroom strategy memos
-    - cron: '*/10 * * * *'
+    # Optimized 30-minute interval to prevent quota exhaustion on GitHub Actions
+    - cron: '*/30 * * * *'
   workflow_dispatch:
-    # Allows manual trigger from GitHub Actions tab
+    # Allows instant manual trigger anytime from GitHub Actions tab
+
+# Prevent redundant runs from overlapping and wasting execution minutes
+concurrency:
+  group: econsim-ai-runner
+  cancel-in-progress: true
 
 jobs:
   evaluate:
     name: Poll & Evaluate Boardroom Memos
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -26,7 +32,7 @@ jobs:
           pip install --upgrade pip
           pip install -r ai_agent/requirements.txt
 
-      - name: Run Evaluation Agent
+      - name: Run Evaluation Agent (NVIDIA NIM with Multi-Model Fallback)
         env:
           DB_HOST: ${{ secrets.DB_HOST }}
           DB_PORT: ${{ secrets.DB_PORT }}

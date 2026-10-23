@@ -30,6 +30,16 @@ NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "meta/llama-3.1-70b-instruct")
 NVIDIA_API_URL = os.getenv("NVIDIA_API_URL", "https://integrate.api.nvidia.com/v1")
 
 
+# Candidate NVIDIA NIM models for automatic on-demand failover
+FALLBACK_MODELS = [
+    "meta/llama-3.1-70b-instruct",
+    "meta/llama-3.3-70b-instruct",
+    "mistralai/mixtral-8x22b-instruct-v0.1",
+    "meta/llama-3.1-8b-instruct",
+    "mistralai/mistral-large-2-instruct",
+]
+
+
 def get_db_connection():
     ssl_ca_path = DB_SSL_CA
     if DB_SSL_CA_CONTENT and not ssl_ca_path:
@@ -38,8 +48,13 @@ def get_db_connection():
         tmp.close()
         ssl_ca_path = tmp.name
 
+    # DNS fallback for Windows
+    host = DB_HOST
+    if "mysql-2bedf8b0-anchorgodsown-0077" in host:
+        host = "206.189.97.21"
+
     config = {
-        "host": DB_HOST,
+        "host": host,
         "port": DB_PORT,
         "database": DB_NAME,
         "user": DB_USER,
@@ -52,10 +67,32 @@ def get_db_connection():
     return mysql.connector.connect(**config)
 
 
-def evaluate_with_nvidia_nim(scenario_title, scenario_body, answer_text):
+def get_active_model_preference(conn):
+    """Retrieve admin-configured model from platform_settings table if present."""
+    if not conn:
+        return NVIDIA_MODEL
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT value FROM platform_settings WHERE `key` = 'active_ai_model' LIMIT 1")
+        row = cur.fetchone()
+        cur.close()
+        if row and row[0]:
+            return row[0].strip()
+    except Exception:
+        pass
+    return NVIDIA_MODEL
+
+
+def evaluate_with_nvidia_nim(scenario_title, scenario_body, answer_text, conn=None):
     if not NVIDIA_API_KEY:
         print("[-] NVIDIA_API_KEY not set. Using deterministic rule-based evaluation.")
-        return evaluate_heuristically(answer_text)
+        return evaluate_heuristically(answer_text), "heuristic_v1"
+
+    active_model = get_active_model_preference(conn)
+    model_pool = [active_model]
+    for m in FALLBACK_MODELS:
+        if m not in model_pool:
+            model_pool.append(m)
 
     prompt = f"""You are the Lead Adjudicator and Chief Strategy Officer for the EconSim financial terminal.
 Evaluate the following participant executive memo against the given strategic dilemma.
@@ -86,40 +123,56 @@ Return ONLY a valid JSON object with EXACTLY the following structure (no markdow
         "Authorization": f"Bearer {NVIDIA_API_KEY}",
         "Content-Type": "application/json",
     }
-    payload = {
-        "model": NVIDIA_MODEL,
-        "messages": [
-            {"role": "system", "content": "You are a precise economic adjudicator. Output only strict JSON."},
-            {"role": "user", "content": prompt},
-        ],
-        "temperature": 0.1,
-        "max_tokens": 1024,
-    }
 
-    try:
-        url = f"{NVIDIA_API_URL.rstrip('/')}/chat/completions"
-        resp = requests.post(url, headers=headers, json=payload, timeout=45)
-        resp.raise_for_status()
-        res_json = resp.json()
-        content = res_json["choices"][0]["message"]["content"].strip()
+    url = f"{NVIDIA_API_URL.rstrip('/')}/chat/completions"
+    last_error = None
 
-        # Extract JSON substring if wrapped in markdown
-        match = re.search(r"\{.*\}", content, re.DOTALL)
-        if match:
-            parsed = json.loads(match.group(0))
-            # Clamp scores to rubric bounds
-            return {
-                "financial_mechanics": max(0.0, min(40.0, float(parsed.get("financial_mechanics", 25.0)))),
-                "risk_management": max(0.0, min(30.0, float(parsed.get("risk_management", 20.0)))),
-                "historical_alignment": max(0.0, min(20.0, float(parsed.get("historical_alignment", 13.0)))),
-                "communication": max(0.0, min(10.0, float(parsed.get("communication", 7.0)))),
-                "explanation": str(parsed.get("explanation", "Executive evaluation completed.")),
-                "evidence": parsed.get("evidence", ["Evaluated via NVIDIA NIM."]),
-            }
-    except Exception as e:
-        print(f"[-] NVIDIA NIM API call failed ({e}). Falling back to heuristic rubric.")
+    # Iterate candidate models on demand when limits or errors occur
+    for model_name in model_pool:
+        print(f"[*] Calling NVIDIA NIM with model '{model_name}'...")
+        payload = {
+            "model": model_name,
+            "messages": [
+                {"role": "system", "content": "You are a precise economic adjudicator. Output only strict JSON."},
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": 0.1,
+            "max_tokens": 1024,
+        }
 
-    return evaluate_heuristically(answer_text)
+        try:
+            resp = requests.post(url, headers=headers, json=payload, timeout=40)
+
+            # Check for Rate Limit (429) or transient server errors (502, 503, 504)
+            if resp.status_code in (429, 502, 503, 504):
+                print(f"[!] Model '{model_name}' reached quota/rate limit (HTTP {resp.status_code}). Switching on demand to next candidate model...")
+                last_error = f"HTTP {resp.status_code}"
+                continue
+
+            resp.raise_for_status()
+            res_json = resp.json()
+            content = res_json["choices"][0]["message"]["content"].strip()
+
+            # Extract JSON substring if wrapped in markdown
+            match = re.search(r"\{.*\}", content, re.DOTALL)
+            if match:
+                parsed = json.loads(match.group(0))
+                print(f"[+] Evaluation successfully completed using '{model_name}'.")
+                return {
+                    "financial_mechanics": max(0.0, min(40.0, float(parsed.get("financial_mechanics", 25.0)))),
+                    "risk_management": max(0.0, min(30.0, float(parsed.get("risk_management", 20.0)))),
+                    "historical_alignment": max(0.0, min(20.0, float(parsed.get("historical_alignment", 13.0)))),
+                    "communication": max(0.0, min(10.0, float(parsed.get("communication", 7.0)))),
+                    "explanation": str(parsed.get("explanation", "Executive evaluation completed.")),
+                    "evidence": parsed.get("evidence", [f"Evaluated via NVIDIA NIM ({model_name})."]),
+                }, model_name
+        except Exception as e:
+            print(f"[-] Model '{model_name}' failed: {e}. Switching on demand...")
+            last_error = str(e)
+            continue
+
+    print(f"[-] All models exhausted ({last_error}). Falling back to heuristic rubric.")
+    return evaluate_heuristically(answer_text), "heuristic_v1"
 
 
 def evaluate_heuristically(answer_text):
@@ -196,10 +249,10 @@ def main():
     queued_runs = cursor.fetchall()
 
     if not queued_runs:
-        print("[+] No pending evaluation runs found. Exiting cleanly.")
+        print("[+] No pending evaluation runs found. Fast exit (0 sec).")
         cursor.close()
         conn.close()
-        return
+        sys.exit(0)
 
     print(f"[+] Found {len(queued_runs)} submissions to evaluate.")
 
@@ -209,10 +262,11 @@ def main():
         chal_id = row["challenge_id"]
         print(f"[*] Evaluating submission {sub_id} for challenge {chal_id}...")
 
-        scores = evaluate_with_nvidia_nim(
+        scores, model_used = evaluate_with_nvidia_nim(
             row["scenario_title"],
             row["confidential_body"],
-            row["answer_text"]
+            row["answer_text"],
+            conn=conn,
         )
 
         # Insert evaluation score
@@ -240,8 +294,11 @@ def main():
             json.dumps(scores["evidence"]),
         ))
 
-        # Update run status to complete
-        cursor.execute("UPDATE evaluation_runs SET evaluation_state = 'complete', completed_at = NOW(3) WHERE id = %s", (run_id,))
+        # Update run status to complete and record the exact model that evaluated it
+        cursor.execute(
+            "UPDATE evaluation_runs SET evaluation_state = 'complete', model_id = %s, completed_at = NOW(3) WHERE id = %s",
+            (model_used, run_id)
+        )
 
         # Update challenge state
         cursor.execute("UPDATE boardroom_challenges SET state = 'settled' WHERE id = %s", (chal_id,))
