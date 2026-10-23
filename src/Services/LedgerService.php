@@ -33,17 +33,28 @@ class LedgerService
     ): string {
         $pdo = $pdo ?? Database::getConnection();
 
-        $stmt = $pdo->prepare(
-            "SELECT id FROM ledger_accounts 
-             WHERE (user_id = :uid OR (user_id IS NULL AND :uid IS NULL))
-               AND mode = :mode AND currency = :curr AND kind = :kind LIMIT 1"
-        );
-        $stmt->execute([
-            ':uid' => $userId,
-            ':mode' => $mode,
-            ':curr' => $currency,
-            ':kind' => $kind,
-        ]);
+        if ($userId === null) {
+            $stmt = $pdo->prepare(
+                "SELECT id FROM ledger_accounts 
+                 WHERE user_id IS NULL AND mode = :mode AND currency = :curr AND kind = :kind LIMIT 1"
+            );
+            $stmt->execute([
+                ':mode' => $mode,
+                ':curr' => $currency,
+                ':kind' => $kind,
+            ]);
+        } else {
+            $stmt = $pdo->prepare(
+                "SELECT id FROM ledger_accounts 
+                 WHERE user_id = :uid AND mode = :mode AND currency = :curr AND kind = :kind LIMIT 1"
+            );
+            $stmt->execute([
+                ':uid' => $userId,
+                ':mode' => $mode,
+                ':curr' => $currency,
+                ':kind' => $kind,
+            ]);
+        }
         $row = $stmt->fetch();
         if ($row) {
             return (string)$row['id'];
@@ -76,15 +87,21 @@ class LedgerService
 
         // Amount in minor units (e.g. 500,000 VNGN = 50,000,000 kobo/minor units)
         $amountMinor = $amountVngn * 100;
+        $ownsTransaction = false;
 
         try {
-            $pdo->beginTransaction();
+            if (!$pdo->inTransaction()) {
+                $pdo->beginTransaction();
+                $ownsTransaction = true;
+            }
 
             // Check if already claimed
             $check = $pdo->prepare("SELECT id FROM ledger_journals WHERE idempotency_key = ? LIMIT 1");
             $check->execute([$idempotencyKey]);
             if ($check->fetch()) {
-                $pdo->rollBack();
+                if ($ownsTransaction && $pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
                 return false; // Already claimed
             }
 
@@ -122,10 +139,12 @@ class LedgerService
                 ':amt' => $amountMinor,
             ]);
 
-            $pdo->commit();
+            if ($ownsTransaction && $pdo->inTransaction()) {
+                $pdo->commit();
+            }
             return true;
         } catch (\Throwable $e) {
-            if ($pdo->inTransaction()) {
+            if ($ownsTransaction && $pdo->inTransaction()) {
                 $pdo->rollBack();
             }
             throw new RuntimeException("Failed to grant demo balance: " . $e->getMessage(), 0, $e);
@@ -150,9 +169,13 @@ class LedgerService
 
         $currency = $mode === self::MODE_DEMO ? self::CURRENCY_DEMO : self::CURRENCY_REAL;
         $pdo = Database::getConnection();
+        $ownsTransaction = false;
 
         try {
-            $pdo->beginTransaction();
+            if (!$pdo->inTransaction()) {
+                $pdo->beginTransaction();
+                $ownsTransaction = true;
+            }
 
             $userAvailableId = self::getOrCreateAccount($userId, self::KIND_AVAILABLE, $mode, $currency, $pdo);
             $userHeldId = self::getOrCreateAccount($userId, self::KIND_HELD, $mode, $currency, $pdo);
@@ -166,7 +189,9 @@ class LedgerService
             $currentAvailable = (int)$balStmt->fetchColumn();
 
             if ($currentAvailable < $amountMinor) {
-                $pdo->rollBack();
+                if ($ownsTransaction && $pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
                 throw new RuntimeException("Insufficient available funds for this commitment.");
             }
 
@@ -202,10 +227,12 @@ class LedgerService
                 ':amt' => $amountMinor,
             ]);
 
-            $pdo->commit();
+            if ($ownsTransaction && $pdo->inTransaction()) {
+                $pdo->commit();
+            }
             return true;
         } catch (\Throwable $e) {
-            if ($pdo->inTransaction()) {
+            if ($ownsTransaction && $pdo->inTransaction()) {
                 $pdo->rollBack();
             }
             throw $e;
@@ -226,9 +253,13 @@ class LedgerService
     ): bool {
         $currency = $mode === self::MODE_DEMO ? self::CURRENCY_DEMO : self::CURRENCY_REAL;
         $pdo = Database::getConnection();
+        $ownsTransaction = false;
 
         try {
-            $pdo->beginTransaction();
+            if (!$pdo->inTransaction()) {
+                $pdo->beginTransaction();
+                $ownsTransaction = true;
+            }
 
             $userAvailableId = self::getOrCreateAccount($userId, self::KIND_AVAILABLE, $mode, $currency, $pdo);
             $userHeldId = self::getOrCreateAccount($userId, self::KIND_HELD, $mode, $currency, $pdo);
@@ -280,10 +311,12 @@ class LedgerService
                 ]);
             }
 
-            $pdo->commit();
+            if ($ownsTransaction && $pdo->inTransaction()) {
+                $pdo->commit();
+            }
             return true;
         } catch (\Throwable $e) {
-            if ($pdo->inTransaction()) {
+            if ($ownsTransaction && $pdo->inTransaction()) {
                 $pdo->rollBack();
             }
             throw $e;

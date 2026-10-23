@@ -11,6 +11,8 @@ use App\Controllers\WalletController;
 use App\Controllers\MarketController;
 use App\Controllers\BoardroomController;
 use App\Controllers\ProfileController;
+use App\Controllers\AdminController;
+use App\Controllers\PaymentController;
 
 Env::load();
 
@@ -75,6 +77,20 @@ if (str_starts_with($path, '/api/')) {
     $router->get('/api/leaderboard', [ProfileController::class, 'getLeaderboard']);
     $router->post('/api/mentor/ask', [ProfileController::class, 'askMentor']);
     $router->post('/api/lab/run', [ProfileController::class, 'runScenarioLab']);
+
+    // Real Mode Funding & Payment Gateways (Flutterwave & Korapay)
+    $router->post('/api/funding/initialize', [PaymentController::class, 'initialize']);
+    $router->get('/api/funding/verify/{ref}', [PaymentController::class, 'verify']);
+    $router->post('/api/webhooks/flutterwave', [PaymentController::class, 'flutterwaveWebhook']);
+    $router->post('/api/webhooks/korapay', [PaymentController::class, 'korapayWebhook']);
+
+    // Admin Controls & Real Mode Engine
+    $router->get('/api/admin/features', [AdminController::class, 'getFeatures']);
+    $router->post('/api/admin/features/toggle', [AdminController::class, 'toggleFeature']);
+    $router->post('/api/admin/providers/switch', [AdminController::class, 'updateProvider']);
+    $router->get('/api/admin/stats', [AdminController::class, 'getStats']);
+    $router->post('/api/admin/markets/create', [AdminController::class, 'createMarket']);
+    $router->post('/api/admin/markets/resolve', [AdminController::class, 'resolveMarket']);
 
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $router->dispatch($method, $uri);

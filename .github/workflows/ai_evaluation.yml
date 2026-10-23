@@ -39,3 +39,16 @@ jobs:
         run: |
           python ai_agent/evaluator.py
 
+      - name: Run Market Populator & Catalyst Agent
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_SSL_CA_CONTENT: ${{ secrets.DB_SSL_CA_CONTENT }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          NVIDIA_MODEL: ${{ secrets.NVIDIA_MODEL || 'meta/llama-3.1-70b-instruct' }}
+        run: |
+          python ai_agent/market_populator.py
+

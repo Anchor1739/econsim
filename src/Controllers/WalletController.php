@@ -20,11 +20,31 @@ class WalletController
 
         $mode = $_GET['mode'] ?? ($user['preferred_mode'] ?? 'demo');
         $balances = LedgerService::getUserBalances($user['id'], $mode);
+        $demoBalances = LedgerService::getUserBalances($user['id'], 'demo');
+        $realBalances = LedgerService::getUserBalances($user['id'], 'real');
         $transactions = LedgerService::getUserTransactions($user['id'], $mode);
+
+        $pdo = \App\Config\Database::getConnection();
+        $provider = $pdo->query(
+            "SELECT slug, display_name, status FROM funding_providers 
+             WHERE status IN ('enabled', 'sandbox') 
+             ORDER BY CASE WHEN status = 'enabled' THEN 1 ELSE 2 END 
+             LIMIT 1"
+        )->fetch() ?: ['slug' => 'flutterwave', 'display_name' => 'Flutterwave', 'status' => 'sandbox'];
+
+        $features = $pdo->query("SELECT code, enabled FROM platform_features")->fetchAll();
+        $featMap = [];
+        foreach ($features as $f) {
+            $featMap[$f['code']] = (bool)$f['enabled'];
+        }
 
         Response::success([
             'balance' => $balances,
+            'demo_balance' => $demoBalances,
+            'real_balance' => $realBalances,
             'transactions' => $transactions,
+            'active_provider' => $provider,
+            'features' => $featMap,
         ]);
     }
 

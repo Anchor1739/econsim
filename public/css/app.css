@@ -559,6 +559,50 @@ h1, h2, h3, h4, .brand, .stat {
   border-bottom-color: var(--jade);
 }
 
+/* Loading Spinners & Indicators */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #ffffff;
+  animation: spin 0.6s linear infinite;
+  vertical-align: middle;
+}
+
+.spinner-dark {
+  border: 2px solid rgba(0, 0, 0, 0.15);
+  border-top-color: var(--jade);
+}
+
+#global-loader {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, var(--jade), #38bdf8, var(--jade));
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  z-index: 9999;
+  display: none;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
 /* Toasts */
 #toast {
   position: fixed;
@@ -620,4 +664,81 @@ h1, h2, h3, h4, .brand, .stat {
   .auth-wrap { grid-template-columns: 1fr; }
   .auth-hero { display: none; }
 }
+
+/* Toggle Switch & Admin Controls */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: var(--line);
+  transition: .3s;
+  border-radius: 24px;
+}
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .3s;
+  border-radius: 50%;
+}
+input:checked + .slider {
+  background-color: var(--jade);
+}
+input:checked + .slider:before {
+  transform: translateX(20px);
+}
+
+.badge-enabled {
+  background: var(--jade-light);
+  color: var(--jade);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.badge-sandbox {
+  background: var(--gold-light);
+  color: var(--gold);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.badge-disabled {
+  background: var(--red-light);
+  color: var(--red);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.admin-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px;
+  background: var(--bg);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
 

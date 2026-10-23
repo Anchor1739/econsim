@@ -3,7 +3,7 @@ let state = {
   user: null,
   page: 'dashboard',
   theme: localStorage.getItem('econsim-theme') || 'light',
-  mode: 'Demo',
+  mode: localStorage.getItem('econsim-mode') || 'demo',
   markets: [],
   selectedMarketId: null,
   marketFilter: 'All',
@@ -12,6 +12,10 @@ let state = {
   activeChallenge: null,
   mentorHistory: [],
   wallet: { available: 500000, held: 0, total: 500000 },
+  realWallet: { available: 0, held: 0, total: 0 },
+  activeProvider: { slug: 'flutterwave', display_name: 'Flutterwave', status: 'sandbox' },
+  features: {},
+  leaderboardTab: 'Overall',
   lab: { rate: 20, inflation: 24, spend: 12 },
 };
 
@@ -31,6 +35,17 @@ function applyTheme(t) {
 
 async function initApp() {
   applyTheme(state.theme);
+
+  // Check URL query parameters for payment return verification
+  const urlParams = new URLSearchParams(window.location.search);
+  const ref = urlParams.get('ref') || urlParams.get('tx_ref');
+  if (ref) {
+    try {
+      const v = await api.get(`/funding/verify/${encodeURIComponent(ref)}`);
+      api.toast(v.message || 'Deposit verified and credited successfully!', 'success');
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } catch (e) {}
+  }
 
   try {
     const res = await api.get('/auth/me');
@@ -90,6 +105,7 @@ function render() {
     case 'leaderboard': content = renderLeaderboardPage(); break;
     case 'mentor': content = renderMentorPage(); break;
     case 'lab': content = renderScenarioLab(); break;
+    case 'admin': content = renderAdminPage(); break;
     case 'profile': content = renderProfilePage(); break;
     case 'settings': content = renderSettingsPage(); break;
     default: content = renderDashboard(); break;
@@ -107,10 +123,11 @@ function renderAppShell(innerHtml) {
     { id: 'dashboard', icon: '⌂', label: 'Dashboard' },
     { id: 'predictor', icon: '◈', label: 'The Predictor' },
     { id: 'boardroom', icon: '▦', label: 'The Boardroom' },
-    { id: 'wallet', icon: '▣', label: 'Virtual Wallet' },
+    { id: 'wallet', icon: '▣', label: 'Ledger Wallet' },
     { id: 'leaderboard', icon: '♛', label: 'Leaderboard' },
     { id: 'mentor', icon: '✧', label: 'AI Mentor' },
     { id: 'lab', icon: '⚗', label: 'Scenario Lab' },
+    { id: 'admin', icon: '⚡', label: 'Admin Console' },
     { id: 'profile', icon: '◉', label: 'Profile' },
     { id: 'settings', icon: '⚙', label: 'Settings' },
   ];
@@ -126,7 +143,7 @@ function renderAppShell(innerHtml) {
           <span>econsim<b>.</b></span>
         </div>
         <div class="sidebar-label">WORKSPACE</div>
-        ${navItems.slice(0, 7).map(item => `
+        ${navItems.slice(0, 8).map(item => `
           <button class="nav-item ${state.page === item.id ? 'active' : ''}" onclick="navigate('${item.id}')">
             <span>${item.icon}</span>
             <span class="text">${item.label}</span>
@@ -134,7 +151,7 @@ function renderAppShell(innerHtml) {
         `).join('')}
 
         <div class="sidebar-label">ACCOUNT</div>
-        ${navItems.slice(7).map(item => `
+        ${navItems.slice(8).map(item => `
           <button class="nav-item ${state.page === item.id ? 'active' : ''}" onclick="navigate('${item.id}')">
             <span>${item.icon}</span>
             <span class="text">${item.label}</span>
@@ -269,19 +286,35 @@ function renderDashboard() {
 // Predictor View
 // -------------------------------------------------------------
 function renderPredictor() {
+  const industries = [
+    'All',
+    'Monetary Policy',
+    'Equities',
+    'Energy',
+    'Agriculture',
+    'FX & Reserves',
+    'Fintech',
+    'Manufacturing',
+    'Telecoms & Digital',
+    'Real Estate & Infra',
+    'FMCG & Retail',
+    'Aviation & Logistics'
+  ];
+
   return `
     <div class="page-head">
       <div>
         <div class="eyebrow">THE PREDICTOR</div>
         <h1>Macroeconomic & Market Forecasts</h1>
-        <p>Explore economic contracts, inspect verified research, and test your thesis with virtual capital.</p>
+        <p>Explore economic contracts across 11 key industries, analyze fundamentals, and test your thesis.</p>
       </div>
+      <button class="btn btn-secondary" onclick="loadPredictorData()">Refresh Markets ↺</button>
     </div>
 
     <div style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
-      ${['All', 'Monetary policy', 'Equities', 'Energy', 'Agriculture'].map(f => `
-        <button class="btn ${state.marketFilter === f ? 'btn-primary' : 'btn-secondary'}" 
-                style="padding: 6px 14px; font-size: 12.5px; border-radius: 20px;" 
+      ${industries.map(f => `
+        <button class="btn ${state.marketFilter.toLowerCase() === f.toLowerCase() ? 'btn-primary' : 'btn-secondary'}" 
+                style="padding: 6px 14px; font-size: 12px; border-radius: 20px;" 
                 onclick="setMarketFilter('${f}')">${f}</button>
       `).join('')}
     </div>
@@ -376,11 +409,17 @@ function renderCreateChallenge() {
           <div class="form-group">
             <label>Industry</label>
             <select class="select" id="create-industry">
-              <option value="1">Fintech</option>
-              <option value="2">Oil & Gas</option>
-              <option value="3">Agriculture</option>
-              <option value="4">FMCG</option>
-              <option value="5">Healthcare</option>
+              <option value="1">Monetary Policy</option>
+              <option value="2">Equities</option>
+              <option value="3">Energy</option>
+              <option value="4">Agriculture</option>
+              <option value="5">FX & Reserves</option>
+              <option value="6">Fintech</option>
+              <option value="7">Manufacturing</option>
+              <option value="8">Telecoms & Digital</option>
+              <option value="9">Real Estate & Infra</option>
+              <option value="10">FMCG & Retail</option>
+              <option value="11">Aviation & Logistics</option>
             </select>
           </div>
           <div class="form-group">
@@ -447,46 +486,90 @@ function renderChallengeReport() {
 }
 
 // -------------------------------------------------------------
-// Virtual Wallet View
+// Double-Entry Ledger Wallet View
 // -------------------------------------------------------------
 function renderWalletPage() {
+  const isReal = state.mode === 'real';
+  const activeBal = isReal ? state.realWallet : state.wallet;
+  const currLabel = isReal ? 'NGN' : 'VNGN';
+  const providerName = state.activeProvider?.display_name || 'Flutterwave';
+  const providerStatus = state.activeProvider?.status || 'sandbox';
+
   return `
     <div class="page-head">
       <div>
-        <div class="eyebrow">DOUBLE-ENTRY VIRTUAL WALLET</div>
-        <h1>Virtual Capital & Activity Ledger</h1>
-        <p>Authoritative balances projected from immutable append-only ledger entries.</p>
+        <div class="eyebrow">DOUBLE-ENTRY LEDGER WALLET</div>
+        <h1>Capital & Activity Ledger</h1>
+        <p>Immutable append-only ledger entries for virtual educational capital and verified real funds.</p>
       </div>
-      <button class="btn btn-secondary" onclick="loadWalletData()">Refresh Balance ↺</button>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn ${!isReal ? 'btn-primary' : 'btn-secondary'}" onclick="switchWalletMode('demo')">Virtual (VNGN)</button>
+        <button class="btn ${isReal ? 'btn-primary' : 'btn-secondary'}" onclick="switchWalletMode('real')">Live Real (NGN)</button>
+        <button class="btn btn-secondary" onclick="loadWalletData()">Refresh ↺</button>
+      </div>
     </div>
 
     <div class="metrics-row">
       <div class="metric-card">
-        <span>Available Virtual Funds</span>
-        <strong style="color: var(--jade);">${formatMoney(state.wallet.available)}</strong>
-        <small>Available for forecasts & challenges</small>
+        <span>Available Balance</span>
+        <strong style="color: var(--jade);">${formatMoney(activeBal.available || 0)}</strong>
+        <small>${currLabel} available for allocations</small>
       </div>
       <div class="metric-card">
         <span>Reserved in Escrow</span>
-        <strong>${formatMoney(state.wallet.held)}</strong>
-        <small>Active market & challenge holds</small>
+        <strong>${formatMoney(activeBal.held || 0)}</strong>
+        <small>Active forecast & boardroom holds</small>
       </div>
       <div class="metric-card">
         <span>Total Ledger Balance</span>
-        <strong>${formatMoney(state.wallet.total)}</strong>
-        <small>VNGN simulation currency</small>
+        <strong>${formatMoney(activeBal.total || 0)}</strong>
+        <small>Sum of available and held accounts</small>
       </div>
       <div class="metric-card">
-        <span>Currency Standard</span>
-        <strong>VNGN</strong>
-        <small>Zero cash or redeemable value</small>
+        <span>Active Payment Gateway</span>
+        <strong>${providerName}</strong>
+        <small><span class="badge-${providerStatus}">${providerStatus.toUpperCase()}</span> gateway ready</small>
+      </div>
+    </div>
+
+    <div class="two-col" style="margin-bottom: 24px;">
+      <div class="panel">
+        <div class="eyebrow" style="color: var(--jade);">INSTANT DEPOSIT & FUNDING</div>
+        <h2 style="margin: 8px 0 12px;">Fund Real Trading Wallet</h2>
+        <p style="color: var(--muted); font-size: 13.5px; margin-bottom: 16px;">
+          Direct bank transfer, card, and USSD deposits processed via <b>${providerName}</b> into your atomic double-entry ledger account.
+        </p>
+
+        <form onsubmit="handleDepositSubmit(event)">
+          <div class="form-group">
+            <label>Deposit Amount (₦)</label>
+            <input class="input" type="number" id="deposit-amount" min="1000" step="1000" value="5000" required>
+            <div style="display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap;">
+              ${[1000, 5000, 10000, 25000, 50000].map(amt => `
+                <button type="button" class="btn btn-secondary" style="padding: 4px 10px; font-size: 11.5px;" onclick="document.getElementById('deposit-amount').value = ${amt}">₦${amt.toLocaleString()}</button>
+              `).join('')}
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-full" style="margin-top: 16px;">
+            Deposit via ${providerName} ↗
+          </button>
+        </form>
+      </div>
+
+      <div class="panel">
+        <h2>Ledger Security & Segregation</h2>
+        <ul style="padding-left: 18px; color: var(--muted); font-size: 13.5px; line-height: 1.8;">
+          <li><b>Zero Cross-Contamination</b>: Virtual demo capital (VNGN) and live funds (NGN) are strictly isolated across separate ledger accounts.</li>
+          <li><b>Idempotent Transactions</b>: Every deposit, hold, and settlement carries a unique UUID idempotency key to prevent double credits.</li>
+          <li><b>Regulatory Mode Switching</b>: Real money mode can be enabled or paused at any time from the backend Admin console.</li>
+        </ul>
       </div>
     </div>
 
     <div class="panel">
-      <h2>Ledger Journal Transactions</h2>
+      <h2>Ledger Journal Transactions (${currLabel})</h2>
       <div id="wallet-transactions-table">
-        <p class="muted">Loading transactions...</p>
+        <p class="muted">Loading ledger entries...</p>
       </div>
     </div>
   `;
@@ -503,12 +586,15 @@ function renderLeaderboardPage() {
         <h1>Leaderboard</h1>
         <p>Recognizing verified accuracy, disciplined risk management, and strategic reasoning.</p>
       </div>
+      <button class="btn btn-secondary" onclick="loadLeaderboardData(state.leaderboardTab)">Refresh ↺</button>
     </div>
 
     <div style="display: flex; gap: 8px; margin-bottom: 20px;">
-      <button class="btn btn-primary" style="padding: 6px 14px; font-size: 12.5px; border-radius: 20px;">Overall</button>
-      <button class="btn btn-secondary" style="padding: 6px 14px; font-size: 12.5px; border-radius: 20px;">Predictor</button>
-      <button class="btn btn-secondary" style="padding: 6px 14px; font-size: 12.5px; border-radius: 20px;">Boardroom</button>
+      ${['Overall', 'Predictor', 'Boardroom'].map(tab => `
+        <button class="btn ${state.leaderboardTab === tab ? 'btn-primary' : 'btn-secondary'}" 
+                style="padding: 6px 14px; font-size: 12.5px; border-radius: 20px;" 
+                onclick="loadLeaderboardData('${tab}')">${tab}</button>
+      `).join('')}
     </div>
 
     <div class="panel">
@@ -522,30 +608,7 @@ function renderLeaderboardPage() {
           </tr>
         </thead>
         <tbody id="leaderboard-table-body">
-          <tr style="border-bottom: 1px solid var(--line);">
-            <td style="padding: 12px 8px; font-weight: bold; color: var(--gold);">#1 🥇</td>
-            <td style="padding: 12px 8px; font-weight: 600;">Ada Okonkwo</td>
-            <td style="padding: 12px 8px; color: var(--muted);">Strategic Analyst</td>
-            <td style="padding: 12px 8px; text-align: right; font-weight: bold;">2,820 XP</td>
-          </tr>
-          <tr style="border-bottom: 1px solid var(--line);">
-            <td style="padding: 12px 8px; font-weight: bold; color: #94a3b8;">#2 🥈</td>
-            <td style="padding: 12px 8px; font-weight: 600;">Tomi Adeyemi</td>
-            <td style="padding: 12px 8px; color: var(--muted);">Strategic Analyst</td>
-            <td style="padding: 12px 8px; text-align: right; font-weight: bold;">2,540 XP</td>
-          </tr>
-          <tr style="border-bottom: 1px solid var(--line);">
-            <td style="padding: 12px 8px; font-weight: bold; color: #b45309;">#3 🥉</td>
-            <td style="padding: 12px 8px; font-weight: 600;">Ifeanyi Nwosu</td>
-            <td style="padding: 12px 8px; color: var(--muted);">Strategic Analyst</td>
-            <td style="padding: 12px 8px; text-align: right; font-weight: bold;">2,380 XP</td>
-          </tr>
-          <tr style="border-bottom: 1px solid var(--line); background: var(--jade-light);">
-            <td style="padding: 12px 8px; font-weight: bold; color: var(--jade);">#5 ◈</td>
-            <td style="padding: 12px 8px; font-weight: 700; color: var(--jade);">${state.user?.display_name || 'Alex Morgan'} (You)</td>
-            <td style="padding: 12px 8px; color: var(--jade);">Junior Analyst</td>
-            <td style="padding: 12px 8px; text-align: right; font-weight: bold; color: var(--jade);">1,240 XP</td>
-          </tr>
+          <tr><td colspan="4" style="padding: 24px; text-align: center;" class="muted">Loading leaderboard data...</td></tr>
         </tbody>
       </table>
     </div>
@@ -900,7 +963,7 @@ function renderOnboardingPage() {
           </p>
 
           <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px;">
-            ${['Fintech', 'Oil & Gas', 'Agriculture', 'FMCG', 'Healthcare', 'Real Estate'].map(ind => `
+            ${['Monetary Policy', 'Equities', 'Energy', 'Agriculture', 'FX & Reserves', 'Fintech', 'Manufacturing', 'Telecoms', 'Real Estate', 'FMCG', 'Aviation'].map(ind => `
               <button class="btn btn-secondary" style="border-radius: 20px; font-size: 13px;" onclick="this.classList.toggle('btn-primary'); this.classList.toggle('btn-secondary');">
                 ${ind}
               </button>
@@ -928,6 +991,10 @@ function attachViewEvents() {
     loadBoardroomLobby();
   } else if (state.page === 'wallet') {
     loadWalletData();
+  } else if (state.page === 'leaderboard') {
+    loadLeaderboardData(state.leaderboardTab);
+  } else if (state.page === 'admin') {
+    loadAdminData();
   } else if (state.page === 'waiting_room' && state.currentChallengeId) {
     loadWaitingRoomData(state.currentChallengeId);
   } else if (state.page === 'live_challenge' && state.currentChallengeId) {
@@ -964,9 +1031,23 @@ function renderMarketsFiltered() {
   const el = document.getElementById('markets-container');
   if (!el) return;
 
-  const filtered = state.marketFilter === 'All'
+  const filter = (state.marketFilter || 'All').toLowerCase();
+  const filtered = filter === 'all'
     ? state.markets
-    : state.markets.filter(m => m.industry_name === state.marketFilter || m.industry_slug === state.marketFilter.toLowerCase());
+    : state.markets.filter(m => 
+        (m.industry_name && m.industry_name.toLowerCase() === filter) || 
+        (m.industry_slug && m.industry_slug.toLowerCase() === filter)
+      );
+
+  if (!filtered.length) {
+    el.innerHTML = `
+      <div class="panel" style="grid-column: 1 / -1; text-align: center; padding: 40px;">
+        <p class="muted">No active contracts found for "${state.marketFilter}".</p>
+        <button class="btn btn-secondary" style="margin-top: 12px;" onclick="setMarketFilter('All')">View All Contracts ↗</button>
+      </div>
+    `;
+    return;
+  }
 
   el.innerHTML = filtered.map(m => renderMarketCard(m)).join('');
 }
@@ -1329,13 +1410,17 @@ async function loadChallengeReportData(challengeId) {
 
 async function loadWalletData() {
   try {
-    const res = await api.get('/wallet');
+    const res = await api.get(`/wallet?mode=${state.mode}`);
     if (res?.data) {
-      state.wallet = res.data.balance;
+      if (res.data.demo_balance) state.wallet = res.data.demo_balance;
+      if (res.data.real_balance) state.realWallet = res.data.real_balance;
+      if (res.data.active_provider) state.activeProvider = res.data.active_provider;
+      if (res.data.features) state.features = res.data.features;
+
       const el = document.getElementById('wallet-transactions-table');
       if (el) {
         if (!res.data.transactions?.length) {
-          el.innerHTML = '<p class="muted">No transactions on this mode yet.</p>';
+          el.innerHTML = '<p class="muted">No transactions on this ledger mode yet.</p>';
         } else {
           el.innerHTML = `
             <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13.5px;">
@@ -1362,6 +1447,351 @@ async function loadWalletData() {
         }
       }
     }
+  } catch (e) {}
+}
+
+function switchWalletMode(m) {
+  state.mode = m;
+  localStorage.setItem('econsim-mode', m);
+  navigate('wallet');
+}
+
+async function handleDepositSubmit(e) {
+  e.preventDefault();
+  const amt = parseInt(document.getElementById('deposit-amount').value, 10);
+  if (!amt || amt < 1000) {
+    api.toast('Minimum real deposit is ₦1,000.', 'error');
+    return;
+  }
+
+  try {
+    const res = await api.post('/funding/initialize', { amount: amt });
+    if (res?.data?.checkout_url) {
+      api.toast('Opening secure payment checkout...', 'info');
+      setTimeout(() => {
+        window.location.href = res.data.checkout_url;
+      }, 700);
+    }
+  } catch (e) {}
+}
+
+async function loadLeaderboardData(tab = 'Overall') {
+  state.leaderboardTab = tab;
+  try {
+    const res = await api.get(`/leaderboard?tab=${tab}`);
+    const tbody = document.getElementById('leaderboard-table-body');
+    if (!tbody || !res?.data) return;
+
+    tbody.innerHTML = res.data.map(u => {
+      const isYou = state.user && state.user.display_name === u.name;
+      const rankBadge = u.rank === 1 ? '🥇 #1' : u.rank === 2 ? '🥈 #2' : u.rank === 3 ? '🥉 #3' : `#${u.rank}`;
+      return `
+        <tr style="border-bottom: 1px solid var(--line); ${isYou ? 'background: var(--jade-light);' : ''}">
+          <td style="padding: 12px 8px; font-weight: bold; color: ${u.rank <= 3 ? 'var(--gold)' : 'inherit'};">${rankBadge}</td>
+          <td style="padding: 12px 8px; font-weight: 600; color: ${isYou ? 'var(--jade)' : 'inherit'};">${u.name} ${isYou ? '(You)' : ''}</td>
+          <td style="padding: 12px 8px; color: ${isYou ? 'var(--jade)' : 'var(--muted)'};">${u.level}</td>
+          <td style="padding: 12px 8px; text-align: right; font-weight: bold; color: ${isYou ? 'var(--jade)' : 'inherit'};">${u.score.toLocaleString()} XP</td>
+        </tr>
+      `;
+    }).join('');
+  } catch (e) {}
+}
+
+// -------------------------------------------------------------
+// Admin Terminal & Engine Controls View
+// -------------------------------------------------------------
+function renderAdminPage() {
+  return `
+    <div class="page-head">
+      <div>
+        <div class="eyebrow" style="color: var(--gold);">EXECUTIVE CONTROL TERMINAL</div>
+        <h1>System Administration & Engine Controls</h1>
+        <p>Manage real-mode activation, gateway providers (Flutterwave vs Korapay), and macroeconomic market settlement.</p>
+      </div>
+      <button class="btn btn-secondary" onclick="loadAdminData()">Refresh Engine ↺</button>
+    </div>
+
+    <!-- Stats Overview -->
+    <div class="metrics-row" id="admin-stats-container">
+      <div class="metric-card">
+        <span>Registered Strategists</span>
+        <strong id="stat-users">--</strong>
+        <small>Active user accounts</small>
+      </div>
+      <div class="metric-card">
+        <span>Active Forecasts</span>
+        <strong id="stat-forecasts">--</strong>
+        <small>Submitted commitments</small>
+      </div>
+      <div class="metric-card">
+        <span>Boardroom Matches</span>
+        <strong id="stat-challenges">--</strong>
+        <small>Arena strategy cases</small>
+      </div>
+      <div class="metric-card">
+        <span>Virtual Ledger Volume</span>
+        <strong id="stat-volume" style="color: var(--jade);">--</strong>
+        <small>Total VNGN transacted</small>
+      </div>
+    </div>
+
+    <!-- Feature Switches & Payment Gateways -->
+    <div class="two-col" style="margin-bottom: 24px;">
+      <!-- Feature Toggles -->
+      <div class="panel">
+        <div class="eyebrow">PLATFORM ENGINE TOGGLES</div>
+        <h2 style="margin: 8px 0 16px;">Core System Modes</h2>
+        <div style="display: flex; flex-direction: column; gap: 14px;" id="admin-features-container">
+          <p class="muted">Loading feature flags...</p>
+        </div>
+      </div>
+
+      <!-- Payment Gateway Selector -->
+      <div class="panel">
+        <div class="eyebrow">FUNDING ARCHITECTURE</div>
+        <h2 style="margin: 8px 0 16px;">Payment Gateways (Flutterwave & Korapay)</h2>
+        <p style="font-size: 13px; color: var(--muted); margin-bottom: 16px;">
+          Choose which provider handles live deposits. Switch anytime between Flutterwave and Korapay depending on verification status.
+        </p>
+        <div style="display: flex; flex-direction: column; gap: 12px;" id="admin-providers-container">
+          <p class="muted">Loading providers...</p>
+        </div>
+
+        <div style="margin-top: 18px; background: var(--bg); padding: 12px; border-radius: 8px; font-size: 12px; border: 1px solid var(--line);">
+          <b>Webhooks Endpoints:</b><br>
+          • <code>/api/webhooks/flutterwave</code><br>
+          • <code>/api/webhooks/korapay</code>
+        </div>
+      </div>
+    </div>
+
+    <!-- Market Creation & Market Resolution -->
+    <div class="two-col">
+      <!-- Create Market -->
+      <div class="panel">
+        <div class="eyebrow">MARKET DESK</div>
+        <h2 style="margin: 8px 0 16px;">Publish Macroeconomic Contract</h2>
+        <form onsubmit="handleCreateAdminMarket(event)">
+          <div class="form-group">
+            <label>Contract Title / Question</label>
+            <input class="input" id="admin-m-title" placeholder="e.g. CBN to adjust MPR at next MPC meeting?" required>
+          </div>
+          <div class="form-group" style="margin-top: 12px;">
+            <label>Industry</label>
+            <select class="select" id="admin-m-industry">
+              <option value="1">Monetary Policy</option>
+              <option value="2">Equities</option>
+              <option value="3">Energy</option>
+              <option value="4">Agriculture</option>
+              <option value="5">FX & Reserves</option>
+              <option value="6">Fintech</option>
+              <option value="7">Manufacturing</option>
+              <option value="8">Telecoms & Digital</option>
+              <option value="9">Real Estate & Infra</option>
+              <option value="10">FMCG & Retail</option>
+              <option value="11">Aviation & Logistics</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-top: 12px;">
+            <label>Resolution Source / Benchmark</label>
+            <input class="input" id="admin-m-source" value="CBN Official Communiqué / NBS Bulletin" required>
+          </div>
+          <div class="form-group" style="margin-top: 12px;">
+            <label>Closes At Date</label>
+            <input class="input" type="date" id="admin-m-date" required>
+          </div>
+          <div class="form-group" style="margin-top: 12px;">
+            <label>Study Context / Evidence Summary</label>
+            <textarea class="textarea" id="admin-m-def" rows="3" placeholder="Contextual macroeconomic drivers..."></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary btn-full" style="margin-top: 16px;">
+            Publish Contract to The Predictor ↗
+          </button>
+        </form>
+      </div>
+
+      <!-- Resolve Market -->
+      <div class="panel">
+        <div class="eyebrow">DOUBLE-ENTRY SETTLEMENT DESK</div>
+        <h2 style="margin: 8px 0 16px;">Resolve Open Contracts</h2>
+        <p style="font-size: 13px; color: var(--muted); margin-bottom: 14px;">
+          Settling an event evaluates all participants' forecast positions and atomically distributes payouts to winners.
+        </p>
+        <div id="admin-open-markets-list">
+          <p class="muted">Loading open contracts...</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function loadAdminData() {
+  try {
+    const [statsRes, featsRes, marketsRes] = await Promise.all([
+      api.get('/admin/stats'),
+      api.get('/admin/features'),
+      api.get('/markets'),
+    ]);
+
+    // Update stats
+    if (statsRes?.data) {
+      const s = statsRes.data;
+      const uEl = document.getElementById('stat-users');
+      const fEl = document.getElementById('stat-forecasts');
+      const cEl = document.getElementById('stat-challenges');
+      const vEl = document.getElementById('stat-volume');
+      if (uEl) uEl.innerText = s.total_users;
+      if (fEl) fEl.innerText = s.total_forecasts;
+      if (cEl) cEl.innerText = s.total_challenges;
+      if (vEl) vEl.innerText = '₦' + (s.ledger_volume_vngn || 0).toLocaleString();
+    }
+
+    // Update features
+    if (featsRes?.data) {
+      const fEl = document.getElementById('admin-features-container');
+      if (fEl) {
+        const featureLabels = {
+          real_mode: { name: 'Real Money Engine', desc: 'Master switch enabling real capital operations' },
+          real_funding: { name: 'Payment Ingestion', desc: 'Allows deposits via Flutterwave and Korapay' },
+          real_payouts: { name: 'Real Payouts', desc: 'Automated bank account withdrawals' },
+          real_boardroom: { name: 'Live Boardroom', desc: 'Permits real-money stakes in strategy arenas' },
+        };
+
+        fEl.innerHTML = (featsRes.data.features || []).map(f => {
+          const meta = featureLabels[f.code] || { name: f.code, desc: 'Feature toggle' };
+          const checked = Boolean(parseInt(f.enabled, 10));
+          return `
+            <div class="admin-card">
+              <div>
+                <b>${meta.name}</b>
+                <p style="font-size: 12px; color: var(--muted); margin-top: 2px;">${meta.desc}</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" ${checked ? 'checked' : ''} onchange="handleToggleFeature('${f.code}', this.checked)">
+                <span class="slider"></span>
+              </label>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // Update providers
+      const pEl = document.getElementById('admin-providers-container');
+      if (pEl) {
+        pEl.innerHTML = (featsRes.data.providers || []).map(p => {
+          const isEnabled = p.status === 'enabled';
+          const isSandbox = p.status === 'sandbox';
+          return `
+            <div class="admin-card">
+              <div>
+                <b style="font-size: 15px;">${p.display_name}</b>
+                <span class="badge-${p.status}" style="margin-left: 8px;">${p.status.toUpperCase()}</span>
+                <p style="font-size: 12px; color: var(--muted); margin-top: 4px;">Gateway Slug: <code>${p.slug}</code></p>
+              </div>
+              <div style="display: flex; gap: 6px;">
+                <button class="btn ${isEnabled ? 'btn-primary' : 'btn-secondary'}" style="padding: 4px 10px; font-size: 12px;" onclick="handleSwitchProvider('${p.slug}', 'enabled')">
+                  ${isEnabled ? 'Active ✓' : 'Set Active'}
+                </button>
+                <button class="btn ${isSandbox ? 'btn-primary' : 'btn-secondary'}" style="padding: 4px 10px; font-size: 12px;" onclick="handleSwitchProvider('${p.slug}', 'sandbox')">
+                  Sandbox
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // Update industries in creator dropdown if returned
+      if (featsRes.data.industries?.length) {
+        const indSelect = document.getElementById('admin-m-industry');
+        if (indSelect) {
+          indSelect.innerHTML = featsRes.data.industries.map(i => `
+            <option value="${i.id}">${i.name}</option>
+          `).join('');
+        }
+      }
+    }
+
+    // Update open markets for resolution
+    if (marketsRes?.data) {
+      const openMarkets = marketsRes.data.filter(m => m.state === 'open');
+      const mEl = document.getElementById('admin-open-markets-list');
+      if (mEl) {
+        if (!openMarkets.length) {
+          mEl.innerHTML = '<p class="muted">No open markets waiting for resolution.</p>';
+        } else {
+          mEl.innerHTML = openMarkets.map(m => `
+            <div style="background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 10px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                <span class="market-tag">${m.industry_name}</span>
+                <small style="color: var(--muted);">${m.closes_at ? m.closes_at.substring(0, 10) : 'Open'}</small>
+              </div>
+              <b style="font-size: 13.5px; display: block; margin-bottom: 8px;">${m.title}</b>
+              <div style="display: flex; gap: 8px;">
+                <button class="btn btn-primary" style="flex: 1; padding: 6px;" onclick="handleResolveMarket('${m.id}', true)">
+                  Resolve YES ✓
+                </button>
+                <button class="btn btn-secondary" style="flex: 1; padding: 6px;" onclick="handleResolveMarket('${m.id}', false)">
+                  Resolve NO ✗
+                </button>
+              </div>
+            </div>
+          `).join('');
+        }
+      }
+    }
+  } catch (e) {}
+}
+
+async function handleToggleFeature(code, isChecked) {
+  try {
+    await api.post('/admin/features/toggle', { code, enabled: isChecked });
+    api.toast(`Feature ${code} set to ${isChecked ? 'ON' : 'OFF'}`, 'success');
+  } catch (e) {
+    loadAdminData();
+  }
+}
+
+async function handleSwitchProvider(slug, status) {
+  try {
+    await api.post('/admin/providers/switch', { slug, status });
+    api.toast(`Provider ${slug} set to ${status}`, 'success');
+    loadAdminData();
+  } catch (e) {}
+}
+
+async function handleCreateAdminMarket(e) {
+  e.preventDefault();
+  const title = document.getElementById('admin-m-title').value;
+  const industryId = parseInt(document.getElementById('admin-m-industry').value, 10);
+  const source = document.getElementById('admin-m-source').value;
+  const dateVal = document.getElementById('admin-m-date').value;
+  const def = document.getElementById('admin-m-def').value;
+
+  try {
+    await api.post('/admin/markets/create', {
+      title,
+      industry_id: industryId,
+      resolution_source: source,
+      closes_at: dateVal ? `${dateVal} 23:59:59` : undefined,
+      definition: def,
+    });
+    api.toast('Contract published successfully!', 'success');
+    loadAdminData();
+  } catch (e) {}
+}
+
+async function handleResolveMarket(eventId, outcome) {
+  if (!confirm(`Are you sure you want to resolve this contract as ${outcome ? 'YES' : 'NO'} and distribute payouts?`)) {
+    return;
+  }
+  try {
+    const res = await api.post('/admin/markets/resolve', {
+      event_id: eventId,
+      outcome,
+    });
+    api.toast(res.message || 'Market resolved and settled!', 'success');
+    loadAdminData();
   } catch (e) {}
 }
 

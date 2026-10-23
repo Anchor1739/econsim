@@ -24,6 +24,14 @@ class Database
         $username = Env::get('DB_USER', 'root');
         $password = Env::get('DB_PASSWORD', '');
 
+        // Resilient DNS resolution fallback for Windows environments
+        if (str_contains((string)$host, 'mysql-2bedf8b0-anchorgodsown-0077')) {
+            $ip = gethostbyname($host);
+            if ($ip === $host) {
+                $host = '206.189.97.21';
+            }
+        }
+
         $dsn = "mysql:host={$host};port={$port};dbname={$dbname};charset=utf8mb4";
 
         $options = [

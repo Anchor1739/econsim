@@ -1,8 +1,24 @@
 // EconSim API Client
 const api = {
   baseUrl: '/api',
+  activeRequests: 0,
+
+  showLoader() {
+    this.activeRequests++;
+    const loader = document.getElementById('global-loader');
+    if (loader) loader.style.display = 'block';
+  },
+
+  hideLoader() {
+    this.activeRequests = Math.max(0, this.activeRequests - 1);
+    if (this.activeRequests === 0) {
+      const loader = document.getElementById('global-loader');
+      if (loader) loader.style.display = 'none';
+    }
+  },
 
   async request(endpoint, options = {}) {
+    this.showLoader();
     const url = endpoint.startsWith('/') ? `${this.baseUrl}${endpoint}` : `${this.baseUrl}/${endpoint}`;
     const headers = {
       'Content-Type': 'application/json',
@@ -29,6 +45,8 @@ const api = {
     } catch (err) {
       this.toast(err.message, 'error');
       throw err;
+    } finally {
+      this.hideLoader();
     }
   },
 
