@@ -1,1 +1,25 @@
-node_modules
+# Dependencies
+vendor/
+node_modules/
+archive/
+
+# Environment and secrets
+.env
+.env.local
+*.pem
+*.cert
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# OS and Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log

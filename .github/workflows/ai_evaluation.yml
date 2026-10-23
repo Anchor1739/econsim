@@ -1,0 +1,41 @@
+name: EconSim AI Evaluation Runner
+
+on:
+  schedule:
+    # Run every 10 minutes to poll and evaluate pending Boardroom strategy memos
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+    # Allows manual trigger from GitHub Actions tab
+
+jobs:
+  evaluate:
+    name: Poll & Evaluate Boardroom Memos
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r ai_agent/requirements.txt
+
+      - name: Run Evaluation Agent
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_SSL_CA_CONTENT: ${{ secrets.DB_SSL_CA_CONTENT }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          NVIDIA_MODEL: ${{ secrets.NVIDIA_MODEL || 'meta/llama-3.1-70b-instruct' }}
+        run: |
+          python ai_agent/evaluator.py
+

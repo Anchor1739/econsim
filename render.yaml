@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: econsim-platform
+    runtime: docker
+    plan: starter
+    region: frankfurt # Low latency to Africa & Europe
+    envVars:
+      - key: APP_NAME
+        value: EconSim
+      - key: APP_ENV
+        value: production
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: 25060
+      - key: DB_NAME
+        value: econsim
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_SSL_CA_CONTENT
+        sync: false
+      - key: MAILER_PROVIDER
+        value: resend
+      - key: MAILER_API_KEY
+        sync: false
+      - key: MAILER_FROM_EMAIL
+        value: onboarding@econsim.app
