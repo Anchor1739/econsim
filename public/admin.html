@@ -634,6 +634,36 @@
 
     </div>
 
+    <!-- Payment Gateway Audit & Funding Stream -->
+    <div class="card" style="margin-bottom: 24px;">
+      <div class="card-head">
+        <h2>💳 Gateway Audit & Real Funding Stream</h2>
+        <span style="font-size: 11px; color: var(--accent); font-family: var(--font-mono);">AUDIT_LOG_REAL_FUNDING</span>
+      </div>
+      <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">
+        Real-time audit stream showing the specific payment gateway (Flutterwave vs Korapay) that processed each electronic deposit or withdrawal.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Strategist</th>
+              <th>Amount</th>
+              <th>Gateway Rail</th>
+              <th>Provider Reference</th>
+              <th>Status</th>
+              <th style="text-align: right;">Timestamp</th>
+            </tr>
+          </thead>
+          <tbody id="funding-stream-table">
+            <tr>
+              <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">Loading funding audit stream...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- Active Markets & Atomic Settlement -->
     <div class="card">
       <div class="card-head">
@@ -818,11 +848,12 @@
 
     async function loadAllAdminData() {
       try {
-        const [feats, stats, ai, markets] = await Promise.all([
+        const [feats, stats, ai, markets, funding] = await Promise.all([
           apiRequest('/admin/features'),
           apiRequest('/admin/stats'),
           apiRequest('/admin/ai/model'),
-          apiRequest('/markets')
+          apiRequest('/markets'),
+          apiRequest('/admin/funding/stream').catch(() => ({ data: [] }))
         ]);
 
         renderStats(stats?.data);
@@ -831,9 +862,43 @@
         renderIndustries(feats?.data?.industries);
         renderAiModel(ai?.data);
         renderMarkets(markets?.data);
+        renderFundingStream(funding?.data);
       } catch (err) {
         console.error(err);
       }
+    }
+
+    function renderFundingStream(txs) {
+      const tbody = document.getElementById('funding-stream-table');
+      if (!tbody) return;
+      if (!txs || !txs.length) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">No live funding transactions yet.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = txs.map(t => {
+        const isKorapay = t.gateway === 'korapay';
+        const isSucceeded = t.status === 'succeeded';
+        return `
+          <tr>
+            <td><b>${t.user_name}</b><br><small style="color: var(--text-muted); font-size: 11px;">${t.user_email}</small></td>
+            <td><b style="color: ${isSucceeded ? '#34d399' : 'inherit'};">₦${t.amount_ngn.toLocaleString()}</b></td>
+            <td>
+              <span style="background: ${isKorapay ? 'rgba(168, 85, 247, 0.15)' : 'rgba(245, 158, 11, 0.15)'}; color: ${isKorapay ? '#c084fc' : '#fbbf24'}; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; font-family: var(--font-mono);">
+                ${(t.gateway || 'FLUTTERWAVE').toUpperCase()}
+              </span>
+            </td>
+            <td><code style="font-size: 11px; color: var(--text-muted);">${t.reference}</code></td>
+            <td>
+              <span style="color: ${isSucceeded ? '#34d399' : '#f59e0b'}; font-size: 11.5px; font-weight: 600;">
+                ${(t.status || 'CREATED').toUpperCase()}
+              </span>
+            </td>
+            <td style="text-align: right; font-size: 11.5px; color: var(--text-muted); font-family: var(--font-mono);">
+              ${(t.created_at || '').slice(0, 16)}
+            </td>
+          </tr>
+        `;
+      }).join('');
     }
 
     function renderStats(s) {

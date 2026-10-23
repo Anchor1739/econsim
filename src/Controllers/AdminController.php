@@ -135,6 +135,43 @@ class AdminController
         ]);
     }
 
+    public function getFundingStream(): void
+    {
+        $this->requireAdmin();
+        $pdo = Database::getConnection();
+
+        $stmt = $pdo->query(
+            "SELECT f.id, f.user_id, u.display_name, u.email,
+                    COALESCE(p.display_name, 'Flutterwave') AS provider_name,
+                    COALESCE(p.slug, 'flutterwave') AS provider_slug,
+                    f.provider_reference, f.amount_minor, f.currency, f.mode, f.state,
+                    f.created_at, f.confirmed_at
+             FROM funding_intents f
+             LEFT JOIN funding_providers p ON f.provider_id = p.id
+             LEFT JOIN users u ON f.user_id = u.id
+             ORDER BY f.created_at DESC
+             LIMIT 100"
+        );
+        $rows = $stmt->fetchAll();
+
+        $transactions = array_map(function ($r) {
+            return [
+                'id' => $r['id'],
+                'user_name' => $r['display_name'] ?? 'Analyst',
+                'user_email' => $r['email'] ?? '',
+                'amount_ngn' => (int)($r['amount_minor'] / 100),
+                'gateway' => $r['provider_slug'],
+                'gateway_name' => $r['provider_name'],
+                'reference' => $r['provider_reference'],
+                'status' => $r['state'],
+                'created_at' => $r['created_at'],
+                'confirmed_at' => $r['confirmed_at'],
+            ];
+        }, $rows);
+
+        Response::success($transactions);
+    }
+
     public function createMarket(): void
     {
         $user = $this->requireAdmin();

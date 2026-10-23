@@ -22,7 +22,26 @@ let state = {
   activeProvider: { slug: 'flutterwave', display_name: 'Flutterwave', status: 'sandbox' },
   features: {},
   leaderboardTab: 'Overall',
-  lab: { rate: 20, inflation: 24, spend: 12 },
+  lab: {
+    selectedIndustry: 'monetary',
+    industries: [],
+    scenarios: [],
+    selectedScenarioId: 'mon_1',
+    selectedScenario: null,
+    definitions: {},
+    params: {
+      mpr: 27.25,
+      inflation: 32.5,
+      fx_rate: 1650,
+      fuel_price: 1050,
+      crr: 45.0,
+      spend_impulse: 14.0,
+    },
+    results: null,
+    aiBriefing: null,
+    isBriefingLoading: false,
+    openPrimers: {},
+  },
 };
 
 function toggleMobileDrawer() {
@@ -824,9 +843,9 @@ function renderWalletPage() {
         <small>Sum of available and held accounts</small>
       </div>
       <div class="metric-card">
-        <span>Active Payment Gateway</span>
-        <strong>${providerName}</strong>
-        <small><span class="badge-${providerStatus}">${providerStatus.toUpperCase()}</span> gateway ready</small>
+        <span>Settlement Rails</span>
+        <strong style="color: var(--navy);">NIBSS Instant Pay</strong>
+        <small><span class="badge-enabled">ACTIVE</span> Card, Bank Transfer & USSD</small>
       </div>
     </div>
 
@@ -836,17 +855,17 @@ function renderWalletPage() {
         
         <!-- Card 1: Live Gateway Deposits (real_funding) -->
         <div class="panel">
-          <div class="eyebrow" style="color: var(--jade);">INSTANT DEPOSIT & FUNDING</div>
+          <div class="eyebrow" style="color: var(--jade);">INSTANT DEPOSIT & LIVE FUNDING</div>
           <h2 style="margin: 8px 0 12px;">Fund Real Trading Wallet</h2>
           <p style="color: var(--muted); font-size: 13px; margin-bottom: 16px;">
-            Direct bank transfer, card, and USSD deposits processed via <b>${providerName}</b> into your atomic double-entry ledger account.
+            Securely deposit live funds using direct bank transfer, debit/credit cards (Mastercard, Visa, Verve), or USSD into your segregated double-entry ledger account.
           </p>
 
           ${!isFundingEnabled ? `
             <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
-              <b style="color: var(--red);">🔒 Live Gateway Deposits Paused</b>
+              <b style="color: var(--red);">🔒 Live Deposits Paused</b>
               <p style="font-size: 12.5px; color: var(--text); margin-top: 4px;">
-                Live deposits via ${providerName} are currently disabled by platform administration.
+                Electronic deposits are currently paused by platform administration.
               </p>
             </div>
             <button class="btn btn-secondary btn-full" disabled style="opacity: 0.6; cursor: not-allowed;">
@@ -863,8 +882,16 @@ function renderWalletPage() {
                   `).join('')}
                 </div>
               </div>
+              <div style="margin-top: 14px; padding: 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; font-size: 12px; color: var(--muted);">
+                <b>Supported Channels:</b>
+                <div style="display: flex; gap: 12px; margin-top: 6px; color: var(--text); font-weight: 500;">
+                  <span>💳 Debit/Credit Card</span>
+                  <span>🏦 Direct Bank Transfer</span>
+                  <span>⚡ USSD</span>
+                </div>
+              </div>
               <button type="submit" class="btn btn-primary btn-full" style="margin-top: 16px;">
-                Deposit via ${providerName} ↗
+                Proceed to Secure Deposit (₦) ↗
               </button>
             </form>
           `}
@@ -872,10 +899,10 @@ function renderWalletPage() {
 
         <!-- Card 2: Settlement Withdrawals (real_payouts) -->
         <div class="panel">
-          <div class="eyebrow" style="color: var(--jade);">SETTLEMENT & PAYOUT</div>
+          <div class="eyebrow" style="color: var(--jade);">SETTLEMENT & WITHDRAWAL</div>
           <h2 style="margin: 8px 0 12px;">Request Bank Withdrawal</h2>
           <p style="color: var(--muted); font-size: 13px; margin-bottom: 16px;">
-            Automated NIBSS bank transfer to your Nigerian commercial bank account from your live available balance.
+            Direct electronic NIBSS bank settlement to any verified commercial bank account in Nigeria.
           </p>
 
           ${!isPayoutsEnabled ? `
@@ -1060,90 +1087,364 @@ function renderMentorPage() {
 // Scenario Lab View
 // -------------------------------------------------------------
 function renderScenarioLab() {
-  const r = state.lab.rate;
-  const inf = state.lab.inflation;
-  const sp = state.lab.spend;
+  const lab = state.lab;
+  const currentInd = (lab.industries || []).find(i => i.slug === lab.selectedIndustry) || {
+    slug: 'monetary',
+    name: 'Monetary Policy & Banking',
+    icon: '🏦',
+    tagline: 'Liquidity transmission, benchmark yield corridors, and CRR sterilization.',
+  };
 
-  const modeledInf = (inf - 0.3 * (r - 20) + 0.14 * (sp - 12)).toFixed(1);
-  const creditIdx = Math.max(10, Math.min(90, Math.round(55 - (r - 20) * 1.65)));
-  const investIdx = Math.max(10, Math.min(95, Math.round(64 - (r - 20) * 1.2 + (sp - 12) * 0.6)));
+  const p = lab.params || {};
+  const res = lab.results || runLocalLabSimulation();
+
+  const infColor = res.projected_inflation > 32 ? 'var(--red)' : (res.projected_inflation > 20 ? 'var(--orange)' : 'var(--jade)');
+  const creditColor = res.credit_impulse < 35 ? 'var(--red)' : (res.credit_impulse < 60 ? 'var(--orange)' : 'var(--jade)');
+  const investColor = res.investment_index < 35 ? 'var(--red)' : (res.investment_index < 60 ? 'var(--orange)' : 'var(--jade)');
+  const pwrColor = res.purchasing_power < 35 ? 'var(--red)' : (res.purchasing_power < 55 ? 'var(--orange)' : 'var(--jade)');
+  const debtColor = res.debt_service_burden > 70 ? 'var(--red)' : (res.debt_service_burden > 55 ? 'var(--orange)' : 'var(--jade)');
+  const marginColor = res.margin_stress < 0 ? 'var(--red)' : (res.margin_stress < 8 ? 'var(--orange)' : 'var(--jade)');
+
+  const defs = lab.definitions || {};
+
+  const indList = (lab.industries && lab.industries.length > 0) ? lab.industries : [
+    { slug: 'monetary', name: 'Monetary Policy', icon: '🏦' },
+    { slug: 'energy', name: 'Energy & Oil', icon: '⚡' },
+    { slug: 'agriculture', name: 'Agriculture', icon: '🌾' },
+    { slug: 'manufacturing', name: 'Manufacturing', icon: '🏭' },
+    { slug: 'fintech', name: 'Fintech', icon: '💻' },
+    { slug: 'telecoms', name: 'Telecoms', icon: '📱' },
+    { slug: 'fmcg', name: 'FMCG & Retail', icon: '🛒' },
+    { slug: 'real-estate', name: 'Real Estate', icon: '🏢' },
+    { slug: 'logistics', name: 'Aviation & Logistics', icon: '✈️' },
+    { slug: 'healthcare', name: 'Healthcare & Pharma', icon: '🏥' },
+  ];
 
   return `
     <div class="page-head">
       <div>
-        <div class="eyebrow">MACROECONOMIC SIMULATOR</div>
+        <div class="eyebrow">MULTIVARIATE ECONOMIC & INDUSTRY SIMULATION LAB</div>
         <h1>Scenario Lab</h1>
-        <p>Adjust policy variables and inspect modeled macroeconomic consequences.</p>
+        <p>Calibrate empirical policy levers, test supply & demand shocks, and observe real-time equilibrium transmission across sectors.</p>
       </div>
     </div>
 
-    <div class="two-col">
-      <div class="panel">
-        <h2>Central Bank Controls</h2>
-        <div class="form-group" style="margin-top: 18px;">
-          <label style="display: flex; justify-content: space-between;">
-            <span>Monetary Policy Rate (MPR)</span>
-            <b style="color: var(--jade);">${r}%</b>
-          </label>
-          <input type="range" min="5" max="35" value="${r}" oninput="updateLabParam('rate', this.value)" style="width: 100%;">
-          <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--muted);"><span>5% Accommodative</span><span>35% Restrictive</span></div>
+    <!-- Industry Selector Pills -->
+    <div class="lab-industry-pills">
+      ${indList.map(ind => `
+        <button type="button" class="lab-industry-pill ${lab.selectedIndustry === ind.slug ? 'active' : ''}" onclick="selectLabIndustry('${ind.slug}')">
+          <span>${ind.icon || '📊'}</span>
+          <span>${ind.name}</span>
+        </button>
+      `).join('')}
+    </div>
+
+    <div class="two-col" style="align-items: flex-start; gap: 24px;">
+      <!-- Left Column: Scenarios & Policy Levers -->
+      <div style="display: flex; flex-direction: column; gap: 20px;">
+        
+        <!-- Active Sector Header -->
+        <div class="panel" style="border-left: 4px solid var(--jade);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <div class="eyebrow" style="color: var(--jade);">${currentInd.name.toUpperCase()} SECTOR</div>
+            <span class="badge badge-enabled">Empirical Model Active</span>
+          </div>
+          <h2 style="margin: 0 0 6px; font-size: 18px; display: flex; align-items: center; gap: 8px;">
+            <span>${currentInd.icon || '🏦'}</span>
+            <span>${currentInd.name}</span>
+          </h2>
+          <p style="font-size: 13px; color: var(--muted); margin: 0;">${currentInd.tagline || ''}</p>
         </div>
 
-        <div class="form-group" style="margin-top: 18px;">
-          <label style="display: flex; justify-content: space-between;">
-            <span>Initial Headline Inflation</span>
-            <b>${inf}%</b>
-          </label>
-          <input type="range" min="2" max="40" value="${inf}" oninput="updateLabParam('inflation', this.value)" style="width: 100%;">
-          <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--muted);"><span>2%</span><span>40%</span></div>
+        <!-- Scenarios Selection -->
+        <div class="panel">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+            <div class="eyebrow">CRISIS & POLICY SCENARIOS</div>
+            <span style="font-size: 12px; color: var(--muted);">${(lab.scenarios || []).length} Presets Available</span>
+          </div>
+          <div id="lab-scenarios-container">
+            ${(lab.scenarios && lab.scenarios.length > 0) ? lab.scenarios.map(sc => `
+              <div class="lab-scenario-card ${lab.selectedScenarioId === sc.id ? 'active' : ''}" onclick="selectLabScenario('${sc.id}')">
+                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px;">
+                  <strong style="font-size: 14px; color: var(--text);">${sc.title}</strong>
+                  ${lab.selectedScenarioId === sc.id ? '<span class="badge badge-enabled" style="font-size: 10px;">ACTIVE</span>' : ''}
+                </div>
+                <p style="font-size: 12.5px; color: var(--muted); margin: 4px 0 8px; line-height: 1.5;">${sc.description}</p>
+                <div style="font-size: 11.5px; color: var(--navy); background: rgba(36,121,101,0.06); padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(36,121,101,0.15);">
+                  <b>Core Dilemma:</b> ${sc.core_dilemma || 'Evaluate transmission channels and strategic counter-measures.'}
+                </div>
+              </div>
+            `).join('') : `
+              <div style="text-align: center; padding: 16px; color: var(--muted); font-size: 13px;">
+                Loading empirical scenarios for ${currentInd.name}...
+              </div>
+            `}
+          </div>
+
+          <!-- Custom AI Scenario Prompt Box -->
+          <div style="margin-top: 18px; border-top: 1px dashed var(--line); padding-top: 16px;">
+            <div class="eyebrow" style="margin-bottom: 8px; color: var(--navy);">✨ GENERATE CUSTOM AI DILEMMA</div>
+            <form onsubmit="handleGenerateAiScenario(event)">
+              <div style="display: flex; gap: 8px;">
+                <input class="input" id="lab-ai-prompt" placeholder="E.g., Crude drops to $50, FX hits ₦2,200, fuel surges 30%..." style="font-size: 12.5px;" required>
+                <button type="submit" class="btn btn-secondary" style="white-space: nowrap;" id="btn-gen-ai-scenario">
+                  ${lab.isAiGenLoading ? 'Generating...' : 'Synthesize AI'}
+                </button>
+              </div>
+              <small style="color: var(--muted); font-size: 11px; display: block; margin-top: 4px;">Generates a calibrated scenario using NVIDIA NIM LLM.</small>
+            </form>
+          </div>
         </div>
 
-        <div class="form-group" style="margin-top: 18px;">
-          <label style="display: flex; justify-content: space-between;">
-            <span>Fiscal Spending Impulse</span>
-            <b>${sp}%</b>
-          </label>
-          <input type="range" min="0" max="30" value="${sp}" oninput="updateLabParam('spend', this.value)" style="width: 100%;">
-          <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--muted);"><span>Fiscal Austerity</span><span>Expansionary</span></div>
+        <!-- Macroeconomic Levers -->
+        <div class="panel">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div>
+              <div class="eyebrow">CALIBRATE LEVERS</div>
+              <h2 style="font-size: 16px; margin: 4px 0 0;">Macroeconomic & Industry Policy Controls</h2>
+            </div>
+            <button class="btn btn-secondary" style="font-size: 11.5px; padding: 4px 10px;" onclick="resetLabParameters()">↺ Reset Baseline</button>
+          </div>
+
+          <!-- Lever 1: MPR -->
+          ${renderLeverBox('mpr', 'Monetary Policy Rate (MPR)', p.mpr ?? 27.25, 5, 35, 0.25, '%', '5% Accommodative', '35% Restrictive', defs.mpr)}
+
+          <!-- Lever 2: Inflation -->
+          ${renderLeverBox('inflation', 'Headline Inflation (CPI)', p.inflation ?? 32.5, 2, 50, 0.5, '%', '2% Single Digit', '50% Hyperinflationary', defs.inflation)}
+
+          <!-- Lever 3: FX Rate -->
+          ${renderLeverBox('fx_rate', 'Exchange Rate (USD/NGN)', p.fx_rate ?? 1650, 700, 2500, 25, '₦/$', '₦700 Overvalued', '₦2,500 Devaluation', defs.fx_rate)}
+
+          <!-- Lever 4: Fuel Price -->
+          ${renderLeverBox('fuel_price', 'Industrial Fuel & Pump Price', p.fuel_price ?? 1050, 500, 2000, 25, '₦/L', '₦500 Subsidized', '₦2,000 Deregulated', defs.fuel_price)}
+
+          <!-- Lever 5: CRR -->
+          ${renderLeverBox('crr', 'Cash Reserve Requirement (CRR)', p.crr ?? 45.0, 10, 60, 1.0, '%', '10% High Liquidity', '60% Ultra Tight', defs.crr)}
+
+          <!-- Lever 6: Spend Impulse -->
+          ${renderLeverBox('spend_impulse', 'Fiscal Spending / Deficit Impulse', p.spend_impulse ?? 14.0, 1, 25, 0.5, '% GDP', '1% Austerity', '25% Expansionary', defs.spend_impulse)}
+
+        </div>
+      </div>
+
+      <!-- Right Column: Equilibrium Gauges & AI Briefing -->
+      <div style="display: flex; flex-direction: column; gap: 20px;">
+        
+        <!-- Live Gauges Panel -->
+        <div class="panel">
+          <div class="eyebrow" style="color: var(--jade);">LIVE EQUILIBRIUM PROJECTIONS</div>
+          <h2 style="font-size: 16px; margin: 4px 0 16px;">Transmission Gauges & Stress Indices</h2>
+
+          <!-- Gauge 1: Projected Inflation -->
+          <div class="lab-gauge-card">
+            <div class="lab-gauge-header">
+              <span style="font-size: 13px; font-weight: 600;">Projected 12M Inflation Trajectory</span>
+              <span class="lab-val-badge" id="gauge-val-inf" style="color: ${infColor}; font-size: 16px;">${res.projected_inflation}%</span>
+            </div>
+            <div class="lab-gauge-bar">
+              <div class="lab-gauge-fill" id="gauge-bar-inf" style="width: ${Math.min(100, (res.projected_inflation / 60) * 100)}%; background: ${infColor};"></div>
+            </div>
+            <small id="gauge-sub-inf" style="font-size: 11.5px; color: var(--muted);">
+              ${res.projected_inflation > 32 ? 'Critical cost-push & currency pass-through pressure' : (res.projected_inflation > 20 ? 'Elevated structural inflation corridor' : 'Contained baseline price dynamics')}
+            </small>
+          </div>
+
+          <!-- Gauge 2: Credit Impulse -->
+          <div class="lab-gauge-card">
+            <div class="lab-gauge-header">
+              <span style="font-size: 13px; font-weight: 600;">Real Sector Credit Impulse Index</span>
+              <span class="lab-val-badge" id="gauge-val-credit" style="color: ${creditColor}; font-size: 16px;">${res.credit_impulse} / 100</span>
+            </div>
+            <div class="lab-gauge-bar">
+              <div class="lab-gauge-fill" id="gauge-bar-credit" style="width: ${res.credit_impulse}%; background: ${creditColor};"></div>
+            </div>
+            <small id="gauge-sub-credit" style="font-size: 11.5px; color: var(--muted);">
+              ${res.credit_impulse < 40 ? 'Severe liquidity sterilization; commercial banks rationing credit' : 'Moderate loanable funds available to private enterprise'}
+            </small>
+          </div>
+
+          <!-- Gauge 3: CapEx / Private Investment -->
+          <div class="lab-gauge-card">
+            <div class="lab-gauge-header">
+              <span style="font-size: 13px; font-weight: 600;">Private Investment & CapEx Sentiment</span>
+              <span class="lab-val-badge" id="gauge-val-invest" style="color: ${investColor}; font-size: 16px;">${res.investment_index} / 100</span>
+            </div>
+            <div class="lab-gauge-bar">
+              <div class="lab-gauge-fill" id="gauge-bar-invest" style="width: ${res.investment_index}%; background: ${investColor};"></div>
+            </div>
+            <small id="gauge-sub-invest" style="font-size: 11.5px; color: var(--muted);">
+              ${res.investment_index < 40 ? 'Corporate capital investments paused; balance sheet defensive mode' : 'Supportive climate for multi-year expansion investments'}
+            </small>
+          </div>
+
+          <!-- Gauge 4: Consumer Purchasing Power -->
+          <div class="lab-gauge-card">
+            <div class="lab-gauge-header">
+              <span style="font-size: 13px; font-weight: 600;">Consumer Purchasing Power Index</span>
+              <span class="lab-val-badge" id="gauge-val-pwr" style="color: ${pwrColor}; font-size: 16px;">${res.purchasing_power} / 100</span>
+            </div>
+            <div class="lab-gauge-bar">
+              <div class="lab-gauge-fill" id="gauge-bar-pwr" style="width: ${res.purchasing_power}%; background: ${pwrColor};"></div>
+            </div>
+            <small id="gauge-sub-pwr" style="font-size: 11.5px; color: var(--muted);">
+              ${res.purchasing_power < 40 ? 'Acute disposable income squeeze; volume drop across consumer staples' : 'Resilient household demand absorbing modest price increases'}
+            </small>
+          </div>
+
+          <!-- Gauge 5: Sovereign Debt Service Burden -->
+          <div class="lab-gauge-card">
+            <div class="lab-gauge-header">
+              <span style="font-size: 13px; font-weight: 600;">Sovereign Debt Service-to-Revenue</span>
+              <span class="lab-val-badge" id="gauge-val-debt" style="color: ${debtColor}; font-size: 16px;">${res.debt_service_burden}%</span>
+            </div>
+            <div class="lab-gauge-bar">
+              <div class="lab-gauge-fill" id="gauge-bar-debt" style="width: ${Math.min(100, (res.debt_service_burden / 100) * 100)}%; background: ${debtColor};"></div>
+            </div>
+            <small id="gauge-sub-debt" style="font-size: 11.5px; color: var(--muted);">
+              ${res.debt_service_burden > 70 ? 'High crowding-out risk; domestic yields locked into sovereign paper' : 'Sustainable debt sustainability corridor'}
+            </small>
+          </div>
+
+          <!-- Gauge 6: Industry Gross Margin Stress -->
+          <div class="lab-gauge-card">
+            <div class="lab-gauge-header">
+              <span style="font-size: 13px; font-weight: 600;">Sector Gross Margin Delta</span>
+              <span class="lab-val-badge" id="gauge-val-margin" style="color: ${marginColor}; font-size: 16px;">${res.margin_stress > 0 ? '+' : ''}${res.margin_stress}%</span>
+            </div>
+            <div class="lab-gauge-bar">
+              <div class="lab-gauge-fill" id="gauge-bar-margin" style="width: ${Math.max(10, Math.min(100, 50 + res.margin_stress * 2))}%; background: ${marginColor};"></div>
+            </div>
+            <small id="gauge-sub-margin" style="font-size: 11.5px; color: var(--muted);">
+              ${res.margin_stress < 0 ? 'Severe unit margin contraction under import FX & power cost shocks' : 'Stable or expanding sectoral gross margins'}
+            </small>
+          </div>
+
+          <!-- Gauge 7: Sovereign FX Reserve Pressure -->
+          <div style="background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+            <span style="font-size: 13px; font-weight: 600;">Sovereign FX Buffer Status:</span>
+            <span id="gauge-val-fxp" class="badge ${res.fx_pressure === 'Critical Alert' ? 'badge-sandbox' : 'badge-enabled'}" style="${res.fx_pressure === 'Critical Alert' ? 'background: #f87171; color: #fff;' : ''}">${res.fx_pressure}</span>
+          </div>
         </div>
 
-        <button class="btn btn-secondary" style="margin-top: 16px;" onclick="resetLab()">Reset Experiment ↺</button>
+        <!-- AI Masterclass Policy Briefing Panel -->
+        <div class="panel">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div class="eyebrow" style="color: var(--navy);">🤖 NVIDIA NIM AI ADJUDICATION</div>
+            <span class="badge" style="background: rgba(36,121,101,0.12); color: var(--jade);">${state.activeAiModel || 'meta/llama-3.1-70b-instruct'}</span>
+          </div>
+          <h2 style="font-size: 16px; margin: 0 0 8px;">Executive Masterclass Policy Briefing</h2>
+          <p style="font-size: 12.5px; color: var(--muted); margin-bottom: 16px;">
+            Dispatch current macroeconomic equilibrium parameters to the neural model to produce a comprehensive 5-part executive strategy dossier.
+          </p>
+
+          <button class="btn btn-primary btn-full" id="btn-run-briefing" onclick="handleRunAiBriefing()" ${lab.isBriefingLoading ? 'disabled' : ''}>
+            ${lab.isBriefingLoading ? '<span class="spinner" style="width: 14px; height: 14px; border-width: 2px; display: inline-block; margin-right: 8px;"></span> Synthesizing Executive Briefing...' : 'Generate Executive Masterclass Briefing ⚡'}
+          </button>
+
+          <!-- Briefing Results Container -->
+          <div id="lab-briefing-panel" style="margin-top: 16px;">
+            ${renderLabBriefingOutput()}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  `;
+}
+
+function renderLeverBox(key, name, value, min, max, step, unit, minLabel, maxLabel, def) {
+  const isOpen = !!(state.lab && state.lab.openPrimers && state.lab.openPrimers[key]);
+  const formattedVal = formatLabParamVal(key, value);
+
+  let primerHtml = '';
+  if (def) {
+    primerHtml = `
+      <div id="lab-primer-${key}" class="lab-primer-drawer" style="display: ${isOpen ? 'block' : 'none'};">
+        <div style="margin-bottom: 8px;">
+          <b style="color: var(--navy); display: block; font-size: 12px; margin-bottom: 2px;">Core Economic Definition:</b>
+          <span>${def.definition || ''}</span>
+        </div>
+        <div style="margin-bottom: 8px;">
+          <b style="color: var(--jade); display: block; font-size: 12px; margin-bottom: 2px;">Emerging Market / Nigeria Context:</b>
+          <span>${def.emerging_market_context || ''}</span>
+        </div>
+        <div style="margin-bottom: 8px;">
+          <b style="color: var(--text); display: block; font-size: 12px; margin-bottom: 2px;">Transmission Channels:</b>
+          <ul style="margin: 4px 0 0 16px; padding: 0; font-size: 12px;">
+            ${Object.entries(def.transmission_channels || {}).map(([ord, desc]) => `
+              <li style="margin-bottom: 4px;"><b>${ord}:</b> ${desc}</li>
+            `).join('')}
+          </ul>
+        </div>
+        <div>
+          <b style="color: var(--navy); display: block; font-size: 12px; margin-bottom: 2px;">Executive Leadership Playbook:</b>
+          <span>${def.executive_implications || ''}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="lab-lever-box">
+      <div class="lab-lever-header">
+        <label for="lab-slider-${key}" style="font-weight: 600; font-size: 13.5px; margin: 0; cursor: pointer;">${name}</label>
+        <span class="lab-val-badge" id="lab-val-${key}">${formattedVal}</span>
+      </div>
+      <input type="range" class="input" id="lab-slider-${key}" min="${min}" max="${max}" step="${step}" value="${value}" oninput="updateLabSlider('${key}', this.value)" style="width: 100%; cursor: pointer;">
+      <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 4px;">
+        <span>${minLabel}</span>
+        <span>${maxLabel}</span>
+      </div>
+      ${def ? `
+        <button type="button" class="lab-primer-toggle" onclick="toggleLabPrimer('${key}')">
+          <span>ℹ️ What does this mean & how does it transmit? ${isOpen ? '▲' : '▼'}</span>
+        </button>
+        ${primerHtml}
+      ` : ''}
+    </div>
+  `;
+}
+
+function renderLabBriefingOutput() {
+  const b = state.lab ? state.lab.aiBriefing : null;
+  if (!b) {
+    return `
+      <div style="text-align: center; padding: 24px; color: var(--muted); background: var(--bg); border: 1px dashed var(--line); border-radius: 8px; font-size: 13px;">
+        Adjust the levers to configure your macroeconomic stress scenario, then click <b>Generate Executive Masterclass Briefing</b> to receive an AI-adjudicated policy evaluation.
+      </div>
+    `;
+  }
+
+  return `
+    <div style="background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 18px; font-size: 13px; line-height: 1.7;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 14px;">
+        <b style="color: var(--jade); font-size: 14px;">MEMORANDUM TO THE BOARD & EXECUTIVE COMMITTEE</b>
+        <small style="color: var(--muted); font-size: 11px;">Model: ${state.lab.briefingModel || 'NVIDIA NIM'}</small>
+      </div>
+
+      <div style="margin-bottom: 14px;">
+        <h4 style="margin: 0 0 4px; color: var(--navy); font-size: 13.5px;">1. Executive Summary & Macro Stance</h4>
+        <div style="color: var(--text);">${renderMarkdown(b.executive_summary || '')}</div>
+      </div>
+
+      <div style="margin-bottom: 14px;">
+        <h4 style="margin: 0 0 4px; color: var(--navy); font-size: 13.5px;">2. Transmission Channels & Financial Conditions</h4>
+        <div style="color: var(--text);">${renderMarkdown(b.transmission_mechanisms || '')}</div>
+      </div>
+
+      <div style="margin-bottom: 14px;">
+        <h4 style="margin: 0 0 4px; color: var(--navy); font-size: 13.5px;">3. Sectoral Margin Stress & Working Capital</h4>
+        <div style="color: var(--text);">${renderMarkdown(b.sector_impacts || '')}</div>
+      </div>
+
+      <div style="margin-bottom: 14px;">
+        <h4 style="margin: 0 0 4px; color: var(--navy); font-size: 13.5px;">4. Corporate Leadership Playbook (C-Suite Tactics)</h4>
+        <div style="color: var(--text);">${renderMarkdown(b.corporate_playbook || '')}</div>
       </div>
 
       <div>
-        <div class="metrics-row" style="grid-template-columns: 1fr;">
-          <div class="metric-card">
-            <span>Modelled Inflation Trajectory</span>
-            <strong style="color: ${modeledInf > 20 ? 'var(--red)' : 'var(--jade)'};">${modeledInf}%</strong>
-            <small>${r > 20 ? 'Tightening pressure dampening demand CPI' : 'Accommodative stance'}</small>
-          </div>
-          <div class="metric-card">
-            <span>Credit Conditions Index</span>
-            <strong>${creditIdx} / 100</strong>
-            <small>Higher index reflects looser banking liquidity</small>
-          </div>
-          <div class="metric-card">
-            <span>Private Investment Index</span>
-            <strong>${investIdx} / 100</strong>
-            <small>Estimated capital expenditure sentiment</small>
-          </div>
-        </div>
-
-        <div class="panel" style="margin-top: 16px;">
-          <div class="eyebrow" style="color: var(--jade);">TRANSMISSION MECHANISM</div>
-          <h3 style="margin: 6px 0 10px; font-size: 15px;">Pedagogical Feedback & Policy Trade-offs</h3>
-          <div style="font-size: 13px; line-height: 1.7; color: var(--text);">
-            ${r >= 22 ? `
-              <p><b>1. Price Stability & Monetary Transmission:</b> At an MPR of ${r}%, the central bank enforces restrictive liquidity conditions. High benchmark yields sterilize commercial bank loanable funds, restraining credit-fueled consumption and dampening headline demand-pull inflation toward ${modeledInf}%.</p>
-              <p style="margin-top: 8px;"><b>2. Real Economy Trade-offs:</b> The Credit Impulse Index contracts to ${creditIdx}/100 as prime lending rates rise toward ${r + 6}%–${r + 9}%. Manufacturing, retail, and agro-processors face acute debt servicing costs, moderating private sector CapEx (Investment Index at ${investIdx}/100).</p>
-              <p style="margin-top: 8px;"><b>3. Fiscal Implications:</b> Elevated domestic yields increase sovereign debt servicing costs, narrowing fiscal room for infrastructure disbursements.</p>
-            ` : `
-              <p><b>1. Liquidity & Capital Formation:</b> With an accommodative MPR of ${r}%, borrowing costs decline across the interbank curve, encouraging private commercial borrowing (Credit Index at ${creditIdx}/100) and stimulating corporate capital investments (Investment Index at ${investIdx}/100).</p>
-              <p style="margin-top: 8px;"><b>2. Inflationary & Currency Risks:</b> With fiscal impulse at ${sp}%, excess liquidity expands broad money supply (M2/M3). In an import-dependent economy, real negative interest rates risk capital outflows, pushing projected inflation toward ${modeledInf}%.</p>
-              <p style="margin-top: 8px;"><b>3. Strategic Imperative:</b> Monetary easing must be matched with targeted sector development facilities to expand domestic productive capacity rather than speculative asset bubbles.</p>
-            `}
-          </div>
-        </div>
+        <h4 style="margin: 0 0 4px; color: var(--red); font-size: 13.5px;">5. Tail Risks & Black Swan Scenarios</h4>
+        <div style="color: var(--text);">${renderMarkdown(b.risks_and_tail_events || '')}</div>
       </div>
     </div>
   `;
@@ -1402,6 +1703,8 @@ function attachViewEvents() {
     loadLiveChallengeData(state.currentChallengeId);
   } else if (state.page === 'challenge_report' && state.currentChallengeId) {
     loadChallengeReportData(state.currentChallengeId);
+  } else if (state.page === 'lab') {
+    loadScenarioLabData(state.lab.selectedIndustry);
   }
 }
 
@@ -2151,16 +2454,355 @@ function triggerQuickMentor(q) {
 }
 
 // -------------------------------------------------------------
-// Scenario Lab Controls
+// Interactive Scenario Lab Controls & Simulation Engine
 // -------------------------------------------------------------
-function updateLabParam(key, val) {
-  state.lab[key] = parseInt(val, 10);
+function formatLabParamVal(key, val) {
+  const n = parseFloat(val);
+  switch (key) {
+    case 'mpr':
+    case 'inflation':
+    case 'crr':
+      return `${n.toFixed(2)}%`;
+    case 'fx_rate':
+      return `₦${Math.round(n).toLocaleString('en-NG')} / $`;
+    case 'fuel_price':
+      return `₦${Math.round(n).toLocaleString('en-NG')} / L`;
+    case 'spend_impulse':
+      return `${n.toFixed(1)}% GDP`;
+    default:
+      return `${n}`;
+  }
+}
+
+function runLocalLabSimulation() {
+  if (!state.lab.params) {
+    state.lab.params = {
+      mpr: 27.25,
+      inflation: 32.5,
+      fx_rate: 1650,
+      fuel_price: 1050,
+      crr: 45.0,
+      spend_impulse: 14.0,
+    };
+  }
+
+  const p = state.lab.params;
+  const ind = state.lab.selectedIndustry || 'monetary';
+
+  const mpr = parseFloat(p.mpr ?? 26.25);
+  const inflation = parseFloat(p.inflation ?? 32.0);
+  const fxRate = parseFloat(p.fx_rate ?? 1650);
+  const fuelPrice = parseFloat(p.fuel_price ?? 1050);
+  const crr = parseFloat(p.crr ?? 45.0);
+  const spend = parseFloat(p.spend_impulse ?? 12.0);
+
+  // Exact matching formulas with ScenarioLabService::simulate
+  const fxDeprecFactor = Math.max(0, (fxRate - 1000) / 1000) * 8.5;
+  const fuelShockFactor = Math.max(0, (fuelPrice - 700) / 500) * 6.2;
+  const mprDamping = (mpr - 20) * 0.45;
+  const crrDamping = (crr - 32.5) * 0.12;
+  const fiscalPush = (spend - 10) * 0.35;
+
+  const rawInf = inflation + fxDeprecFactor + fuelShockFactor + fiscalPush - mprDamping - crrDamping;
+  const projectedInflation = Math.round(Math.max(5.0, Math.min(65.0, rawInf)) * 10) / 10;
+
+  const rawCredit = 68 - (mpr - 15) * 1.8 - (crr - 25) * 0.65 + (spend - 10) * 0.4;
+  const creditImpulse = Math.round(Math.max(5, Math.min(95, rawCredit)));
+
+  const rawInvest = 72 - (mpr - 15) * 1.5 - (projectedInflation - 20) * 0.8 + (spend - 10) * 0.3;
+  const investmentIndex = Math.round(Math.max(5, Math.min(95, rawInvest)));
+
+  const rawPwr = 75 - (projectedInflation - 15) * 1.3 - (fuelPrice - 600) * 0.025;
+  const purchasingPower = Math.round(Math.max(10, Math.min(90, rawPwr)));
+
+  const rawDebt = 48 + (mpr - 15) * 1.6 + (spend - 8) * 0.9;
+  const debtServiceBurden = Math.round(Math.max(30, Math.min(98, rawDebt)));
+
+  let marginStress = 0;
+  if (ind === 'manufacturing') {
+    marginStress = 12 - (fxRate - 1200) * 0.02 - (fuelPrice - 700) * 0.015 - (mpr - 18) * 0.8;
+  } else if (ind === 'fmcg') {
+    marginStress = 14 - (purchasingPower < 50 ? (50 - purchasingPower) * 0.4 : 0) - (fxRate - 1200) * 0.012;
+  } else if (ind === 'energy') {
+    marginStress = 8 + (fuelPrice - 800) * 0.025 - (fxRate - 1200) * 0.01;
+  } else if (ind === 'banking' || ind === 'monetary') {
+    marginStress = 10 + (mpr - 18) * 1.1 - (creditImpulse < 40 ? (40 - creditImpulse) * 0.5 : 0);
+  } else {
+    marginStress = 10 - (mpr - 20) * 0.6 - (projectedInflation - 25) * 0.4;
+  }
+  marginStress = Math.round(Math.max(-35, Math.min(35, marginStress)) * 10) / 10;
+
+  const fxPressure = (fxRate > 1800 || projectedInflation > 38) ? 'Critical Alert' : ((fxRate > 1550) ? 'Elevated Strain' : 'Managed Corridor');
+
+  const results = {
+    projected_inflation: projectedInflation,
+    credit_impulse: creditImpulse,
+    investment_index: investmentIndex,
+    purchasing_power: purchasingPower,
+    debt_service_burden: debtServiceBurden,
+    margin_stress: marginStress,
+    fx_pressure: fxPressure,
+  };
+
+  state.lab.results = results;
+  return results;
+}
+
+function updateLabSlider(key, val) {
+  if (!state.lab.params) state.lab.params = {};
+  state.lab.params[key] = parseFloat(val);
+
+  // Update value badge in real-time
+  const badge = document.getElementById('lab-val-' + key);
+  if (badge) badge.textContent = formatLabParamVal(key, val);
+
+  // In-place real-time re-simulation
+  const res = runLocalLabSimulation();
+
+  const infColor = res.projected_inflation > 32 ? 'var(--red)' : (res.projected_inflation > 20 ? 'var(--orange)' : 'var(--jade)');
+  const creditColor = res.credit_impulse < 35 ? 'var(--red)' : (res.credit_impulse < 60 ? 'var(--orange)' : 'var(--jade)');
+  const investColor = res.investment_index < 35 ? 'var(--red)' : (res.investment_index < 60 ? 'var(--orange)' : 'var(--jade)');
+  const pwrColor = res.purchasing_power < 35 ? 'var(--red)' : (res.purchasing_power < 55 ? 'var(--orange)' : 'var(--jade)');
+  const debtColor = res.debt_service_burden > 70 ? 'var(--red)' : (res.debt_service_burden > 55 ? 'var(--orange)' : 'var(--jade)');
+  const marginColor = res.margin_stress < 0 ? 'var(--red)' : (res.margin_stress < 8 ? 'var(--orange)' : 'var(--jade)');
+
+  const gValInf = document.getElementById('gauge-val-inf');
+  const gBarInf = document.getElementById('gauge-bar-inf');
+  const gSubInf = document.getElementById('gauge-sub-inf');
+  if (gValInf) { gValInf.textContent = res.projected_inflation + '%'; gValInf.style.color = infColor; }
+  if (gBarInf) { gBarInf.style.width = Math.min(100, (res.projected_inflation / 60) * 100) + '%'; gBarInf.style.background = infColor; }
+  if (gSubInf) {
+    gSubInf.textContent = res.projected_inflation > 32 ? 'Critical cost-push & currency pass-through pressure' : (res.projected_inflation > 20 ? 'Elevated structural inflation corridor' : 'Contained baseline price dynamics');
+  }
+
+  const gValCredit = document.getElementById('gauge-val-credit');
+  const gBarCredit = document.getElementById('gauge-bar-credit');
+  const gSubCredit = document.getElementById('gauge-sub-credit');
+  if (gValCredit) { gValCredit.textContent = res.credit_impulse + ' / 100'; gValCredit.style.color = creditColor; }
+  if (gBarCredit) { gBarCredit.style.width = res.credit_impulse + '%'; gBarCredit.style.background = creditColor; }
+  if (gSubCredit) {
+    gSubCredit.textContent = res.credit_impulse < 40 ? 'Severe liquidity sterilization; commercial banks rationing credit' : 'Moderate loanable funds available to private enterprise';
+  }
+
+  const gValInvest = document.getElementById('gauge-val-invest');
+  const gBarInvest = document.getElementById('gauge-bar-invest');
+  const gSubInvest = document.getElementById('gauge-sub-invest');
+  if (gValInvest) { gValInvest.textContent = res.investment_index + ' / 100'; gValInvest.style.color = investColor; }
+  if (gBarInvest) { gBarInvest.style.width = res.investment_index + '%'; gBarInvest.style.background = investColor; }
+  if (gSubInvest) {
+    gSubInvest.textContent = res.investment_index < 40 ? 'Corporate capital investments paused; balance sheet defensive mode' : 'Supportive climate for multi-year expansion investments';
+  }
+
+  const gValPwr = document.getElementById('gauge-val-pwr');
+  const gBarPwr = document.getElementById('gauge-bar-pwr');
+  const gSubPwr = document.getElementById('gauge-sub-pwr');
+  if (gValPwr) { gValPwr.textContent = res.purchasing_power + ' / 100'; gValPwr.style.color = pwrColor; }
+  if (gBarPwr) { gBarPwr.style.width = res.purchasing_power + '%'; gBarPwr.style.background = pwrColor; }
+  if (gSubPwr) {
+    gSubPwr.textContent = res.purchasing_power < 40 ? 'Acute disposable income squeeze; volume drop across consumer staples' : 'Resilient household demand absorbing modest price increases';
+  }
+
+  const gValDebt = document.getElementById('gauge-val-debt');
+  const gBarDebt = document.getElementById('gauge-bar-debt');
+  const gSubDebt = document.getElementById('gauge-sub-debt');
+  if (gValDebt) { gValDebt.textContent = res.debt_service_burden + '%'; gValDebt.style.color = debtColor; }
+  if (gBarDebt) { gBarDebt.style.width = Math.min(100, (res.debt_service_burden / 100) * 100) + '%'; gBarDebt.style.background = debtColor; }
+  if (gSubDebt) {
+    gSubDebt.textContent = res.debt_service_burden > 70 ? 'High crowding-out risk; domestic yields locked into sovereign paper' : 'Sustainable debt sustainability corridor';
+  }
+
+  const gValMargin = document.getElementById('gauge-val-margin');
+  const gBarMargin = document.getElementById('gauge-bar-margin');
+  const gSubMargin = document.getElementById('gauge-sub-margin');
+  if (gValMargin) { gValMargin.textContent = (res.margin_stress > 0 ? '+' : '') + res.margin_stress + '%'; gValMargin.style.color = marginColor; }
+  if (gBarMargin) { gBarMargin.style.width = Math.max(10, Math.min(100, 50 + res.margin_stress * 2)) + '%'; gBarMargin.style.background = marginColor; }
+  if (gSubMargin) {
+    gSubMargin.textContent = res.margin_stress < 0 ? 'Severe unit margin contraction under import FX & power cost shocks' : 'Stable or expanding sectoral gross margins';
+  }
+
+  const gValFxp = document.getElementById('gauge-val-fxp');
+  if (gValFxp) {
+    gValFxp.textContent = res.fx_pressure;
+    gValFxp.className = `badge ${res.fx_pressure === 'Critical Alert' ? 'badge-sandbox' : 'badge-enabled'}`;
+    gValFxp.style.background = res.fx_pressure === 'Critical Alert' ? '#f87171' : '';
+    gValFxp.style.color = res.fx_pressure === 'Critical Alert' ? '#fff' : '';
+  }
+}
+
+function toggleLabPrimer(key) {
+  if (!state.lab.openPrimers) state.lab.openPrimers = {};
+  state.lab.openPrimers[key] = !state.lab.openPrimers[key];
+  const el = document.getElementById('lab-primer-' + key);
+  if (el) {
+    el.style.display = state.lab.openPrimers[key] ? 'block' : 'none';
+  }
+}
+
+function resetLabParameters() {
+  const s = state.lab.selectedScenario;
+  if (s && s.default_params) {
+    state.lab.params = { ...s.default_params };
+  } else {
+    state.lab.params = {
+      mpr: 27.25,
+      inflation: 32.5,
+      fx_rate: 1650,
+      fuel_price: 1050,
+      crr: 45.0,
+      spend_impulse: 14.0,
+    };
+  }
+  runLocalLabSimulation();
   navigate('lab');
 }
 
-function resetLab() {
-  state.lab = { rate: 20, inflation: 24, spend: 12 };
+function selectLabIndustry(slug) {
+  state.lab.selectedIndustry = slug;
+  state.lab.selectedScenarioId = null;
+  state.lab.selectedScenario = null;
+  state.lab.aiBriefing = null;
+  loadScenarioLabData(slug, true);
+}
+
+function selectLabScenario(id) {
+  const s = (state.lab.scenarios || []).find(item => item.id === id);
+  if (!s) return;
+  state.lab.selectedScenarioId = id;
+  state.lab.selectedScenario = s;
+  state.lab.aiBriefing = null;
+  if (s.default_params) {
+    state.lab.params = { ...s.default_params };
+  }
+  runLocalLabSimulation();
   navigate('lab');
+}
+
+async function loadScenarioLabData(industrySlug = 'monetary', force = false) {
+  if (state.lab.isLoadingMeta) return;
+  if (!force && state.lab.loadedIndustry === industrySlug && state.lab.industries && state.lab.industries.length > 0) {
+    return;
+  }
+
+  state.lab.isLoadingMeta = true;
+  try {
+    const res = await api.get(`/lab/meta?industry=${encodeURIComponent(industrySlug)}`);
+    if (res && res.data) {
+      state.lab.industries = res.data.industries || [];
+      state.lab.scenarios = res.data.scenarios || [];
+      state.lab.definitions = res.data.definitions || {};
+      state.lab.selectedIndustry = industrySlug;
+      state.lab.loadedIndustry = industrySlug;
+
+      const cur = state.lab.scenarios.find(s => s.id === state.lab.selectedScenarioId);
+      if (!cur && state.lab.scenarios.length > 0) {
+        state.lab.selectedScenarioId = state.lab.scenarios[0].id;
+        state.lab.selectedScenario = state.lab.scenarios[0];
+        if (state.lab.scenarios[0].default_params) {
+          state.lab.params = { ...state.lab.scenarios[0].default_params };
+        }
+      } else if (cur) {
+        state.lab.selectedScenario = cur;
+      }
+
+      runLocalLabSimulation();
+
+      if (state.page === 'lab') {
+        const root = document.getElementById('app-root');
+        if (root) {
+          const content = renderScenarioLab();
+          root.innerHTML = renderAppShell(content);
+          attachViewEvents();
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load Scenario Lab meta:', err);
+  } finally {
+    state.lab.isLoadingMeta = false;
+  }
+}
+
+async function handleGenerateAiScenario(e) {
+  e.preventDefault();
+  const promptEl = document.getElementById('lab-ai-prompt');
+  if (!promptEl || !promptEl.value.trim()) return;
+
+  const promptText = promptEl.value.trim();
+  state.lab.isAiGenLoading = true;
+  const btn = document.getElementById('btn-gen-ai-scenario');
+  if (btn) { btn.disabled = true; btn.textContent = 'Generating...'; }
+
+  try {
+    const res = await api.post('/lab/generate', {
+      industry: state.lab.selectedIndustry || 'monetary',
+      prompt: promptText,
+    });
+
+    if (res && res.data) {
+      const newScenario = res.data;
+      if (!state.lab.scenarios) state.lab.scenarios = [];
+      state.lab.scenarios.unshift(newScenario);
+      state.lab.selectedScenarioId = newScenario.id;
+      state.lab.selectedScenario = newScenario;
+      if (newScenario.default_params) {
+        state.lab.params = { ...newScenario.default_params };
+      }
+      state.lab.aiBriefing = null;
+      runLocalLabSimulation();
+      api.toast('Custom AI Scenario generated successfully!', 'success');
+      navigate('lab');
+    }
+  } catch (err) {
+    api.toast('Failed to generate scenario: ' + (err.message || 'Error occurred'), 'error');
+  } finally {
+    state.lab.isAiGenLoading = false;
+    if (btn) { btn.disabled = false; btn.textContent = 'Synthesize AI'; }
+  }
+}
+
+async function handleRunAiBriefing() {
+  state.lab.isBriefingLoading = true;
+  const panel = document.getElementById('lab-briefing-panel');
+  const btn = document.getElementById('btn-run-briefing');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner" style="width: 14px; height: 14px; border-width: 2px; display: inline-block; margin-right: 8px;"></span> Synthesizing Executive Briefing...';
+  }
+
+  try {
+    const res = await api.post('/lab/briefing', {
+      industry: state.lab.selectedIndustry || 'monetary',
+      scenario_title: state.lab.selectedScenario?.title || 'Macro Stress Test',
+      parameters: state.lab.params,
+      results: state.lab.results || runLocalLabSimulation(),
+    });
+
+    if (res && res.data) {
+      state.lab.aiBriefing = res.data.briefing;
+      state.lab.briefingModel = res.data.model_used;
+      if (panel) {
+        panel.innerHTML = renderLabBriefingOutput();
+      }
+      api.toast('Executive Masterclass Briefing synthesized.', 'success');
+    }
+  } catch (err) {
+    api.toast('Failed to synthesize briefing: ' + (err.message || 'API error'), 'error');
+  } finally {
+    state.lab.isBriefingLoading = false;
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = 'Generate Executive Masterclass Briefing ⚡';
+    }
+  }
+}
+
+// Backwards-compatibility aliases
+function updateLabParam(key, val) {
+  updateLabSlider(key, val);
+}
+
+function resetLab() {
+  resetLabParameters();
 }
 
 // -------------------------------------------------------------

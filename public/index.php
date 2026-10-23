@@ -84,6 +84,10 @@ if (str_starts_with($path, '/api/')) {
     $router->patch('/api/profile', [ProfileController::class, 'updateProfile']);
     $router->get('/api/leaderboard', [ProfileController::class, 'getLeaderboard']);
     $router->post('/api/mentor/ask', [ProfileController::class, 'askMentor']);
+    $router->get('/api/lab/meta', [ProfileController::class, 'getScenarioLabMeta']);
+    $router->post('/api/lab/simulate', [ProfileController::class, 'simulateLab']);
+    $router->post('/api/lab/generate', [ProfileController::class, 'generateAiScenario']);
+    $router->post('/api/lab/briefing', [ProfileController::class, 'runScenarioLabBriefing']);
     $router->post('/api/lab/run', [ProfileController::class, 'runScenarioLab']);
 
     // Real Mode Funding & Payment Gateways (Flutterwave & Korapay)
@@ -98,6 +102,7 @@ if (str_starts_with($path, '/api/')) {
     $router->get('/api/admin/features', [AdminController::class, 'getFeatures']);
     $router->post('/api/admin/features/toggle', [AdminController::class, 'toggleFeature']);
     $router->post('/api/admin/providers/switch', [AdminController::class, 'updateProvider']);
+    $router->get('/api/admin/funding/stream', [AdminController::class, 'getFundingStream']);
     $router->get('/api/admin/stats', [AdminController::class, 'getStats']);
     $router->post('/api/admin/markets/create', [AdminController::class, 'createMarket']);
     $router->post('/api/admin/markets/resolve', [AdminController::class, 'resolveMarket']);

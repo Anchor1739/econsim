@@ -174,46 +174,46 @@ class ProfileService
     {
         $pdo = Database::getConnection();
 
-        // Aggregating verified user XP from xp_events
-        $stmt = $pdo->query(
-            "SELECT u.id, u.display_name, COALESCE(SUM(x.xp), 0) AS total_xp
-             FROM users u
-             LEFT JOIN xp_events x ON u.id = x.user_id
-             WHERE u.status = 'active'
-             GROUP BY u.id, u.display_name
-             ORDER BY total_xp DESC
-             LIMIT 20"
-        );
-        $users = $stmt->fetchAll();
-
-        // Seeded default leaderboard if user community is new
-        if (count($users) < 3) {
-            $defaultPodium = [
-                ['display_name' => 'Ada Okonkwo', 'total_xp' => 2820],
-                ['display_name' => 'Tomi Adeyemi', 'total_xp' => 2540],
-                ['display_name' => 'Ifeanyi Nwosu', 'total_xp' => 2380],
-                ['display_name' => 'Zara Bello', 'total_xp' => 2210],
-            ];
-            foreach ($defaultPodium as $d) {
-                if (!array_filter($users, fn($u) => $u['display_name'] === $d['display_name'])) {
-                    $users[] = [
-                        'id' => 'demo_' . md5($d['display_name']),
-                        'display_name' => $d['display_name'],
-                        'total_xp' => $d['total_xp'],
-                    ];
-                }
-            }
-            usort($users, fn($a, $b) => $b['total_xp'] <=> $a['total_xp']);
-        }
-
-        $multiplier = match ($tab) {
-            'Predictor' => 0.52,
-            'Boardroom' => 0.48,
-            default => 1.0,
+        $sql = match ($tab) {
+            'Predictor' => "
+                SELECT u.id, u.display_name,
+                       COALESCE(SUM(CASE WHEN x.source_key LIKE 'xp_forecast_%' OR x.reason LIKE '%forecast%' THEN x.xp ELSE 0 END), 0) AS score
+                FROM users u
+                LEFT JOIN xp_events x ON u.id = x.user_id
+                WHERE u.status = 'active'
+                GROUP BY u.id, u.display_name
+                HAVING score > 0
+                ORDER BY score DESC, u.created_at ASC
+                LIMIT 50
+            ",
+            'Boardroom' => "
+                SELECT u.id, u.display_name,
+                       COALESCE(SUM(CASE WHEN x.source_key LIKE 'xp_boardroom_%' OR x.reason LIKE '%boardroom%' THEN x.xp ELSE 0 END), 0) AS score
+                FROM users u
+                LEFT JOIN xp_events x ON u.id = x.user_id
+                WHERE u.status = 'active'
+                GROUP BY u.id, u.display_name
+                HAVING score > 0
+                ORDER BY score DESC, u.created_at ASC
+                LIMIT 50
+            ",
+            default => "
+                SELECT u.id, u.display_name,
+                       COALESCE(SUM(x.xp), 0) AS score
+                FROM users u
+                LEFT JOIN xp_events x ON u.id = x.user_id
+                WHERE u.status = 'active'
+                GROUP BY u.id, u.display_name
+                ORDER BY score DESC, u.created_at ASC
+                LIMIT 50
+            ",
         };
 
-        return array_map(function ($u, $idx) use ($multiplier) {
-            $score = (int)round((int)$u['total_xp'] * $multiplier);
+        $stmt = $pdo->query($sql);
+        $users = $stmt->fetchAll();
+
+        return array_map(function ($u, $idx) {
+            $score = (int)($u['score'] ?? 0);
             return [
                 'rank' => $idx + 1,
                 'name' => $u['display_name'],
