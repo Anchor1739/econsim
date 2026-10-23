@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>EconSim Engine Terminal // Executive Admin Portal</title>
+  <title>EconSim Operations Console // Institutional Terminal</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -99,93 +99,50 @@
       gap: 6px;
       background: rgba(5, 150, 105, 0.12);
       border: 1px solid rgba(5, 150, 105, 0.3);
-      color: #34d399;
-      padding: 4px 10px;
-      border-radius: 20px;
-      font-size: 11px;
+      padding: 6px 12px;
+      border-radius: 9999px;
+      font-size: 12px;
       font-family: var(--font-mono);
+      color: #34d399;
       font-weight: 600;
     }
 
     .status-dot {
       width: 7px;
       height: 7px;
+      background: #10b981;
       border-radius: 50%;
-      background: #34d399;
-      box-shadow: 0 0 8px #34d399;
+      box-shadow: 0 0 8px #10b981;
       animation: pulse 2s infinite;
     }
 
     @keyframes pulse {
-      0% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.4; transform: scale(0.9); }
-      100% { opacity: 1; transform: scale(1); }
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 16px;
-      border-radius: 6px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      border: none;
-      transition: all 0.2s;
-    }
-
-    .btn-primary {
-      background: var(--primary);
-      color: white;
-    }
-    .btn-primary:hover {
-      background: #047857;
-      box-shadow: 0 0 14px var(--primary-glow);
-    }
-
-    .btn-secondary {
-      background: var(--surface-elevated);
-      color: var(--text);
-      border: 1px solid var(--border);
-    }
-    .btn-secondary:hover {
-      background: #1b2947;
-      border-color: #2b3d63;
-    }
-
-    .btn-danger {
-      background: rgba(239, 68, 68, 0.15);
-      border: 1px solid rgba(239, 68, 68, 0.4);
-      color: #f87171;
-    }
-    .btn-danger:hover {
-      background: var(--danger);
-      color: white;
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
     }
 
     /* Layout */
     .admin-container {
-      max-width: 1360px;
+      max-width: 1400px;
       margin: 0 auto;
       padding: 32px 28px 80px;
     }
 
     .terminal-banner {
-      background: linear-gradient(180deg, #0f182c 0%, #0a1120 100%);
+      background: linear-gradient(180deg, var(--surface) 0%, var(--surface-card) 100%);
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 24px 28px;
       margin-bottom: 28px;
       display: flex;
-      justify-content: space-between;
       align-items: center;
+      justify-content: space-between;
+      gap: 20px;
       flex-wrap: wrap;
-      gap: 16px;
     }
 
     .terminal-banner h1 {
-      font-size: 20px;
+      font-size: 22px;
       font-weight: 800;
       color: white;
       margin-bottom: 4px;
@@ -193,15 +150,16 @@
 
     .terminal-banner p {
       color: var(--text-muted);
-      font-size: 13px;
+      font-size: 13.5px;
+      max-width: 700px;
     }
 
-    /* Metrics Grid */
+    /* Key Metrics Grid */
     .metrics-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
       gap: 18px;
-      margin-bottom: 28px;
+      margin-bottom: 32px;
     }
 
     .metric-box {
@@ -218,9 +176,10 @@
       position: absolute;
       top: 0;
       left: 0;
-      width: 3px;
-      height: 100%;
+      right: 0;
+      height: 2px;
       background: var(--accent);
+      opacity: 0.6;
     }
 
     .metric-box.emerald::before { background: var(--primary); }
@@ -229,74 +188,99 @@
     .metric-box label {
       display: block;
       color: var(--text-muted);
-      font-size: 11px;
-      font-weight: 700;
+      font-size: 12px;
+      font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.05em;
       margin-bottom: 8px;
     }
 
     .metric-box .value {
-      font-size: 24px;
+      font-size: 28px;
       font-weight: 800;
-      color: white;
       font-family: var(--font-mono);
+      color: white;
+      letter-spacing: -0.02em;
     }
 
-    /* Grid layout for Controls */
-    .dashboard-grid {
+    .metric-box .sub {
+      color: var(--text-muted);
+      font-size: 12px;
+      margin-top: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Two-Column Master Grid */
+    .admin-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 24px;
-      margin-bottom: 28px;
+      margin-bottom: 32px;
     }
 
-    @media (max-width: 980px) {
-      .dashboard-grid { grid-template-columns: 1fr; }
+    @media (max-width: 1024px) {
+      .admin-grid {
+        grid-template-columns: 1fr;
+      }
     }
 
-    .card {
+    .panel {
       background: var(--surface-card);
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 24px;
+      display: flex;
+      flex-direction: column;
     }
 
-    .card-head {
+    .panel-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
       margin-bottom: 18px;
-      border-bottom: 1px solid var(--border);
       padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
     }
 
-    .card-head h2 {
+    .panel-title {
       font-size: 16px;
       font-weight: 700;
       color: white;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
     }
 
-    /* Toggle Item */
+    .panel-subtitle {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Switch Controls */
     .control-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 14px 16px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      margin-bottom: 12px;
+      padding: 14px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .control-row:last-child {
+      border-bottom: none;
+    }
+
+    .control-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
     }
 
     .control-info b {
-      display: block;
-      font-size: 14px;
-      color: white;
-      margin-bottom: 2px;
+      font-size: 13.5px;
+      color: var(--text);
     }
 
     .control-info span {
@@ -308,19 +292,27 @@
     .switch {
       position: relative;
       display: inline-block;
-      width: 44px;
-      height: 24px;
+      width: 48px;
+      height: 26px;
       flex-shrink: 0;
     }
-    .switch input { opacity: 0; width: 0; height: 0; }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
     .slider {
       position: absolute;
       cursor: pointer;
       top: 0; left: 0; right: 0; bottom: 0;
-      background-color: #273553;
-      transition: .3s;
-      border-radius: 24px;
+      background-color: var(--surface-elevated);
+      border: 1px solid var(--border);
+      transition: .25s;
+      border-radius: 26px;
     }
+
     .slider:before {
       position: absolute;
       content: "";
@@ -328,83 +320,144 @@
       width: 18px;
       left: 3px;
       bottom: 3px;
-      background-color: white;
-      transition: .3s;
+      background-color: var(--text-muted);
+      transition: .25s;
       border-radius: 50%;
     }
-    input:checked + .slider { background-color: var(--primary); }
-    input:checked + .slider:before { transform: translateX(20px); }
+
+    input:checked + .slider {
+      background-color: var(--primary);
+      border-color: #10b981;
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(22px);
+      background-color: white;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      border: 1px solid transparent;
+      font-family: inherit;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #047857;
+      box-shadow: 0 0 14px var(--primary-glow);
+    }
+
+    .btn-secondary {
+      background: var(--surface-elevated);
+      color: var(--text);
+      border-color: var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: #1a2845;
+      border-color: var(--border-focus);
+    }
+
+    .btn-danger {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    .btn-danger:hover {
+      background: #dc2626;
+      color: white;
+    }
 
     /* Form Fields */
     .form-group {
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
+
     .form-group label {
       display: block;
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 600;
       color: var(--text-muted);
       margin-bottom: 6px;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.04em;
     }
+
     .form-control {
       width: 100%;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 6px;
       padding: 10px 14px;
-      color: white;
-      font-family: var(--font-main);
+      color: var(--text);
       font-size: 13.5px;
-      outline: none;
-      transition: border-color 0.2s;
+      font-family: inherit;
+      transition: border-color 0.15s;
     }
+
     .form-control:focus {
+      outline: none;
       border-color: var(--border-focus);
-      box-shadow: 0 0 10px var(--accent-glow);
+      box-shadow: 0 0 0 2px var(--accent-glow);
     }
 
     select.form-control {
       cursor: pointer;
     }
 
-    /* Table */
-    .table-wrap {
+    /* Tables */
+    .table-responsive {
       overflow-x: auto;
-      border: 1px solid var(--border);
-      border-radius: 8px;
     }
+
     table {
       width: 100%;
       border-collapse: collapse;
       text-align: left;
       font-size: 13px;
     }
+
     th {
-      background: var(--surface);
+      background: rgba(255, 255, 255, 0.02);
       color: var(--text-muted);
-      font-weight: 700;
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--border);
+      padding: 12px 14px;
+      font-weight: 600;
+      font-size: 11.5px;
       text-transform: uppercase;
-      font-size: 11px;
       letter-spacing: 0.05em;
-    }
-    td {
-      padding: 14px 16px;
       border-bottom: 1px solid var(--border);
+    }
+
+    td {
+      padding: 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
       color: var(--text);
     }
-    tr:last-child td { border-bottom: none; }
-    tr:hover td { background: rgba(255, 255, 255, 0.02); }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
 
     /* Auth Gate Modal */
     #auth-gate {
       position: fixed;
       inset: 0;
-      background: rgba(5, 8, 15, 0.96);
-      backdrop-filter: blur(16px);
+      background: rgba(5, 8, 15, 0.98);
+      backdrop-filter: blur(20px);
       z-index: 999;
       display: flex;
       align-items: center;
@@ -419,16 +472,16 @@
       border: 1px solid var(--border);
       border-radius: 14px;
       padding: 36px 32px;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.7);
       text-align: center;
     }
 
     .auth-box .lock-icon {
-      width: 52px;
-      height: 52px;
-      border-radius: 12px;
+      width: 54px;
+      height: 54px;
+      border-radius: 14px;
       background: rgba(56, 189, 248, 0.1);
-      border: 1px solid rgba(56, 189, 248, 0.2);
+      border: 1px solid rgba(56, 189, 248, 0.25);
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -460,6 +513,7 @@
       flex-direction: column;
       gap: 10px;
     }
+
     .toast {
       background: var(--surface-elevated);
       color: white;
@@ -473,8 +527,10 @@
       gap: 10px;
       animation: slideIn 0.25s ease-out;
     }
+
     .toast.success { border-color: var(--primary); color: #34d399; }
     .toast.error { border-color: var(--danger); color: #f87171; }
+
     @keyframes slideIn {
       from { transform: translateX(30px); opacity: 0; }
       to { transform: translateX(0); opacity: 1; }
@@ -483,270 +539,8 @@
 </head>
 <body>
 
-  <!-- Executive Topbar -->
-  <header class="admin-header">
-    <div class="brand-group">
-      <div class="brand-tag">OPS</div>
-      <div class="brand-title">
-        ECONSIM <span>// ENGINE CONTROL TERMINAL</span>
-      </div>
-    </div>
-    <div class="header-actions">
-      <div class="status-pill">
-        <span class="status-dot"></span>
-        <span id="header-engine-mode">STANDALONE ENGINE</span>
-      </div>
-      <a href="/" class="btn btn-secondary" style="text-decoration: none;">
-        <span>↗</span> Public App
-      </a>
-      <button class="btn btn-secondary" onclick="handleLockSession()">
-        Lock Terminal
-      </button>
-    </div>
-  </header>
-
-  <!-- Main Container -->
-  <main class="admin-container">
-    <div class="terminal-banner">
-      <div>
-        <div style="font-family: var(--font-mono); color: var(--accent); font-size: 12px; margin-bottom: 4px;">
-          INSTITUTIONAL CORE · DUAL-GATEWAY LIQUIDITY ENGINE
-        </div>
-        <h1>Platform Administration & Monetary Engine</h1>
-        <p>Full control over real-mode operations, payment gateways (Flutterwave & Korapay), AI adjudication pools, and market clearing.</p>
-      </div>
-      <button class="btn btn-primary" onclick="loadAllAdminData()">
-        Refresh Diagnostics ↺
-      </button>
-    </div>
-
-    <!-- Key Metrics Grid -->
-    <div class="metrics-grid">
-      <div class="metric-box emerald">
-        <label>Registered Strategists</label>
-        <div class="value" id="stat-users">0</div>
-      </div>
-      <div class="metric-box">
-        <label>Open Market Contracts</label>
-        <div class="value" id="stat-markets">0</div>
-      </div>
-      <div class="metric-box amber">
-        <label>Demo Capital Escrow (VNGN)</label>
-        <div class="value" id="stat-virtual-deposits">₦0</div>
-      </div>
-      <div class="metric-box">
-        <label>Real Escrow Balance (NGN)</label>
-        <div class="value" id="stat-real-escrow">₦0</div>
-      </div>
-    </div>
-
-    <!-- Grid of Engine Controls -->
-    <div class="dashboard-grid">
-      
-      <!-- Card 1: Platform Engine Toggles -->
-      <div class="card">
-        <div class="card-head">
-          <h2>⚡ Core Platform Engine Modes</h2>
-          <span style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">PLATFORM_FEATURES</span>
-        </div>
-        <p style="color: var(--text-muted); font-size: 12.5px; margin-bottom: 16px;">
-          Enable or disable core system modes. Changes take effect across the platform immediately without server restart.
-        </p>
-        <div id="features-list">
-          <p style="color: var(--text-muted);">Querying engine features...</p>
-        </div>
-      </div>
-
-      <!-- Card 2: Payment Gateway Controller -->
-      <div class="card">
-        <div class="card-head">
-          <h2>💳 Payment Gateways (Flutterwave vs Korapay)</h2>
-          <span style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">FUNDING_PROVIDERS</span>
-        </div>
-        <p style="color: var(--text-muted); font-size: 12.5px; margin-bottom: 16px;">
-          Switch active gateway dynamically based on provider verification and webhook health.
-        </p>
-        <div id="providers-list">
-          <p style="color: var(--text-muted);">Querying gateway providers...</p>
-        </div>
-      </div>
-
-      <!-- Card 3: NVIDIA NIM AI Model Failover Pool -->
-      <div class="card">
-        <div class="card-head">
-          <h2>🤖 AI Adjudication & Model Pool</h2>
-          <span style="font-size: 11px; color: var(--accent); font-family: var(--font-mono);">NVIDIA NIM</span>
-        </div>
-        <p style="color: var(--text-muted); font-size: 12.5px; margin-bottom: 16px;">
-          Select active model for boardroom evaluations and macroeconomic synthesis. Built-in failover handles rate-limit bounds automatically.
-        </p>
-        <div class="form-group">
-          <label>Primary Evaluation Model</label>
-          <select id="ai-model-select" class="form-control">
-            <option value="meta/llama-3.1-70b-instruct">meta/llama-3.1-70b-instruct (Primary Masterclass Analysis)</option>
-            <option value="meta/llama-3.3-70b-instruct">meta/llama-3.3-70b-instruct (Enhanced Reasoning)</option>
-            <option value="mistralai/mixtral-8x22b-instruct-v0.1">mistralai/mixtral-8x22b-instruct-v0.1 (High-Throughput MoE)</option>
-            <option value="meta/llama-3.1-8b-instruct">meta/llama-3.1-8b-instruct (Ultra-Fast Fallback)</option>
-            <option value="mistralai/mistral-large-2-instruct">mistralai/mistral-large-2-instruct (Complex Strategic Matrix)</option>
-          </select>
-        </div>
-        <div style="display: flex; gap: 10px; align-items: center; margin-top: 14px;">
-          <button class="btn btn-primary" onclick="handleSwitchAiModel()">Apply AI Model</button>
-          <span id="ai-model-active-badge" style="font-family: var(--font-mono); font-size: 12px; color: var(--accent);"></span>
-        </div>
-        <div style="margin-top: 16px; padding: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; font-size: 12px; color: var(--text-muted);">
-          <b>Failover Sequence:</b> If NVIDIA NIM returns HTTP 429 or quota limit, the runner cascades: <code style="color: #38bdf8;">llama-3.1-70b</code> &rarr; <code style="color: #38bdf8;">llama-3.3-70b</code> &rarr; <code style="color: #38bdf8;">mixtral-8x22b</code> &rarr; <code style="color: #38bdf8;">llama-3.1-8b</code>.
-        </div>
-      </div>
-
-      <!-- Card 4: Macro Market Contract Publishing -->
-      <div class="card">
-        <div class="card-head">
-          <h2>📈 Publish Macroeconomic Contract</h2>
-          <span style="font-size: 11px; color: var(--primary); font-family: var(--font-mono);">MARKET_PUBLISHER</span>
-        </div>
-        <form onsubmit="handleCreateMarket(event)">
-          <div class="form-group">
-            <label>Contract Question / Title</label>
-            <input type="text" id="m-title" class="form-control" placeholder="e.g. CBN MPC to raise MPR past 28.00% at next policy meeting" required>
-          </div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-            <div class="form-group">
-              <label>Macro Industry</label>
-              <select id="m-industry" class="form-control" required></select>
-            </div>
-            <div class="form-group">
-              <label>Resolution Date</label>
-              <input type="date" id="m-date" class="form-control" required>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Verification Authority Source</label>
-            <input type="text" id="m-source" class="form-control" placeholder="e.g. Central Bank of Nigeria (cbn.gov.ng)" required>
-          </div>
-          <div class="form-group">
-            <label>Contract Resolution Criterion & Pedagogy</label>
-            <textarea id="m-def" class="form-control" rows="3" placeholder="Define exact threshold, transmission levers, and analytical criteria for settlement..." required></textarea>
-          </div>
-          <button type="submit" class="btn btn-primary" style="width: 100%;">Publish Contract to Market 🚀</button>
-        </form>
-      </div>
-
-    </div>
-
-    <!-- Payment Gateway Audit & Funding Stream -->
-    <div class="card" style="margin-bottom: 24px;">
-      <div class="card-head">
-        <h2>💳 Gateway Audit & Real Funding Stream</h2>
-        <span style="font-size: 11px; color: var(--accent); font-family: var(--font-mono);">AUDIT_LOG_REAL_FUNDING</span>
-      </div>
-      <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">
-        Real-time audit stream showing the specific payment gateway (Flutterwave vs Korapay) that processed each electronic deposit or withdrawal.
-      </p>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Strategist</th>
-              <th>Amount</th>
-              <th>Gateway Rail</th>
-              <th>Provider Reference</th>
-              <th>Status</th>
-              <th style="text-align: right;">Timestamp</th>
-            </tr>
-          </thead>
-          <tbody id="funding-stream-table">
-            <tr>
-              <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">Loading funding audit stream...</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Active Markets & Atomic Settlement -->
-    <div class="card">
-      <div class="card-head">
-        <h2>⚖ Open Contracts & Atomic Settlement Engine</h2>
-        <span style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">DOUBLE_ENTRY_SETTLEMENT</span>
-      </div>
-      <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">
-        Resolving a contract executes double-entry settlements: winning strategists receive payouts, losing commitments are closed, and uncommitted holds are released.
-      </p>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Contract Title</th>
-              <th>Industry</th>
-              <th>Resolution Date</th>
-              <th>Authority Source</th>
-              <th style="text-align: right;">Action</th>
-            </tr>
-          </thead>
-          <tbody id="open-markets-table">
-            <tr>
-              <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 24px;">Loading open market contracts...</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </main>
-
-  <!-- AI Adjudication Modal -->
-  <div id="ai-modal" style="display: none; position: fixed; inset: 0; background: rgba(5, 8, 15, 0.95); backdrop-filter: blur(14px); z-index: 998; align-items: center; justify-content: center; padding: 20px;">
-    <div style="background: var(--surface-card); border: 1px solid var(--border); border-radius: 12px; width: 100%; max-width: 580px; padding: 28px; box-shadow: 0 20px 40px rgba(0,0,0,0.5);">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
-        <h3 style="color: white; font-size: 17px; display: flex; align-items: center; gap: 8px;">
-          <span>🤖</span> AI Macroeconomic Verification Memo
-        </h3>
-        <button class="btn btn-secondary" style="padding: 2px 8px; font-size: 12px;" onclick="closeAiModal()">✕</button>
-      </div>
-
-      <div id="ai-modal-loading" style="text-align: center; padding: 32px 0;">
-        <p style="color: var(--text-muted); font-size: 13.5px;">Querying NVIDIA NIM model & sovereign data benchmarks...</p>
-      </div>
-
-      <div id="ai-modal-content" style="display: none;">
-        <div style="margin-bottom: 14px;">
-          <small style="color: var(--text-muted); text-transform: uppercase; font-size: 11px; font-weight: 700;">Contract Title</small>
-          <div id="ai-modal-title" style="font-size: 14.5px; font-weight: 700; color: white; margin-top: 2px;"></div>
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
-          <div style="background: var(--surface); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
-            <small style="color: var(--text-muted); font-size: 11px; text-transform: uppercase;">AI Recommended Outcome</small>
-            <div id="ai-modal-verdict" style="font-size: 18px; font-weight: 800; margin-top: 4px;"></div>
-          </div>
-          <div style="background: var(--surface); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
-            <small style="color: var(--text-muted); font-size: 11px; text-transform: uppercase;">Verification Confidence</small>
-            <div id="ai-modal-confidence" style="font-size: 18px; font-weight: 800; color: var(--accent); margin-top: 4px;"></div>
-          </div>
-        </div>
-
-        <div style="margin-bottom: 14px;">
-          <small style="color: var(--text-muted); text-transform: uppercase; font-size: 11px; font-weight: 700;">Official Benchmark Source</small>
-          <div id="ai-modal-source" style="font-size: 12px; color: #cbd5e1; font-family: var(--font-mono); background: var(--surface); padding: 8px 12px; border-radius: 6px; margin-top: 4px;"></div>
-        </div>
-
-        <div style="margin-bottom: 20px;">
-          <small style="color: var(--text-muted); text-transform: uppercase; font-size: 11px; font-weight: 700;">Adjudication Analysis & Data</small>
-          <div id="ai-modal-rationale" style="font-size: 13px; line-height: 1.6; color: var(--text); background: var(--surface); padding: 12px; border-radius: 8px; margin-top: 4px;"></div>
-        </div>
-
-        <div style="display: flex; gap: 10px; justify-content: flex-end;">
-          <button class="btn btn-secondary" onclick="closeAiModal()">Dismiss</button>
-          <button id="ai-modal-confirm-btn" class="btn btn-primary">
-            Approve & Execute Settlement ⚖
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Security Gate Modal (When not authorized) -->
-  <div id="auth-gate" style="display: none;">
+  <!-- Restricted Access Gate (Shown by default until valid passkey provided) -->
+  <div id="auth-gate" style="display: flex;">
     <div class="auth-box">
       <div class="lock-icon">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -754,17 +548,275 @@
           <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
         </svg>
       </div>
-      <h2>Engine Access Gate</h2>
-      <p>This is a restricted operations terminal for EconSim system administrators. Enter Master Passkey to unlock engine controls.</p>
+      <h2>Operations Gate</h2>
+      <p>Institutional operations terminal. Enter Master Passkey to unlock engine controls.</p>
       <form onsubmit="handleAuthSubmit(event)">
-        <div class="form-group" style="text-align: left;">
-          <label>Master Admin Key</label>
-          <input type="password" id="gate-key" class="form-control" placeholder="Enter APP_SECRET / Master Passkey..." autofocus required>
+        <div class="form-group" style="text-align: left; margin-bottom: 16px;">
+          <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;">Master Passkey</label>
+          <input type="password" id="gate-key" class="form-control" placeholder="Enter passkey..." autocomplete="off" autofocus required style="width: 100%; padding: 12px; font-size: 14px;">
         </div>
-        <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 12px;">
+        <button type="submit" id="btn-auth-submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 12px; font-weight: 700;">
           Authenticate & Unlock Terminal 🔓
         </button>
       </form>
+    </div>
+  </div>
+
+  <!-- Terminal Content (Strictly hidden until passkey is verified) -->
+  <div id="terminal-content" style="display: none;">
+    <!-- Executive Topbar -->
+    <header class="admin-header">
+      <div class="brand-group">
+        <div class="brand-tag">OPS</div>
+        <div class="brand-title">
+          ECONSIM <span>// ENGINE CONTROL TERMINAL</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div class="status-pill">
+          <span class="status-dot"></span>
+          <span id="header-engine-mode">STANDALONE ENGINE</span>
+        </div>
+        <a href="/" class="btn btn-secondary" style="text-decoration: none;">
+          <span>↗</span> Public App
+        </a>
+        <button class="btn btn-secondary" onclick="handleLockSession()">
+          Lock Terminal
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="admin-container">
+      <div class="terminal-banner">
+        <div>
+          <div style="font-family: var(--font-mono); color: var(--accent); font-size: 12px; margin-bottom: 4px;">
+            INSTITUTIONAL CORE · DUAL-GATEWAY LIQUIDITY ENGINE
+          </div>
+          <h1>Platform Operations & Monetary Engine</h1>
+          <p>Full control over real-mode operations, payment gateways (Flutterwave & Korapay), AI adjudication pools, and market clearing.</p>
+        </div>
+        <button class="btn btn-primary" onclick="loadAllAdminData()">
+          Refresh Diagnostics ↺
+        </button>
+      </div>
+
+      <!-- Key Metrics Grid -->
+      <div class="metrics-grid">
+        <div class="metric-box emerald">
+          <label>Registered Strategists</label>
+          <div class="value" id="stat-users">0</div>
+        </div>
+        <div class="metric-box">
+          <label>Open Market Contracts</label>
+          <div class="value" id="stat-markets">0</div>
+        </div>
+        <div class="metric-box">
+          <label>Virtual Capital Minted</label>
+          <div class="value" id="stat-virtual-deposits">₦0</div>
+          <div class="sub">Simulation Ledger Deposits</div>
+        </div>
+        <div class="metric-box amber">
+          <label>Real Escrow Balance</label>
+          <div class="value" id="stat-real-escrow">₦0</div>
+          <div class="sub">Audited Live Liquidity Pool</div>
+        </div>
+      </div>
+
+      <!-- Two-Column Master Grid -->
+      <div class="admin-grid">
+
+        <!-- Column 1: Feature Toggles & Engine Controls -->
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">
+                <span>⚙️</span> Platform Engine Toggles
+              </div>
+              <div class="panel-subtitle">Core System Modes</div>
+            </div>
+          </div>
+          <div id="features-list">
+            <div style="text-align: center; color: var(--text-muted); padding: 20px;">Loading features...</div>
+          </div>
+        </div>
+
+        <!-- Column 2: Payment Gateways & AI Model Routing -->
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">
+                <span>💳</span> Payment Gateway Orchestration
+              </div>
+              <div class="panel-subtitle">Active Processing Provider (Flutterwave / Korapay)</div>
+            </div>
+          </div>
+          <div id="providers-list" style="margin-bottom: 24px;">
+            <div style="text-align: center; color: var(--text-muted); padding: 20px;">Loading gateways...</div>
+          </div>
+
+          <div class="panel-header" style="margin-top: 10px;">
+            <div>
+              <div class="panel-title">
+                <span>🧠</span> Autonomous AI Model Routing
+              </div>
+              <div class="panel-subtitle">Evaluator & Boardroom LLM Backbone</div>
+            </div>
+            <span class="status-pill" id="ai-model-active-badge" style="font-size: 11px;">[ACTIVE: LLAMA-3.1-70B]</span>
+          </div>
+
+          <div class="form-group">
+            <label>Designated Model Backbone</label>
+            <select class="form-control" id="ai-model-select" onchange="handleSwitchAiModel()">
+              <option value="meta/llama-3.1-70b-instruct">Meta Llama 3.1 70B Instruct (Institutional Default)</option>
+              <option value="deepseek-ai/deepseek-r1">DeepSeek R1 (Deep Reasoning Engine)</option>
+              <option value="mistralai/mixtral-8x22b-instruct-v0.1">Mixtral 8x22B (Quantitative Synthesis)</option>
+              <option value="google/gemma-2-27b-it">Google Gemma 2 27B IT</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Real Funding Stream Audit Ledger -->
+      <div class="panel" style="margin-bottom: 32px;">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">
+              <span>📊</span> Real Account Funding Stream
+            </div>
+            <div class="panel-subtitle">Live Deposit Transits Across Flutterwave & Korapay</div>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Strategist</th>
+                <th>Amount</th>
+                <th>Gateway Rail</th>
+                <th>Reference</th>
+                <th>Status</th>
+                <th style="text-align: right;">Timestamp</th>
+              </tr>
+            </thead>
+            <tbody id="funding-stream-table">
+              <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">Loading real transaction stream...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Market Creation & Adjudication Controls -->
+      <div class="admin-grid">
+        <!-- New Market Form -->
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">
+                <span>➕</span> Create Verifiable Economic Contract
+              </div>
+              <div class="panel-subtitle">Publish new macroeconomic forecasting question</div>
+            </div>
+          </div>
+          <form onsubmit="handleCreateMarket(event)">
+            <div class="form-group">
+              <label>Contract Title / Question</label>
+              <input type="text" class="form-control" id="m-title" placeholder="e.g. Will Nigeria Gross Reserves Cross $40B before Q4 2026?" required>
+            </div>
+            <div class="form-group">
+              <label>Target Industry</label>
+              <select class="form-control" id="m-industry" required>
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+              <div class="form-group">
+                <label>Resolution Date</label>
+                <input type="date" class="form-control" id="m-date" required>
+              </div>
+              <div class="form-group">
+                <label>Resolution Source</label>
+                <input type="text" class="form-control" id="m-source" placeholder="e.g. CBN MPC Communiqué" required>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Resolution Criteria / Verification Definition</label>
+              <textarea class="form-control" id="m-def" rows="3" placeholder="Explicit verifiable condition required for YES resolution..." required></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary" style="margin-top: 8px;">
+              Publish Verified Contract 🚀
+            </button>
+          </form>
+        </div>
+
+        <!-- Open Contracts Settlement Table -->
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">
+                <span>⚖️</span> Contract Settlement & Resolution
+              </div>
+              <div class="panel-subtitle">Atomic distribution of forecast payouts</div>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Contract</th>
+                  <th>Industry</th>
+                  <th>Closes</th>
+                  <th>Source</th>
+                  <th style="text-align: right;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="open-markets-table">
+                <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 24px;">Loading contracts...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- AI Evaluation Adjudication Modal -->
+  <div id="ai-modal" style="display: none; position: fixed; inset: 0; background: rgba(5, 8, 15, 0.9); backdrop-filter: blur(8px); z-index: 100; align-items: center; justify-content: center; padding: 20px;">
+    <div style="max-width: 580px; width: 100%; background: var(--surface-card); border: 1px solid var(--border); border-radius: 14px; padding: 28px; box-shadow: 0 20px 40px rgba(0,0,0,0.6);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="color: white; font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+          <span>🤖</span> AI Adjudication Dossier
+        </h3>
+        <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="closeAiModal()">✕ Close</button>
+      </div>
+
+      <div id="ai-modal-loading" style="text-align: center; padding: 40px 0; color: var(--text-muted);">
+        <div style="display: inline-block; width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 12px;"></div>
+        <p style="font-size: 13.5px;">Executing Autonomous Research & Sovereign Verification...</p>
+      </div>
+
+      <div id="ai-modal-content" style="display: none;">
+        <div style="font-size: 14px; font-weight: 700; color: white; margin-bottom: 12px;" id="ai-modal-title"></div>
+        <div style="background: var(--surface); padding: 14px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span style="color: var(--text-muted); font-size: 12px;">RECOMMENDED VERDICT:</span>
+            <b id="ai-modal-verdict" style="font-size: 14px; font-family: var(--font-mono);"></b>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span style="color: var(--text-muted); font-size: 12px;">CONFIDENCE RATING:</span>
+            <b id="ai-modal-confidence" style="font-size: 13px; color: var(--accent);"></b>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-muted); font-size: 12px;">BENCHMARK SOURCE:</span>
+            <span id="ai-modal-source" style="font-size: 12px; color: var(--text-muted);"></span>
+          </div>
+        </div>
+        <div style="font-size: 13px; color: var(--text); line-height: 1.6; margin-bottom: 20px;" id="ai-modal-rationale"></div>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+          <button class="btn btn-secondary" onclick="closeAiModal()">Dismiss</button>
+          <button class="btn btn-primary" id="ai-modal-confirm-btn">Execute Recommended Payouts ⚡</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -772,7 +824,7 @@
 
   <script>
     const API_BASE = '/api';
-    let adminKey = localStorage.getItem('econsim_admin_key') || sessionStorage.getItem('econsim_admin_key') || '';
+    let adminKey = sessionStorage.getItem('econsim_a_key') || '';
 
     function toast(msg, type = 'info') {
       const container = document.getElementById('toast-container');
@@ -805,43 +857,73 @@
     }
 
     function showAuthGate() {
-      document.getElementById('auth-gate').style.display = 'flex';
+      const gate = document.getElementById('auth-gate');
+      const content = document.getElementById('terminal-content');
+      if (gate) gate.style.display = 'flex';
+      if (content) content.style.display = 'none';
+      const input = document.getElementById('gate-key');
+      if (input) {
+        input.value = '';
+        input.focus();
+      }
     }
 
     function hideAuthGate() {
-      document.getElementById('auth-gate').style.display = 'none';
+      const gate = document.getElementById('auth-gate');
+      const content = document.getElementById('terminal-content');
+      if (gate) gate.style.display = 'none';
+      if (content) content.style.display = 'block';
     }
 
     async function handleAuthSubmit(e) {
       e.preventDefault();
-      const key = document.getElementById('gate-key').value.trim();
+      const input = document.getElementById('gate-key');
+      const btn = document.getElementById('btn-auth-submit');
+      const key = input ? input.value.trim() : '';
       if (!key) return;
+
+      if (btn) btn.disabled = true;
       adminKey = key;
-      sessionStorage.setItem('econsim_admin_key', key);
+      sessionStorage.setItem('econsim_a_key', key);
+
       try {
-        await apiRequest('/admin/auth/verify');
+        await apiRequest('/a/auth/verify');
         hideAuthGate();
         toast('Terminal unlocked successfully!', 'success');
         loadAllAdminData();
       } catch (err) {
-        toast('Invalid Master Key. Access Denied.', 'error');
+        sessionStorage.removeItem('econsim_a_key');
+        adminKey = '';
+        toast('Invalid passkey. Access Denied.', 'error');
+        if (input) {
+          input.value = '';
+          input.focus();
+        }
+      } finally {
+        if (btn) btn.disabled = false;
       }
     }
 
     function handleLockSession() {
       adminKey = '';
-      sessionStorage.removeItem('econsim_admin_key');
+      sessionStorage.removeItem('econsim_a_key');
       localStorage.removeItem('econsim_admin_key');
       showAuthGate();
       toast('Terminal session locked.', 'info');
     }
 
     async function checkInitialAuth() {
+      if (!adminKey) {
+        showAuthGate();
+        return;
+      }
       try {
-        await apiRequest('/admin/auth/verify');
+        await apiRequest('/a/auth/verify');
         hideAuthGate();
         loadAllAdminData();
       } catch (e) {
+        sessionStorage.removeItem('econsim_a_key');
+        adminKey = '';
         showAuthGate();
       }
     }
@@ -849,11 +931,11 @@
     async function loadAllAdminData() {
       try {
         const [feats, stats, ai, markets, funding] = await Promise.all([
-          apiRequest('/admin/features'),
-          apiRequest('/admin/stats'),
-          apiRequest('/admin/ai/model'),
+          apiRequest('/a/features'),
+          apiRequest('/a/stats'),
+          apiRequest('/a/ai/model'),
           apiRequest('/markets'),
-          apiRequest('/admin/funding/stream').catch(() => ({ data: [] }))
+          apiRequest('/a/funding/stream').catch(() => ({ data: [] }))
         ]);
 
         renderStats(stats?.data);
@@ -881,7 +963,7 @@
         return `
           <tr>
             <td><b>${t.user_name}</b><br><small style="color: var(--text-muted); font-size: 11px;">${t.user_email}</small></td>
-            <td><b style="color: ${isSucceeded ? '#34d399' : 'inherit'};">₦${t.amount_ngn.toLocaleString()}</b></td>
+            <td><b style="color: ${isSucceeded ? '#34d399' : 'inherit'};">₦${Number(t.amount_ngn).toLocaleString()}</b></td>
             <td>
               <span style="background: ${isKorapay ? 'rgba(168, 85, 247, 0.15)' : 'rgba(245, 158, 11, 0.15)'}; color: ${isKorapay ? '#c084fc' : '#fbbf24'}; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; font-family: var(--font-mono);">
                 ${(t.gateway || 'FLUTTERWAVE').toUpperCase()}
@@ -1014,7 +1096,7 @@
 
     async function handleToggleFeature(code, enabled) {
       try {
-        await apiRequest('/admin/features/toggle', 'POST', { code, enabled });
+        await apiRequest('/a/features/toggle', 'POST', { code, enabled });
         toast(`Engine feature '${code}' set to ${enabled ? 'ENABLED' : 'PAUSED'}`, 'success');
       } catch (err) {
         toast(err.message, 'error');
@@ -1024,7 +1106,7 @@
 
     async function handleSwitchProvider(slug, status) {
       try {
-        await apiRequest('/admin/providers/switch', 'POST', { slug, status });
+        await apiRequest('/a/providers/switch', 'POST', { slug, status });
         toast(`Provider '${slug}' updated to ${status}.`, 'success');
         loadAllAdminData();
       } catch (err) {
@@ -1035,7 +1117,7 @@
     async function handleSwitchAiModel() {
       const model = document.getElementById('ai-model-select').value;
       try {
-        await apiRequest('/admin/ai/model', 'POST', { model });
+        await apiRequest('/a/ai/model', 'POST', { model });
         toast('Primary AI Model switched successfully!', 'success');
         loadAllAdminData();
       } catch (err) {
@@ -1052,7 +1134,7 @@
       const definition = document.getElementById('m-def').value.trim();
 
       try {
-        await apiRequest('/admin/markets/create', 'POST', {
+        await apiRequest('/a/markets/create', 'POST', {
           title,
           industry_id,
           resolution_date,
@@ -1073,7 +1155,7 @@
         return;
       }
       try {
-        const res = await apiRequest('/admin/markets/resolve', 'POST', { event_id: eventId, outcome });
+        const res = await apiRequest('/a/markets/resolve', 'POST', { event_id: eventId, outcome });
         toast(res.message || 'Market resolved and settled!', 'success');
         loadAllAdminData();
       } catch (err) {
@@ -1087,7 +1169,7 @@
       document.getElementById('ai-modal-content').style.display = 'none';
 
       try {
-        const res = await apiRequest('/admin/markets/ai-evaluate', 'POST', { event_id: eventId });
+        const res = await apiRequest('/a/markets/ai-evaluate', 'POST', { event_id: eventId });
         if (!res?.data) throw new Error('Adjudication response empty');
         const adj = res.data;
 
@@ -1119,9 +1201,8 @@
       document.getElementById('ai-modal').style.display = 'none';
     }
 
-    // Initialize
+    // Initialize (checks sessionStorage or shows auth gate)
     checkInitialAuth();
   </script>
 </body>
 </html>
-

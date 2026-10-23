@@ -186,12 +186,6 @@ async function initApp() {
     targetPage = window.location.hash.replace(/^#\/?/, '');
   }
 
-  // Standalone Admin Portal redirect
-  if (targetPage === 'admin') {
-    window.location.href = '/admin';
-    return;
-  }
-
   const targetMarketId = urlParams.get('marketId');
   const targetChallengeId = urlParams.get('challengeId');
 
@@ -223,12 +217,6 @@ async function initApp() {
 }
 
 function navigate(page, params = {}) {
-  // Standalone Admin Portal is decoupled from user workspace
-  if (page === 'admin') {
-    window.location.href = '/admin';
-    return;
-  }
-
   state.page = page;
   if (params.marketId) state.selectedMarketId = params.marketId;
   if (params.challengeId) state.currentChallengeId = params.challengeId;
@@ -2189,8 +2177,6 @@ function attachViewEvents() {
     loadWalletData();
   } else if (state.page === 'leaderboard') {
     loadLeaderboardData(state.leaderboardTab);
-  } else if (state.page === 'admin') {
-    window.location.href = '/admin';
   } else if (state.page === 'waiting_room' && state.currentChallengeId) {
     loadWaitingRoomData(state.currentChallengeId);
   } else if (state.page === 'live_challenge' && state.currentChallengeId) {
@@ -2912,17 +2898,6 @@ async function loadLeaderboardData(tab = 'Overall') {
 }
 
 // -------------------------------------------------------------
-// Standalone Admin Portal Redirection
-// -------------------------------------------------------------
-function renderAdminPage() {
-  window.location.href = '/admin';
-  return `
-    <div style="padding: 60px 20px; text-align: center; color: var(--muted);">
-      <div style="font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 8px;">EconSim Standalone Operations Terminal</div>
-      <p>Redirecting to dedicated Admin Console at <a href="/admin" style="color: var(--jade);">/admin</a>...</p>
-    </div>
-  `;
-}
 
 
 

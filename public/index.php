@@ -19,16 +19,38 @@ Env::load();
 $uri = $_SERVER['REQUEST_URI'] ?? '/';
 $path = parse_url($uri, PHP_URL_PATH) ?: '/';
 
-// Route dedicated Admin portal directly to admin.html
-if ($path === '/admin' || $path === '/admin/' || $path === '/admin.html') {
-    require_once __DIR__ . '/admin.html';
+// Route obfuscated Operations Terminal exclusively to /a
+if ($path === '/a' || $path === '/a/') {
+    require_once __DIR__ . '/a.html';
     exit;
 }
 
-// Serve static assets directly if requested
+// Strictly block and drop any /admin or direct html scan attempts with 404
+if (
+    $path === '/admin' || 
+    $path === '/admin/' || 
+    $path === '/admin.html' || 
+    $path === '/a.html' || 
+    str_starts_with($path, '/admin/')
+) {
+    http_response_code(404);
+    header('Content-Type: text/plain; charset=utf-8');
+    echo "404 Not Found";
+    exit;
+}
+
+// Serve static assets directly if requested (excluding admin/operations templates)
 $publicDir = __DIR__;
 $filePath = realpath($publicDir . $path);
-if ($filePath && is_file($filePath) && str_starts_with($filePath, $publicDir) && $path !== '/index.php' && !str_starts_with($path, '/api/')) {
+if (
+    $filePath && 
+    is_file($filePath) && 
+    str_starts_with($filePath, $publicDir) && 
+    $path !== '/index.php' && 
+    $path !== '/a.html' && 
+    $path !== '/admin.html' && 
+    !str_starts_with($path, '/api/')
+) {
     $ext = pathinfo($filePath, PATHINFO_EXTENSION);
     $mimes = [
         'css' => 'text/css',
@@ -96,19 +118,19 @@ if (str_starts_with($path, '/api/')) {
     $router->post('/api/webhooks/flutterwave', [PaymentController::class, 'flutterwaveWebhook']);
     $router->post('/api/webhooks/korapay', [PaymentController::class, 'korapayWebhook']);
 
-    // Admin Controls & Real Mode Engine
-    $router->get('/api/admin/auth/verify', [AdminController::class, 'verifyAuth']);
-    $router->post('/api/admin/auth/verify', [AdminController::class, 'verifyAuth']);
-    $router->get('/api/admin/features', [AdminController::class, 'getFeatures']);
-    $router->post('/api/admin/features/toggle', [AdminController::class, 'toggleFeature']);
-    $router->post('/api/admin/providers/switch', [AdminController::class, 'updateProvider']);
-    $router->get('/api/admin/funding/stream', [AdminController::class, 'getFundingStream']);
-    $router->get('/api/admin/stats', [AdminController::class, 'getStats']);
-    $router->post('/api/admin/markets/create', [AdminController::class, 'createMarket']);
-    $router->post('/api/admin/markets/resolve', [AdminController::class, 'resolveMarket']);
-    $router->post('/api/admin/markets/ai-evaluate', [AdminController::class, 'aiEvaluateMarket']);
-    $router->get('/api/admin/ai/model', [AdminController::class, 'getAiConfig']);
-    $router->post('/api/admin/ai/model', [AdminController::class, 'updateAiModel']);
+    // Obfuscated Engine Operations API (/api/a/...)
+    $router->get('/api/a/auth/verify', [AdminController::class, 'verifyAuth']);
+    $router->post('/api/a/auth/verify', [AdminController::class, 'verifyAuth']);
+    $router->get('/api/a/features', [AdminController::class, 'getFeatures']);
+    $router->post('/api/a/features/toggle', [AdminController::class, 'toggleFeature']);
+    $router->post('/api/a/providers/switch', [AdminController::class, 'updateProvider']);
+    $router->get('/api/a/funding/stream', [AdminController::class, 'getFundingStream']);
+    $router->get('/api/a/stats', [AdminController::class, 'getStats']);
+    $router->post('/api/a/markets/create', [AdminController::class, 'createMarket']);
+    $router->post('/api/a/markets/resolve', [AdminController::class, 'resolveMarket']);
+    $router->post('/api/a/markets/ai-evaluate', [AdminController::class, 'aiEvaluateMarket']);
+    $router->get('/api/a/ai/model', [AdminController::class, 'getAiConfig']);
+    $router->post('/api/a/ai/model', [AdminController::class, 'updateAiModel']);
 
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $router->dispatch($method, $uri);
