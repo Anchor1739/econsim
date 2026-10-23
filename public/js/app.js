@@ -74,6 +74,19 @@ async function initApp() {
     } catch (e) {}
   }
 
+  // Determine target page from query param, path, or hash
+  let targetPage = urlParams.get('page');
+  const path = window.location.pathname.replace(/^\/+|\/+$/g, '');
+  if (!targetPage && path && path !== 'index.html' && path !== 'index.php') {
+    targetPage = path;
+  }
+  if (!targetPage && window.location.hash) {
+    targetPage = window.location.hash.replace(/^#\/?/, '');
+  }
+
+  const targetMarketId = urlParams.get('marketId');
+  const targetChallengeId = urlParams.get('challengeId');
+
   try {
     const res = await api.get('/auth/me');
     if (res?.data) {
@@ -87,20 +100,40 @@ async function initApp() {
       if (res.data.theme) {
         applyTheme(res.data.theme);
       }
-      navigate('dashboard');
+      navigate(targetPage || 'dashboard', { marketId: targetMarketId, challengeId: targetChallengeId });
       return;
     }
   } catch (e) {
-    // Unauthenticated -> welcome screen
+    // Unauthenticated -> welcome screen or target auth screen
   }
 
-  navigate('welcome');
+  if (targetPage && ['welcome', 'login', 'signup', 'verify', 'forgot', 'reset'].includes(targetPage)) {
+    navigate(targetPage);
+  } else {
+    navigate('welcome');
+  }
 }
 
 function navigate(page, params = {}) {
   state.page = page;
   if (params.marketId) state.selectedMarketId = params.marketId;
   if (params.challengeId) state.currentChallengeId = params.challengeId;
+
+  // Keep browser address bar in sync with active page
+  try {
+    const url = new URL(window.location.href);
+    if (['dashboard', 'welcome'].includes(page)) {
+      url.pathname = '/';
+      url.searchParams.delete('page');
+    } else {
+      url.searchParams.set('page', page);
+    }
+    if (params.marketId) url.searchParams.set('marketId', params.marketId);
+    else url.searchParams.delete('marketId');
+    if (params.challengeId) url.searchParams.set('challengeId', params.challengeId);
+    else url.searchParams.delete('challengeId');
+    window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+  } catch (err) {}
 
   window.scrollTo({ top: 0, behavior: 'smooth' });
   render();
