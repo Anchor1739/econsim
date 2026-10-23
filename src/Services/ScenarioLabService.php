@@ -497,7 +497,9 @@ NEVER truncate or give superficial advice. Structure into these 5 exact sections
                     if (!empty($text)) {
                         return [
                             'briefing_text' => $text,
+                            'briefing' => $text,
                             'model' => $activeModel,
+                            'model_used' => $activeModel,
                             'scenario' => $scenarioTitle,
                         ];
                     }
@@ -525,7 +527,9 @@ NEVER truncate or give superficial advice. Structure into these 5 exact sections
 
         return [
             'briefing_text' => $fallback,
+            'briefing' => $fallback,
             'model' => $activeModel,
+            'model_used' => $activeModel,
             'scenario' => $scenarioTitle,
         ];
     }

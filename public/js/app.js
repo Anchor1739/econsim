@@ -1415,37 +1415,29 @@ function renderLabBriefingOutput() {
     `;
   }
 
+  // Handle unified markdown string or object with sections
+  let contentHtml = '';
+  if (typeof b === 'string') {
+    contentHtml = renderMarkdown(b);
+  } else if (b.briefing_text) {
+    contentHtml = renderMarkdown(b.briefing_text);
+  } else {
+    contentHtml = `
+      ${b.executive_summary ? `<div style="margin-bottom: 14px;"><h4 style="margin: 0 0 4px; color: var(--navy); font-size: 13.5px;">1. Executive Summary & Macro Stance</h4><div>${renderMarkdown(b.executive_summary)}</div></div>` : ''}
+      ${b.transmission_mechanisms ? `<div style="margin-bottom: 14px;"><h4 style="margin: 0 0 4px; color: var(--navy); font-size: 13.5px;">2. Transmission Channels & Financial Conditions</h4><div>${renderMarkdown(b.transmission_mechanisms)}</div></div>` : ''}
+      ${b.sector_impacts ? `<div style="margin-bottom: 14px;"><h4 style="margin: 0 0 4px; color: var(--navy); font-size: 13.5px;">3. Sectoral Margin Stress & Working Capital</h4><div>${renderMarkdown(b.sector_impacts)}</div></div>` : ''}
+      ${b.corporate_playbook ? `<div style="margin-bottom: 14px;"><h4 style="margin: 0 0 4px; color: var(--navy); font-size: 13.5px;">4. Corporate Leadership Playbook (C-Suite Tactics)</h4><div>${renderMarkdown(b.corporate_playbook)}</div></div>` : ''}
+      ${b.risks_and_tail_events ? `<div><h4 style="margin: 0 0 4px; color: var(--red); font-size: 13.5px;">5. Tail Risks & Black Swan Scenarios</h4><div>${renderMarkdown(b.risks_and_tail_events)}</div></div>` : ''}
+    `;
+  }
+
   return `
     <div style="background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 18px; font-size: 13px; line-height: 1.7;">
       <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 14px;">
         <b style="color: var(--jade); font-size: 14px;">MEMORANDUM TO THE BOARD & EXECUTIVE COMMITTEE</b>
         <small style="color: var(--muted); font-size: 11px;">Model: ${state.lab.briefingModel || 'NVIDIA NIM'}</small>
       </div>
-
-      <div style="margin-bottom: 14px;">
-        <h4 style="margin: 0 0 4px; color: var(--navy); font-size: 13.5px;">1. Executive Summary & Macro Stance</h4>
-        <div style="color: var(--text);">${renderMarkdown(b.executive_summary || '')}</div>
-      </div>
-
-      <div style="margin-bottom: 14px;">
-        <h4 style="margin: 0 0 4px; color: var(--navy); font-size: 13.5px;">2. Transmission Channels & Financial Conditions</h4>
-        <div style="color: var(--text);">${renderMarkdown(b.transmission_mechanisms || '')}</div>
-      </div>
-
-      <div style="margin-bottom: 14px;">
-        <h4 style="margin: 0 0 4px; color: var(--navy); font-size: 13.5px;">3. Sectoral Margin Stress & Working Capital</h4>
-        <div style="color: var(--text);">${renderMarkdown(b.sector_impacts || '')}</div>
-      </div>
-
-      <div style="margin-bottom: 14px;">
-        <h4 style="margin: 0 0 4px; color: var(--navy); font-size: 13.5px;">4. Corporate Leadership Playbook (C-Suite Tactics)</h4>
-        <div style="color: var(--text);">${renderMarkdown(b.corporate_playbook || '')}</div>
-      </div>
-
-      <div>
-        <h4 style="margin: 0 0 4px; color: var(--red); font-size: 13.5px;">5. Tail Risks & Black Swan Scenarios</h4>
-        <div style="color: var(--text);">${renderMarkdown(b.risks_and_tail_events || '')}</div>
-      </div>
+      <div style="color: var(--text);">${contentHtml}</div>
     </div>
   `;
 }
@@ -2778,8 +2770,8 @@ async function handleRunAiBriefing() {
     });
 
     if (res && res.data) {
-      state.lab.aiBriefing = res.data.briefing;
-      state.lab.briefingModel = res.data.model_used;
+      state.lab.aiBriefing = res.data.briefing_text || res.data.briefing;
+      state.lab.briefingModel = res.data.model || res.data.model_used || 'NVIDIA NIM';
       if (panel) {
         panel.innerHTML = renderLabBriefingOutput();
       }
