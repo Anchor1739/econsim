@@ -34,9 +34,10 @@ class BoardroomController
         $stake = (int)($body['stake'] ?? 10000);
         $scheduledAt = $body['scheduled_at'] ?? date('Y-m-d H:i:s');
         $duration = (int)($body['duration'] ?? 15);
+        $mode = $body['mode'] ?? 'demo';
 
         try {
-            $res = BoardroomService::createChallenge($user['id'], $industryId, $stake, $scheduledAt, $duration);
+            $res = BoardroomService::createChallenge($user['id'], $industryId, $stake, $scheduledAt, $duration, $mode);
             Response::success($res, 'Boardroom challenge published to lobby.', 201);
         } catch (Throwable $e) {
             Response::error($e->getMessage(), 400);

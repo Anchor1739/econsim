@@ -46,6 +46,7 @@ class BoardroomService
                 'commitment' => (int)($r['commitment_minor'] / 100),
                 'scheduled_at' => $r['scheduled_at'],
                 'duration' => (int)$r['duration_minutes'],
+                'mode' => $r['mode'] ?? 'demo',
                 'state' => $r['state'],
                 'sealed' => true, // Scenario and rubric strictly excluded
             ];
@@ -55,12 +56,20 @@ class BoardroomService
     public static function createChallenge(
         string $userId,
         int $industryId,
-        int $commitmentVngn,
+        int $commitmentAmount,
         string $scheduledAt,
-        int $durationMinutes = 15
+        int $durationMinutes = 15,
+        string $mode = 'demo'
     ): array {
-        if ($commitmentVngn < 1000) {
-            throw new RuntimeException("Minimum Boardroom commitment is ₦1,000 virtual capital.");
+        $normalizedMode = (strtolower($mode) === LedgerService::MODE_REAL) ? LedgerService::MODE_REAL : LedgerService::MODE_DEMO;
+
+        if ($normalizedMode === LedgerService::MODE_REAL) {
+            FeatureService::assertEnabled('real_mode');
+            FeatureService::assertEnabled('real_boardroom');
+        }
+
+        if ($commitmentAmount < 1000) {
+            throw new RuntimeException("Minimum Boardroom commitment is ₦1,000.");
         }
         if ($durationMinutes < 5 || $durationMinutes > 120) {
             throw new RuntimeException("Duration must be between 5 and 120 minutes.");
@@ -83,17 +92,17 @@ class BoardroomService
         }
 
         $challengeId = Security::uuid();
-        $commitmentMinor = $commitmentVngn * 100;
+        $commitmentMinor = $commitmentAmount * 100;
         $idempotencyKey = "boardroom_host_{$userId}_{$challengeId}";
 
-        // Step 1: Hold host's virtual commitment
+        // Step 1: Hold host's commitment
         LedgerService::holdCommitment(
             $userId,
             $commitmentMinor,
             'boardroom_escrow_hold',
             $challengeId,
             $idempotencyKey,
-            LedgerService::MODE_DEMO
+            $normalizedMode
         );
 
         $pdo->beginTransaction();
@@ -102,13 +111,14 @@ class BoardroomService
                 "INSERT INTO boardroom_challenges 
                     (id, host_id, industry_id, scenario_id, mode, commitment_minor, scheduled_at, duration_minutes, state, created_at)
                  VALUES 
-                    (:id, :uid, :ind, :sc, 'demo', :amt, :sched, :dur, 'open', NOW(3))"
+                    (:id, :uid, :ind, :sc, :mode, :amt, :sched, :dur, 'open', NOW(3))"
             );
             $stmt->execute([
                 ':id' => $challengeId,
                 ':uid' => $userId,
                 ':ind' => $industryId,
                 ':sc' => $scenarioId,
+                ':mode' => $normalizedMode,
                 ':amt' => $commitmentMinor,
                 ':sched' => $scheduledAt,
                 ':dur' => $durationMinutes,
@@ -126,7 +136,8 @@ class BoardroomService
             return [
                 'challenge_id' => $challengeId,
                 'state' => 'open',
-                'commitment' => $commitmentVngn,
+                'mode' => $normalizedMode,
+                'commitment' => $commitmentAmount,
                 'duration' => $durationMinutes,
                 'message' => 'Challenge created and published to lobby. Scenario is sealed.',
             ];
@@ -141,50 +152,60 @@ class BoardroomService
     public static function joinChallenge(string $userId, string $challengeId): array
     {
         $pdo = Database::getConnection();
-
-        $stmt = $pdo->prepare("SELECT * FROM boardroom_challenges WHERE id = ? FOR UPDATE");
-        $stmt->execute([$challengeId]);
-        $challenge = $stmt->fetch();
-
-        if (!$challenge) {
-            throw new RuntimeException("Challenge not found.");
-        }
-        if ($challenge['state'] !== 'open') {
-            throw new RuntimeException("This challenge is no longer open for opponents.");
-        }
-        if ($challenge['host_id'] === $userId) {
-            throw new RuntimeException("You cannot join your own challenge as an opponent.");
-        }
-
-        $commitmentMinor = (int)$challenge['commitment_minor'];
-        $idempotencyKey = "boardroom_join_{$userId}_{$challengeId}";
-
-        // Step 1: Hold opponent's virtual commitment
-        LedgerService::holdCommitment(
-            $userId,
-            $commitmentMinor,
-            'boardroom_escrow_hold',
-            $challengeId,
-            $idempotencyKey,
-            LedgerService::MODE_DEMO
-        );
-
         $pdo->beginTransaction();
+
         try {
+            $stmt = $pdo->prepare("SELECT * FROM boardroom_challenges WHERE id = ? FOR UPDATE");
+            $stmt->execute([$challengeId]);
+            $challenge = $stmt->fetch();
+
+            if (!$challenge) {
+                throw new RuntimeException("Challenge not found.");
+            }
+            if ($challenge['state'] !== 'open') {
+                throw new RuntimeException("This challenge is no longer open for opponents.");
+            }
+            if ($challenge['host_id'] === $userId) {
+                throw new RuntimeException("You cannot join your own challenge as an opponent.");
+            }
+
+            $challengeMode = strtolower((string)($challenge['mode'] ?? 'demo'));
+            if ($challengeMode === 'real') {
+                FeatureService::assertEnabled('real_mode');
+                FeatureService::assertEnabled('real_boardroom');
+            }
+
+            $commitmentMinor = (int)$challenge['commitment_minor'];
+            $idempotencyKey = "boardroom_join_{$userId}_{$challengeId}";
+
+            // Step 1: Hold opponent's commitment
+            LedgerService::holdCommitment(
+                $userId,
+                $commitmentMinor,
+                'boardroom_escrow_hold',
+                $challengeId,
+                $idempotencyKey,
+                $challengeMode
+            );
+
             $duration = (int)$challenge['duration_minutes'];
 
-            // Match and start
+            // Match and start with strict conditional check
             $up = $pdo->prepare(
                 "UPDATE boardroom_challenges 
                  SET opponent_id = :uid, state = 'live', start_at = NOW(3), 
                      deadline_at = DATE_ADD(NOW(3), INTERVAL :dur MINUTE)
-                 WHERE id = :cid"
+                 WHERE id = :cid AND state = 'open'"
             );
             $up->execute([
                 ':uid' => $userId,
                 ':dur' => $duration,
                 ':cid' => $challengeId,
             ]);
+
+            if ($up->rowCount() !== 1) {
+                throw new RuntimeException("Challenge was already accepted by another executive.");
+            }
 
             $part = $pdo->prepare(
                 "INSERT INTO boardroom_participants (challenge_id, user_id, joined_at, commitment_held_at)
@@ -198,6 +219,58 @@ class BoardroomService
                 'challenge_id' => $challengeId,
                 'state' => 'live',
                 'deadline_minutes' => $duration,
+            ];
+        } catch (\Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e;
+        }
+    }
+
+    public static function settleChallenge(string $challengeId, string $winnerUserId, ?string $rationale = null): array
+    {
+        $pdo = Database::getConnection();
+        $pdo->beginTransaction();
+        try {
+            $stmt = $pdo->prepare("SELECT * FROM boardroom_challenges WHERE id = ? FOR UPDATE");
+            $stmt->execute([$challengeId]);
+            $c = $stmt->fetch();
+            if (!$c) {
+                throw new RuntimeException("Challenge not found.");
+            }
+            if ($c['state'] === 'settled') {
+                return ['status' => 'already_settled'];
+            }
+
+            $heldMinor = (int)$c['commitment_minor'];
+            $mode = $c['mode'] ?? 'demo';
+            $hostId = $c['host_id'];
+            $opponentId = $c['opponent_id'];
+
+            // Winner gets full pot (host hold + opponent hold = 2 * heldMinor)
+            // Loser gets 0
+            if ($hostId) {
+                $isWinner = ($hostId === $winnerUserId);
+                $returnMinor = $isWinner ? ($heldMinor * 2) : 0;
+                LedgerService::settleCommitment($hostId, $heldMinor, $returnMinor, 'boardroom_resolution', $challengeId, "br_settle_host_{$challengeId}", $mode);
+            }
+
+            if ($opponentId) {
+                $isWinner = ($opponentId === $winnerUserId);
+                $returnMinor = $isWinner ? ($heldMinor * 2) : 0;
+                LedgerService::settleCommitment($opponentId, $heldMinor, $returnMinor, 'boardroom_resolution', $challengeId, "br_settle_opp_{$challengeId}", $mode);
+            }
+
+            $up = $pdo->prepare("UPDATE boardroom_challenges SET state = 'settled' WHERE id = ?");
+            $up->execute([$challengeId]);
+
+            $pdo->commit();
+            return [
+                'status' => 'settled',
+                'challenge_id' => $challengeId,
+                'winner_id' => $winnerUserId,
+                'pot_minor' => $heldMinor * 2,
             ];
         } catch (\Throwable $e) {
             if ($pdo->inTransaction()) {
@@ -329,13 +402,15 @@ class BoardroomService
                 'communication' => 10,
             ]);
 
+            $activeModel = FeatureService::getActiveAiModel();
             $insRun = $pdo->prepare(
                 "INSERT INTO evaluation_runs (id, challenge_id, model_id, rubric_version, rubric_snapshot, evaluation_state, created_at)
-                 VALUES (:id, :cid, 'nvidia/llama-3.1-70b-instruct', 'v1_40_30_20_10', :rubric, 'queued', NOW(3))"
+                 VALUES (:id, :cid, :model, 'v1_40_30_20_10', :rubric, 'queued', NOW(3))"
             );
             $insRun->execute([
                 ':id' => $runId,
                 ':cid' => $challengeId,
+                ':model' => $activeModel,
                 ':rubric' => $rubricSnapshot,
             ]);
 

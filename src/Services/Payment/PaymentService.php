@@ -6,6 +6,7 @@ namespace App\Services\Payment;
 
 use App\Config\Database;
 use App\Config\Env;
+use App\Services\FeatureService;
 use App\Services\LedgerService;
 use App\Utils\Security;
 use PDO;
@@ -32,15 +33,15 @@ class PaymentService
 
     public static function createDepositIntent(string $userId, int $amountNgn): array
     {
+        // Enforce engine toggles
+        FeatureService::assertEnabled('real_mode');
+        FeatureService::assertEnabled('real_funding');
+
         if ($amountNgn < 1000) {
             throw new RuntimeException("Minimum real account deposit is ₦1,000.");
         }
 
         $pdo = Database::getConnection();
-
-        // Check if real mode or real funding is enabled in platform_features
-        $feat = $pdo->query("SELECT enabled FROM platform_features WHERE code = 'real_funding' LIMIT 1")->fetchColumn();
-        $realMode = $pdo->query("SELECT enabled FROM platform_features WHERE code = 'real_mode' LIMIT 1")->fetchColumn();
 
         // Fetch user
         $uStmt = $pdo->prepare("SELECT email, display_name FROM users WHERE id = ?");
@@ -106,7 +107,7 @@ class PaymentService
             'checkout_url' => $gatewayResult['checkout_url'],
             'provider' => $providerSlug,
             'amount_ngn' => $amountNgn,
-            'real_mode_active' => (bool)$realMode,
+            'real_mode_active' => FeatureService::isEnabled('real_mode'),
         ];
     }
 

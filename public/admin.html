@@ -855,9 +855,18 @@
         real_boardroom: { name: 'Real Boardroom Stakes', desc: 'Permits real-money executive challenge matches' }
       };
 
-      container.innerHTML = feats.map(f => {
-        const info = meta[f.code] || { name: f.code, desc: 'Core platform parameter' };
-        const checked = Boolean(parseInt(f.enabled, 10));
+      const displayCodes = ['real_mode', 'real_funding', 'real_payouts', 'real_boardroom'];
+      const featMap = {};
+      feats.forEach(f => {
+        featMap[f.code] = Boolean(parseInt(f.enabled, 10));
+      });
+      if (featMap.boardroom_real_commitments && !featMap.real_boardroom) {
+        featMap.real_boardroom = true;
+      }
+
+      container.innerHTML = displayCodes.map(code => {
+        const info = meta[code] || { name: code, desc: 'Platform engine feature' };
+        const checked = Boolean(featMap[code]);
         return `
           <div class="control-row">
             <div class="control-info">
@@ -865,7 +874,7 @@
               <span>${info.desc}</span>
             </div>
             <label class="switch">
-              <input type="checkbox" ${checked ? 'checked' : ''} onchange="handleToggleFeature('${f.code}', this.checked)">
+              <input type="checkbox" ${checked ? 'checked' : ''} onchange="handleToggleFeature('${code}', this.checked)">
               <span class="slider"></span>
             </label>
           </div>

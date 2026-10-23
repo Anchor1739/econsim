@@ -61,6 +61,8 @@ if (str_starts_with($path, '/api/')) {
     // Wallet & Double-Entry Ledger Routes
     $router->get('/api/wallet', [WalletController::class, 'getWallet']);
     $router->post('/api/wallet/claim-grant', [WalletController::class, 'claimDemoGrant']);
+    $router->post('/api/wallet/withdraw', [WalletController::class, 'withdraw']);
+    $router->get('/api/features', [WalletController::class, 'getFeatures']);
 
     // Predictor & Market Intelligence Routes
     $router->get('/api/markets', [MarketController::class, 'getMarkets']);

@@ -47,9 +47,10 @@ class MarketController
         $stake = (int)($body['amount'] ?? 5000);
         $thesis = $body['thesis'] ?? null;
         $confidence = isset($body['confidence']) ? (int)$body['confidence'] : null;
+        $mode = $body['mode'] ?? 'demo';
 
         try {
-            $res = PredictorService::placeForecast($user['id'], $id, $outcome, $stake, $thesis, $confidence);
+            $res = PredictorService::placeForecast($user['id'], $id, $outcome, $stake, $thesis, $confidence, $mode);
             Response::success($res, 'Forecast placed successfully and recorded on the ledger.');
         } catch (Throwable $e) {
             Response::error($e->getMessage(), 400);

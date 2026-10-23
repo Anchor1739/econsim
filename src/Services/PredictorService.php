@@ -162,12 +162,20 @@ class PredictorService
         string $userId,
         string $eventId,
         bool $outcome,
-        int $stakeVngn,
+        int $stakeAmount,
         ?string $journalThesis = null,
-        ?int $confidencePct = null
+        ?int $confidencePct = null,
+        string $mode = LedgerService::MODE_DEMO
     ): array {
-        if ($stakeVngn < 100) {
-            throw new RuntimeException("Minimum virtual stake is ₦100.");
+        $normalizedMode = (strtolower($mode) === LedgerService::MODE_REAL) ? LedgerService::MODE_REAL : LedgerService::MODE_DEMO;
+
+        if ($normalizedMode === LedgerService::MODE_REAL) {
+            FeatureService::assertEnabled('real_mode');
+        }
+
+        if ($stakeAmount < 100) {
+            $currencyLabel = ($normalizedMode === LedgerService::MODE_REAL) ? '₦' : '₦';
+            throw new RuntimeException("Minimum stake is {$currencyLabel}100.");
         }
 
         $market = self::getMarket($eventId);
@@ -178,23 +186,23 @@ class PredictorService
             throw new RuntimeException("This market is currently {$market['state']} and not accepting forecasts.");
         }
 
-        $stakeMinor = $stakeVngn * 100;
+        $stakeMinor = $stakeAmount * 100;
         $probPct = $outcome ? $market['probability_yes'] : $market['probability_no'];
         $prob = max(0.05, min(0.95, $probPct / 100));
         $entryOdds = round(1.0 / $prob, 2);
-        $potentialPayoutVngn = (int)round($stakeVngn * $entryOdds);
+        $potentialPayout = (int)round($stakeAmount * $entryOdds);
 
         $positionId = Security::uuid();
         $idempotencyKey = "forecast_{$userId}_{$positionId}";
 
-        // Step 1: Atomic hold on virtual capital
+        // Step 1: Atomic hold on capital (virtual or live real)
         LedgerService::holdCommitment(
             $userId,
             $stakeMinor,
             'forecast_stake',
             $positionId,
             $idempotencyKey,
-            LedgerService::MODE_DEMO
+            $normalizedMode
         );
 
         $pdo = Database::getConnection();
@@ -205,12 +213,13 @@ class PredictorService
                 "INSERT INTO forecast_positions 
                     (id, event_id, user_id, mode, selected_outcome, stake_minor, quote_probability, quote_version, status, created_at)
                  VALUES 
-                    (:id, :eid, :uid, 'demo', :outcome, :stake, :prob, 'quote_v1', 'open', NOW(3))"
+                    (:id, :eid, :uid, :mode, :outcome, :stake, :prob, 'quote_v1', 'open', NOW(3))"
             );
             $posStmt->execute([
                 ':id' => $positionId,
                 ':eid' => $market['id'],
                 ':uid' => $userId,
+                ':mode' => $normalizedMode,
                 ':outcome' => $outcome ? 1 : 0,
                 ':stake' => $stakeMinor,
                 ':prob' => $prob,
@@ -251,10 +260,12 @@ class PredictorService
                 'position_id' => $positionId,
                 'market_title' => $market['title'],
                 'outcome' => $outcome ? 'Yes' : 'No',
-                'stake' => $stakeVngn,
+                'stake' => $stakeAmount,
                 'quote_probability' => round($prob * 100, 1),
                 'entry_odds' => $entryOdds,
-                'potential_payout' => $potentialPayoutVngn,
+                'potential_payout' => $potentialPayout,
+                'mode' => $normalizedMode,
+                'currency' => ($normalizedMode === LedgerService::MODE_REAL ? 'NGN' : 'VNGN'),
                 'xp_awarded' => 25,
             ];
         } catch (\Throwable $e) {
@@ -269,7 +280,7 @@ class PredictorService
     {
         $pdo = Database::getConnection();
         $stmt = $pdo->prepare(
-            "SELECT p.id, p.event_id, p.selected_outcome, p.stake_minor, p.quote_probability,
+            "SELECT p.id, p.event_id, p.mode, p.selected_outcome, p.stake_minor, p.quote_probability,
                     p.status, p.total_return_minor, p.created_at, e.title, e.slug, i.name AS industry_name
              FROM forecast_positions p
              JOIN market_events e ON p.event_id = e.id
@@ -287,6 +298,7 @@ class PredictorService
             $entryOdds = $prob > 0 ? round(1.0 / $prob, 2) : 2.0;
             $potentialPayout = (int)round($stake * $entryOdds);
             $totalReturn = $r['total_return_minor'] !== null ? (int)round($r['total_return_minor'] / 100) : null;
+            $posMode = $r['mode'] ?? 'demo';
 
             return [
                 'id' => $r['id'],
@@ -300,6 +312,8 @@ class PredictorService
                 'entry_odds' => $entryOdds,
                 'potential_payout' => $potentialPayout,
                 'total_return' => $totalReturn,
+                'mode' => $posMode,
+                'currency' => ($posMode === 'real' ? 'NGN' : 'VNGN'),
                 'status' => $r['status'],
                 'created_at' => $r['created_at'],
             ];

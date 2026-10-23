@@ -87,6 +87,16 @@ function renderMarkdown(md) {
 async function initApp() {
   applyTheme(state.theme);
 
+  // Load platform engine features and active gateway immediately
+  try {
+    const featRes = await api.get('/features');
+    if (featRes?.data) {
+      if (featRes.data.features) state.features = featRes.data.features;
+      if (featRes.data.active_provider) state.activeProvider = featRes.data.active_provider;
+      if (featRes.data.active_ai_model) state.activeAiModel = featRes.data.active_ai_model;
+    }
+  } catch (e) {}
+
   // Check URL query parameters for payment return verification
   const urlParams = new URLSearchParams(window.location.search);
   const ref = urlParams.get('ref') || urlParams.get('tx_ref');
@@ -340,12 +350,18 @@ function renderAppShell(innerHtml) {
           </div>
           <div class="top-actions">
             <div class="mode-toggle">
-              <button class="mode-btn ${state.mode === 'Demo' ? 'active' : ''}" onclick="switchMode('Demo')">Demo</button>
-              <button class="mode-btn ${state.mode === 'Real' ? 'active' : ''}" onclick="switchMode('Real')">Real</button>
+              <button class="mode-btn ${state.mode?.toLowerCase() !== 'real' ? 'active' : ''}" onclick="switchMode('demo')">Demo</button>
+              <button class="mode-btn ${state.mode?.toLowerCase() === 'real' ? 'active' : ''}" onclick="switchMode('real')" title="${!state.features?.real_mode ? 'Real mode is disabled by admin' : 'Live real money mode'}">
+                Real ${!state.features?.real_mode ? '🔒' : ''}
+              </button>
             </div>
-            <span class="sim-tag">● SIMULATION MODE</span>
+            ${state.mode?.toLowerCase() === 'real' ? `
+              <span class="sim-tag" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">● LIVE CAPITAL (NGN)</span>
+            ` : `
+              <span class="sim-tag">● SIMULATION MODE</span>
+            `}
             <div class="wallet-badge" onclick="navigate('wallet')" style="cursor: pointer;">
-              <span>◈</span> ${formatMoney(state.wallet.available)}
+              <span>${state.mode?.toLowerCase() === 'real' ? '₦' : '◈'}</span> ${formatMoney((state.mode?.toLowerCase() === 'real' ? state.realWallet.available : state.wallet.available) || 0)} <small style="font-size: 10px; margin-left: 2px;">${state.mode?.toLowerCase() === 'real' ? 'NGN' : 'VNGN'}</small>
             </div>
             <button class="avatar-btn" onclick="navigate('profile')">${userInitial}</button>
           </div>
@@ -353,11 +369,20 @@ function renderAppShell(innerHtml) {
 
         <!-- Content Body -->
         <main class="content-body">
-          ${state.mode === 'Real' ? `
-            <div class="panel" style="border-left: 4px solid var(--gold); background: var(--gold-light); color: var(--gold); margin-bottom: 24px;">
-              <b>Real Mode Preview</b>: Real-money funding, cash-equivalent points, and paid challenges are currently inactive pending regulatory approvals.
-              <button class="btn btn-secondary" style="margin-left: 12px; padding: 4px 10px; font-size: 12px;" onclick="switchMode('Demo')">Return to Demo</button>
-            </div>
+          ${state.mode?.toLowerCase() === 'real' ? `
+            ${!state.features?.real_mode ? `
+              <div class="panel" style="border-left: 4px solid var(--red); background: var(--red-light); color: var(--red); margin-bottom: 24px;">
+                <b>Real Money Mode Disabled</b>: Real-money platform mode is currently disabled by administrator. Live transactions cannot be processed.
+                <button class="btn btn-secondary" style="margin-left: 12px; padding: 4px 10px; font-size: 12px;" onclick="switchMode('demo')">Switch to Demo</button>
+              </div>
+            ` : `
+              <div class="panel" style="border-left: 4px solid var(--jade); background: var(--jade-light); color: var(--jade); margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <div>
+                  <b>🟢 Live Capital Engine Active</b>: Real-money double-entry ledger is active. Positions, funding, and settlements directly affect your verified NGN account.
+                </div>
+                <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 12px;" onclick="switchMode('demo')">Switch to Virtual Demo</button>
+              </div>
+            `}
           ` : ''}
           ${innerHtml}
         </main>
@@ -665,6 +690,16 @@ function renderCreateChallenge() {
       <div class="panel">
         <form onsubmit="handleCreateChallenge(event)">
           <div class="form-group">
+            <label>Challenge Mode</label>
+            <select class="select" id="create-mode">
+              <option value="demo">Virtual Simulation (VNGN)</option>
+              <option value="real" ${!state.features?.real_boardroom ? 'disabled' : ''}>
+                Real Cash Stakes (NGN) ${!state.features?.real_boardroom ? '🔒 [Disabled by Admin]' : ''}
+              </option>
+            </select>
+            <small style="color: var(--muted);">Select virtual educational simulation or live escrow stakes.</small>
+          </div>
+          <div class="form-group" style="margin-top: 12px;">
             <label>Industry</label>
             <select class="select" id="create-industry">
               <option value="1">Monetary Policy</option>
@@ -747,11 +782,14 @@ function renderChallengeReport() {
 // Double-Entry Ledger Wallet View
 // -------------------------------------------------------------
 function renderWalletPage() {
-  const isReal = state.mode === 'real';
+  const isReal = state.mode?.toLowerCase() === 'real';
   const activeBal = isReal ? state.realWallet : state.wallet;
   const currLabel = isReal ? 'NGN' : 'VNGN';
   const providerName = state.activeProvider?.display_name || 'Flutterwave';
   const providerStatus = state.activeProvider?.status || 'sandbox';
+  const isRealModeEnabled = Boolean(state.features?.real_mode);
+  const isFundingEnabled = Boolean(state.features?.real_funding);
+  const isPayoutsEnabled = Boolean(state.features?.real_payouts);
 
   return `
     <div class="page-head">
@@ -762,7 +800,9 @@ function renderWalletPage() {
       </div>
       <div style="display: flex; gap: 8px;">
         <button class="btn ${!isReal ? 'btn-primary' : 'btn-secondary'}" onclick="switchWalletMode('demo')">Virtual (VNGN)</button>
-        <button class="btn ${isReal ? 'btn-primary' : 'btn-secondary'}" onclick="switchWalletMode('real')">Live Real (NGN)</button>
+        <button class="btn ${isReal ? 'btn-primary' : 'btn-secondary'}" onclick="switchWalletMode('real')" title="${!isRealModeEnabled ? 'Real mode is disabled by admin' : 'Live real money mode'}">
+          Live Real (NGN) ${!isRealModeEnabled ? '🔒' : ''}
+        </button>
         <button class="btn btn-secondary" onclick="loadWalletData()">Refresh ↺</button>
       </div>
     </div>
@@ -790,39 +830,112 @@ function renderWalletPage() {
       </div>
     </div>
 
-    <div class="two-col" style="margin-bottom: 24px;">
-      <div class="panel">
-        <div class="eyebrow" style="color: var(--jade);">INSTANT DEPOSIT & FUNDING</div>
-        <h2 style="margin: 8px 0 12px;">Fund Real Trading Wallet</h2>
-        <p style="color: var(--muted); font-size: 13.5px; margin-bottom: 16px;">
-          Direct bank transfer, card, and USSD deposits processed via <b>${providerName}</b> into your atomic double-entry ledger account.
-        </p>
+    ${isReal ? `
+      <!-- Real Mode Actions: Funding & Settlements -->
+      <div class="two-col" style="margin-bottom: 24px;">
+        
+        <!-- Card 1: Live Gateway Deposits (real_funding) -->
+        <div class="panel">
+          <div class="eyebrow" style="color: var(--jade);">INSTANT DEPOSIT & FUNDING</div>
+          <h2 style="margin: 8px 0 12px;">Fund Real Trading Wallet</h2>
+          <p style="color: var(--muted); font-size: 13px; margin-bottom: 16px;">
+            Direct bank transfer, card, and USSD deposits processed via <b>${providerName}</b> into your atomic double-entry ledger account.
+          </p>
 
-        <form onsubmit="handleDepositSubmit(event)">
-          <div class="form-group">
-            <label>Deposit Amount (₦)</label>
-            <input class="input" type="number" id="deposit-amount" min="1000" step="1000" value="5000" required>
-            <div style="display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap;">
-              ${[1000, 5000, 10000, 25000, 50000].map(amt => `
-                <button type="button" class="btn btn-secondary" style="padding: 4px 10px; font-size: 11.5px;" onclick="document.getElementById('deposit-amount').value = ${amt}">₦${amt.toLocaleString()}</button>
-              `).join('')}
+          ${!isFundingEnabled ? `
+            <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+              <b style="color: var(--red);">🔒 Live Gateway Deposits Paused</b>
+              <p style="font-size: 12.5px; color: var(--text); margin-top: 4px;">
+                Live deposits via ${providerName} are currently disabled by platform administration.
+              </p>
             </div>
-          </div>
-          <button type="submit" class="btn btn-primary btn-full" style="margin-top: 16px;">
-            Deposit via ${providerName} ↗
-          </button>
-        </form>
-      </div>
+            <button class="btn btn-secondary btn-full" disabled style="opacity: 0.6; cursor: not-allowed;">
+              Deposits Inactive 🔒
+            </button>
+          ` : `
+            <form onsubmit="handleDepositSubmit(event)">
+              <div class="form-group">
+                <label>Deposit Amount (₦)</label>
+                <input class="input" type="number" id="deposit-amount" min="1000" step="1000" value="5000" required>
+                <div style="display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap;">
+                  ${[1000, 5000, 10000, 25000, 50000].map(amt => `
+                    <button type="button" class="btn btn-secondary" style="padding: 4px 10px; font-size: 11.5px;" onclick="document.getElementById('deposit-amount').value = ${amt}">₦${amt.toLocaleString()}</button>
+                  `).join('')}
+                </div>
+              </div>
+              <button type="submit" class="btn btn-primary btn-full" style="margin-top: 16px;">
+                Deposit via ${providerName} ↗
+              </button>
+            </form>
+          `}
+        </div>
 
-      <div class="panel">
-        <h2>Ledger Security & Segregation</h2>
-        <ul style="padding-left: 18px; color: var(--muted); font-size: 13.5px; line-height: 1.8;">
-          <li><b>Zero Cross-Contamination</b>: Virtual demo capital (VNGN) and live funds (NGN) are strictly isolated across separate ledger accounts.</li>
-          <li><b>Idempotent Transactions</b>: Every deposit, hold, and settlement carries a unique UUID idempotency key to prevent double credits.</li>
-          <li><b>Regulatory Mode Switching</b>: Real money mode can be enabled or paused at any time from the backend Admin console.</li>
-        </ul>
+        <!-- Card 2: Settlement Withdrawals (real_payouts) -->
+        <div class="panel">
+          <div class="eyebrow" style="color: var(--jade);">SETTLEMENT & PAYOUT</div>
+          <h2 style="margin: 8px 0 12px;">Request Bank Withdrawal</h2>
+          <p style="color: var(--muted); font-size: 13px; margin-bottom: 16px;">
+            Automated NIBSS bank transfer to your Nigerian commercial bank account from your live available balance.
+          </p>
+
+          ${!isPayoutsEnabled ? `
+            <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+              <b style="color: var(--gold);">🔒 Real Settlements Paused</b>
+              <p style="font-size: 12.5px; color: var(--text); margin-top: 4px;">
+                Bank settlement transfers are currently disabled by platform administration.
+              </p>
+            </div>
+            <button class="btn btn-secondary btn-full" disabled style="opacity: 0.6; cursor: not-allowed;">
+              Withdrawals Inactive 🔒
+            </button>
+          ` : `
+            <form onsubmit="handleWithdrawSubmit(event)">
+              <div class="form-group">
+                <label>Commercial Bank Name</label>
+                <input class="input" type="text" id="withdraw-bank" placeholder="e.g. Access Bank, GTBank, Zenith Bank" required>
+              </div>
+              <div class="form-group" style="margin-top: 10px;">
+                <label>10-Digit NUBAN Account Number</label>
+                <input class="input" type="text" id="withdraw-account-number" maxlength="10" placeholder="0123456789" required>
+              </div>
+              <div class="form-group" style="margin-top: 10px;">
+                <label>Account Holder Name</label>
+                <input class="input" type="text" id="withdraw-account-name" placeholder="Full name registered on bank account" required>
+              </div>
+              <div class="form-group" style="margin-top: 10px;">
+                <label>Withdrawal Amount (₦)</label>
+                <input class="input" type="number" id="withdraw-amount" min="1000" step="500" value="5000" max="${activeBal.available || 0}" required>
+              </div>
+              <button type="submit" class="btn btn-primary btn-full" style="margin-top: 16px;">
+                Request Settlement Transfer 🏦
+              </button>
+            </form>
+          `}
+        </div>
+
       </div>
-    </div>
+    ` : `
+      <!-- Virtual Demo Mode Actions -->
+      <div class="two-col" style="margin-bottom: 24px;">
+        <div class="panel">
+          <div class="eyebrow" style="color: var(--jade);">SIMULATION CAPITAL</div>
+          <h2 style="margin: 8px 0 12px;">Educational Virtual Balance</h2>
+          <p style="color: var(--muted); font-size: 13.5px; margin-bottom: 16px;">
+            Your account receives ₦500,000 in virtual funds (VNGN) strictly for educational analysis, scenario testing, and leaderboard competition.
+          </p>
+          <button class="btn btn-secondary" onclick="handleClaimGrant()">Claim / Verify Demo Grant (₦500,000) ↻</button>
+        </div>
+
+        <div class="panel">
+          <h2>Ledger Security & Segregation</h2>
+          <ul style="padding-left: 18px; color: var(--muted); font-size: 13.5px; line-height: 1.8;">
+            <li><b>Zero Cross-Contamination</b>: Virtual demo capital (VNGN) and live funds (NGN) are strictly isolated across separate ledger accounts.</li>
+            <li><b>Idempotent Transactions</b>: Every deposit, hold, and settlement carries a unique UUID idempotency key to prevent double credits.</li>
+            <li><b>Regulatory Engine Gating</b>: Live trading and funding modes are governed by real-time platform engine toggles.</li>
+          </ul>
+        </div>
+      </div>
+    `}
 
     <div class="panel">
       <h2>Ledger Journal Transactions (${currLabel})</h2>
@@ -1387,6 +1500,9 @@ async function loadMarketDetailData(id) {
     const prob = m.probability_yes || 50;
     const oddsYes = m.odds_yes || (prob > 0 ? (100 / prob).toFixed(2) : '2.00');
     const oddsNo = m.odds_no || ((100 - prob) > 0 ? (100 / (100 - prob)).toFixed(2) : '2.00');
+    const isReal = state.mode?.toLowerCase() === 'real';
+    const activeBal = isReal ? state.realWallet : state.wallet;
+    const currLabel = isReal ? 'NGN' : 'VNGN';
 
     el.innerHTML = `
       <div class="two-col">
@@ -1478,10 +1594,10 @@ async function loadMarketDetailData(id) {
         <div>
           <!-- Forecast Ticket Form -->
           <div class="panel">
-            <div class="eyebrow">FORECAST TICKET</div>
+            <div class="eyebrow">FORECAST TICKET (${currLabel})</div>
             <h2>Make Your Call</h2>
             <p style="font-size: 13px; color: var(--muted); margin-bottom: 16px;">
-              Commit educational virtual capital based on fundamental research and record your thesis in the Decision Journal.
+              Commit ${isReal ? 'live real capital' : 'educational virtual capital'} based on fundamental research and record your thesis in the Decision Journal.
             </p>
 
             <form onsubmit="handlePlaceForecast(event, '${m.id}')">
@@ -1501,8 +1617,8 @@ async function loadMarketDetailData(id) {
               </div>
 
               <div class="form-group" style="margin-top: 14px;">
-                <label>Virtual Capital Stake (₦)</label>
-                <input class="input" type="number" id="forecast-amount" value="5000" min="100" max="${state.wallet.available}" required>
+                <label>${isReal ? 'Live Capital Stake (₦ NGN)' : 'Virtual Capital Stake (₦ VNGN)'}</label>
+                <input class="input" type="number" id="forecast-amount" value="5000" min="100" max="${activeBal.available || 0}" required>
                 <div style="display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap;">
                   ${[1000, 5000, 10000, 25000, 50000].map(a => `
                     <button type="button" class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="document.getElementById('forecast-amount').value = ${a}; updatePayoutEstimate();">₦${a.toLocaleString()}</button>
@@ -1521,7 +1637,7 @@ async function loadMarketDetailData(id) {
               <div style="background: var(--bg); padding: 14px; border-radius: 8px; margin: 16px 0; font-size: 13px; border: 1px solid var(--line);">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
                   <span>Available Balance:</span>
-                  <b style="color: var(--jade);">${formatMoney(state.wallet.available)}</b>
+                  <b style="color: var(--jade);">${formatMoney(activeBal.available || 0)} ${currLabel}</b>
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                   <span>Locked Potential Payout:</span>
@@ -1531,7 +1647,9 @@ async function loadMarketDetailData(id) {
                 </div>
               </div>
 
-              <button type="submit" class="btn btn-primary btn-full">Confirm Virtual Commitment ↗</button>
+              <button type="submit" class="btn btn-primary btn-full">
+                Confirm ${isReal ? 'Live Commitment (₦ NGN)' : 'Virtual Commitment (₦ VNGN)'} ↗
+              </button>
             </form>
           </div>
         </div>
@@ -1587,12 +1705,19 @@ async function handlePlaceForecast(e, eventId) {
   e.preventDefault();
   const amt = parseInt(document.getElementById('forecast-amount').value, 10);
   const thesis = document.getElementById('forecast-thesis').value;
+  const currentMode = (state.mode || 'demo').toLowerCase();
+
+  if (currentMode === 'real' && !state.features?.real_mode) {
+    api.toast('Real Money Mode is currently disabled by administrator.', 'warning');
+    return;
+  }
 
   try {
     const res = await api.post(`/markets/${eventId}/forecast`, {
       outcome: chosenOutcome,
       amount: amt,
       thesis,
+      mode: currentMode,
     });
     api.toast(res.message || 'Forecast recorded successfully!', 'success');
     await loadWalletData();
@@ -1620,7 +1745,9 @@ async function loadBoardroomLobby() {
       <div class="panel" style="display: flex; flex-direction: column;">
         <div class="market-top">
           <span class="market-tag">${c.industry}</span>
-          <span class="sim-tag">SEALED</span>
+          <span class="sim-tag" style="${c.mode === 'real' ? 'background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);' : ''}">
+            ${c.mode === 'real' ? 'REAL STAKE (NGN)' : 'VIRTUAL (VNGN)'}
+          </span>
         </div>
         <div class="sealed-box">
           <div class="lock">🔒</div>
@@ -1629,7 +1756,7 @@ async function loadBoardroomLobby() {
         </div>
         <div style="display: flex; justify-content: space-between; margin: 8px 0; font-size: 13px;">
           <span>Host: <b>${c.host}</b></span>
-          <span>Commitment: <b>${formatMoney(c.commitment)}</b></span>
+          <span>Commitment: <b>${formatMoney(c.commitment)} ${c.mode === 'real' ? 'NGN' : 'VNGN'}</b></span>
         </div>
         <button class="btn btn-primary btn-full" style="margin-top: auto;" onclick="handleJoinChallenge('${c.id}')">Accept Challenge ↗</button>
       </div>
@@ -1642,12 +1769,25 @@ async function handleCreateChallenge(e) {
   const industryId = parseInt(document.getElementById('create-industry').value, 10);
   const stake = parseInt(document.getElementById('create-stake').value, 10);
   const duration = parseInt(document.getElementById('create-duration').value, 10);
+  const mode = document.getElementById('create-mode')?.value || 'demo';
+
+  if (mode === 'real') {
+    if (!state.features?.real_mode) {
+      api.toast('Real Money Mode is currently disabled by administrator.', 'warning');
+      return;
+    }
+    if (!state.features?.real_boardroom) {
+      api.toast('Real-money boardroom challenges are currently disabled by administrator.', 'warning');
+      return;
+    }
+  }
 
   try {
     const res = await api.post('/boardroom/create', {
       industry_id: industryId,
       stake,
       duration,
+      mode,
     });
     api.toast(res.message, 'success');
     navigate('waiting_room', { challengeId: res.data.challenge_id });
@@ -1873,13 +2013,27 @@ async function loadWalletData() {
 }
 
 function switchWalletMode(m) {
-  state.mode = m;
-  localStorage.setItem('econsim-mode', m);
+  const norm = (m || 'demo').toLowerCase();
+  if (norm === 'real' && !state.features?.real_mode) {
+    api.toast('Real Money Mode is currently disabled by administrator.', 'warning');
+    return;
+  }
+  state.mode = norm;
+  localStorage.setItem('econsim-mode', norm);
   navigate('wallet');
 }
 
 async function handleDepositSubmit(e) {
   e.preventDefault();
+  if (!state.features?.real_mode) {
+    api.toast('Real Money Mode is currently disabled by administrator.', 'warning');
+    return;
+  }
+  if (!state.features?.real_funding) {
+    api.toast('Live gateway deposits are currently disabled by administrator.', 'warning');
+    return;
+  }
+
   const amt = parseInt(document.getElementById('deposit-amount').value, 10);
   if (!amt || amt < 1000) {
     api.toast('Minimum real deposit is ₦1,000.', 'error');
@@ -1895,6 +2049,40 @@ async function handleDepositSubmit(e) {
       }, 700);
     }
   } catch (e) {}
+}
+
+async function handleWithdrawSubmit(e) {
+  e.preventDefault();
+  if (!state.features?.real_mode) {
+    api.toast('Real Money Mode is currently disabled by administrator.', 'warning');
+    return;
+  }
+  if (!state.features?.real_payouts) {
+    api.toast('Settlement withdrawals are currently disabled by administrator.', 'warning');
+    return;
+  }
+
+  const bankName = document.getElementById('withdraw-bank')?.value.trim();
+  const accNum = document.getElementById('withdraw-account-number')?.value.trim();
+  const accName = document.getElementById('withdraw-account-name')?.value.trim();
+  const amt = parseInt(document.getElementById('withdraw-amount')?.value, 10);
+
+  if (!bankName || !accNum || accNum.length !== 10 || !accName || !amt || amt < 1000) {
+    api.toast('Please provide valid bank name, 10-digit NUBAN account number, account holder name, and amount (min ₦1,000).', 'error');
+    return;
+  }
+
+  try {
+    const res = await api.post('/wallet/withdraw', {
+      bank_name: bankName,
+      account_number: accNum,
+      account_name: accName,
+      amount: amt,
+    });
+    api.toast(res.message || 'Settlement withdrawal queued successfully!', 'success');
+    await loadWalletData();
+    navigate('wallet');
+  } catch (err) {}
 }
 
 async function loadLeaderboardData(tab = 'Overall') {
@@ -1985,7 +2173,14 @@ function setAppTheme(t) {
 }
 
 function switchMode(m) {
-  state.mode = m;
+  const norm = (m || 'demo').toLowerCase();
+  if (norm === 'real' && !state.features?.real_mode) {
+    api.toast('Real Money Mode is currently disabled by administrator. Platform remains in Simulation Mode.', 'warning');
+    return;
+  }
+  state.mode = norm;
+  localStorage.setItem('econsim-mode', norm);
+  api.patch('/profile', { preferred_mode: norm }).catch(() => {});
   navigate(state.page);
 }
 

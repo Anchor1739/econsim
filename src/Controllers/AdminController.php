@@ -72,6 +72,11 @@ class AdminController
         );
         $stmt->execute([':code' => $code, ':en' => $enabled ? 1 : 0]);
 
+        if ($code === 'real_boardroom' || $code === 'boardroom_real_commitments') {
+            $other = ($code === 'real_boardroom') ? 'boardroom_real_commitments' : 'real_boardroom';
+            $stmt->execute([':code' => $other, ':en' => $enabled ? 1 : 0]);
+        }
+
         Response::success(['code' => $code, 'enabled' => $enabled], "Feature {$code} updated successfully.");
     }
 
