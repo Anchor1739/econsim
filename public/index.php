@@ -99,6 +99,7 @@ if (str_starts_with($path, '/api/')) {
     $router->get('/api/admin/stats', [AdminController::class, 'getStats']);
     $router->post('/api/admin/markets/create', [AdminController::class, 'createMarket']);
     $router->post('/api/admin/markets/resolve', [AdminController::class, 'resolveMarket']);
+    $router->post('/api/admin/markets/ai-evaluate', [AdminController::class, 'aiEvaluateMarket']);
     $router->get('/api/admin/ai/model', [AdminController::class, 'getAiConfig']);
     $router->post('/api/admin/ai/model', [AdminController::class, 'updateAiModel']);
 

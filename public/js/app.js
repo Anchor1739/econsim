@@ -581,6 +581,10 @@ function renderPredictor() {
 
 function renderMarketCard(m) {
   const prob = m.probability_yes || 50;
+  const oddsYes = m.odds_yes || (prob > 0 ? (100 / prob).toFixed(2) : '2.00');
+  const oddsNo = m.odds_no || ((100 - prob) > 0 ? (100 / (100 - prob)).toFixed(2) : '2.00');
+  const volStr = m.total_volume_vngn ? ` · ₦${m.total_volume_vngn.toLocaleString()} Pool` : '';
+
   return `
     <div class="market-card" onclick="navigate('market', { marketId: '${m.id}' })">
       <div class="market-top">
@@ -589,12 +593,12 @@ function renderMarketCard(m) {
       </div>
       <h3>${m.title}</h3>
       <div class="prob-split">
-        <span class="yes">Yes ${prob}%</span>
-        <span class="no">No ${100 - prob}%</span>
+        <span class="yes">Yes ${prob}% <small style="font-size: 11px; font-weight: normal; opacity: 0.85;">(${oddsYes}×)</small></span>
+        <span class="no">No ${100 - prob}% <small style="font-size: 11px; font-weight: normal; opacity: 0.85;">(${oddsNo}×)</small></span>
       </div>
       <div class="prob-bar"><i style="width: ${prob}%;"></i></div>
       <div style="margin-top: auto; display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid var(--line);">
-        <small style="color: var(--muted);">Study Context available</small>
+        <small style="color: var(--muted);">Dynamic AMM Odds${volStr}</small>
         <span style="color: var(--jade); font-weight: bold; font-size: 13px;">Analyze ↗</span>
       </div>
     </div>
@@ -1381,6 +1385,8 @@ async function loadMarketDetailData(id) {
     if (!el) return;
 
     const prob = m.probability_yes || 50;
+    const oddsYes = m.odds_yes || (prob > 0 ? (100 / prob).toFixed(2) : '2.00');
+    const oddsNo = m.odds_no || ((100 - prob) > 0 ? (100 / (100 - prob)).toFixed(2) : '2.00');
 
     el.innerHTML = `
       <div class="two-col">
@@ -1480,11 +1486,18 @@ async function loadMarketDetailData(id) {
 
             <form onsubmit="handlePlaceForecast(event, '${m.id}')">
               <div class="form-group">
-                <label>Select Outcome</label>
+                <label>Select Outcome & Entry Odds</label>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                  <button type="button" id="outcome-yes" class="btn btn-primary btn-full" onclick="selectOutcome(true)">YES ${prob}%</button>
-                  <button type="button" id="outcome-no" class="btn btn-secondary btn-full" onclick="selectOutcome(false)">NO ${100 - prob}%</button>
+                  <button type="button" id="outcome-yes" class="btn btn-primary btn-full" onclick="selectOutcome(true)">
+                    YES ${prob}% (${oddsYes}×)
+                  </button>
+                  <button type="button" id="outcome-no" class="btn btn-secondary btn-full" onclick="selectOutcome(false)">
+                    NO ${100 - prob}% (${oddsNo}×)
+                  </button>
                 </div>
+                <small style="color: var(--muted); font-size: 11px; display: block; margin-top: 5px;">
+                  ⚡ <b>Locked Entry Multiplier:</b> Your payout is locked at your entry odds at commitment time. Subsequent market shifts will not diminish your locked payout ratio.
+                </small>
               </div>
 
               <div class="form-group" style="margin-top: 14px;">
@@ -1492,7 +1505,7 @@ async function loadMarketDetailData(id) {
                 <input class="input" type="number" id="forecast-amount" value="5000" min="100" max="${state.wallet.available}" required>
                 <div style="display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap;">
                   ${[1000, 5000, 10000, 25000, 50000].map(a => `
-                    <button type="button" class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="document.getElementById('forecast-amount').value = ${a}">₦${a.toLocaleString()}</button>
+                    <button type="button" class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="document.getElementById('forecast-amount').value = ${a}; updatePayoutEstimate();">₦${a.toLocaleString()}</button>
                   `).join('')}
                 </div>
               </div>
@@ -1505,14 +1518,16 @@ async function loadMarketDetailData(id) {
                 </small>
               </div>
 
-              <div style="background: var(--bg); padding: 12px; border-radius: 8px; margin: 16px 0; font-size: 13px; border: 1px solid var(--line);">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                  <span>Available Balance</span>
+              <div style="background: var(--bg); padding: 14px; border-radius: 8px; margin: 16px 0; font-size: 13px; border: 1px solid var(--line);">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                  <span>Available Balance:</span>
                   <b style="color: var(--jade);">${formatMoney(state.wallet.available)}</b>
                 </div>
-                <div style="display: flex; justify-content: space-between;">
-                  <span>Estimated Return on Success</span>
-                  <b id="payout-estimate">${formatMoney(Math.round(5000 / (prob / 100)))}</b>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span>Locked Potential Payout:</span>
+                  <b id="payout-estimate" style="color: var(--gold); font-size: 14px;">
+                    ${formatMoney(Math.round(5000 * parseFloat(oddsYes)))} <small style="font-size: 11px; font-weight: normal; color: var(--muted);">(${oddsYes}× entry odd)</small>
+                  </b>
                 </div>
               </div>
 
@@ -1523,32 +1538,49 @@ async function loadMarketDetailData(id) {
       </div>
     `;
 
-    // Dynamic payout update on amount input
+    // Initialize global market probs for realtime updates
+    currentMarketOdds = {
+      probYes: prob,
+      probNo: 100 - prob,
+      oddsYes: oddsYes,
+      oddsNo: oddsNo
+    };
+
     const amtInput = document.getElementById('forecast-amount');
     if (amtInput) {
-      amtInput.addEventListener('input', () => {
-        const val = parseInt(amtInput.value, 10) || 0;
-        const currentProb = chosenOutcome ? (prob / 100) : ((100 - prob) / 100);
-        const est = currentProb > 0 ? Math.round(val / currentProb) : 0;
-        const outEl = document.getElementById('payout-estimate');
-        if (outEl) outEl.innerText = formatMoney(est);
-      });
+      amtInput.addEventListener('input', updatePayoutEstimate);
     }
   } catch (e) {}
 }
 
 let chosenOutcome = true;
+let currentMarketOdds = { probYes: 50, probNo: 50, oddsYes: '2.00', oddsNo: '2.00' };
+
+function updatePayoutEstimate() {
+  const amtInput = document.getElementById('forecast-amount');
+  const val = amtInput ? (parseInt(amtInput.value, 10) || 0) : 5000;
+  const mult = chosenOutcome ? parseFloat(currentMarketOdds.oddsYes) : parseFloat(currentMarketOdds.oddsNo);
+  const est = Math.round(val * mult);
+  const outEl = document.getElementById('payout-estimate');
+  if (outEl) {
+    outEl.innerHTML = `${formatMoney(est)} <small style="font-size: 11px; font-weight: normal; color: var(--muted);">(${mult.toFixed(2)}× entry odd)</small>`;
+  }
+}
+
 function selectOutcome(val) {
   chosenOutcome = val;
   const yesBtn = document.getElementById('outcome-yes');
   const noBtn = document.getElementById('outcome-no');
-  if (val) {
-    yesBtn.className = 'btn btn-primary btn-full';
-    noBtn.className = 'btn btn-secondary btn-full';
-  } else {
-    yesBtn.className = 'btn btn-secondary btn-full';
-    noBtn.className = 'btn btn-primary btn-full';
+  if (yesBtn && noBtn) {
+    if (val) {
+      yesBtn.className = 'btn btn-primary btn-full';
+      noBtn.className = 'btn btn-secondary btn-full';
+    } else {
+      yesBtn.className = 'btn btn-secondary btn-full';
+      noBtn.className = 'btn btn-primary btn-full';
+    }
   }
+  updatePayoutEstimate();
 }
 
 async function handlePlaceForecast(e, eventId) {

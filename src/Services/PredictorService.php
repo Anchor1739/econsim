@@ -38,22 +38,79 @@ class PredictorService
         $events = $stmt->fetchAll();
 
         return array_map(function ($ev) use ($pdo) {
-            // Compute simulated or weighted probability
             $ev['metrics'] = !empty($ev['metrics']) ? json_decode((string)$ev['metrics'], true) : [];
             $ev['historical_cases'] = !empty($ev['historical_cases']) ? json_decode((string)$ev['historical_cases'], true) : [];
             
-            // Baseline illustrative probabilities for Nigerian macroeconomic contracts
-            $ev['probability_yes'] = match ($ev['slug']) {
-                'cbn-mpr-hike' => 64,
-                'dangote-cement-q4' => 42,
-                'us-fed-rate-cut' => 58,
-                'brent-crude-dec' => 36,
-                'nigerian-food-inflation' => 47,
-                default => 50,
-            };
+            // Dynamic AMM percentage probability & odds calculation
+            $dyn = self::computeDynamicMarketMetrics($pdo, $ev['id'], $ev['slug']);
+            $ev['probability_yes'] = $dyn['probability_yes'];
+            $ev['probability_no'] = $dyn['probability_no'];
+            $ev['odds_yes'] = $dyn['odds_yes'];
+            $ev['odds_no'] = $dyn['odds_no'];
+            $ev['total_volume_vngn'] = $dyn['total_volume_vngn'];
+            $ev['yes_volume_vngn'] = $dyn['yes_volume_vngn'];
+            $ev['no_volume_vngn'] = $dyn['no_volume_vngn'];
+            $ev['position_count'] = $dyn['position_count'];
 
             return $ev;
         }, $events);
+    }
+
+    public static function computeDynamicMarketMetrics(PDO $pdo, string $eventId, string $slug): array
+    {
+        $baseline = match ($slug) {
+            'cbn-mpr-hike', 'cbn-mpr-hike-50bps' => 64,
+            'dangote-cement-q4' => 42,
+            'us-fed-rate-cut' => 58,
+            'brent-crude-dec' => 36,
+            'nigerian-food-inflation' => 47,
+            'nigeria-fx-reserves-40b' => 54,
+            'ngx-asi-120k-milestone' => 61,
+            'nibss-instant-payments-growth' => 72,
+            default => 50,
+        };
+
+        // Query active participant forecast volume
+        $volStmt = $pdo->prepare(
+            "SELECT 
+                COALESCE(SUM(CASE WHEN selected_outcome = 1 THEN stake_minor ELSE 0 END), 0) AS yes_volume_minor,
+                COALESCE(SUM(CASE WHEN selected_outcome = 0 THEN stake_minor ELSE 0 END), 0) AS no_volume_minor,
+                COUNT(*) as position_count
+             FROM forecast_positions 
+             WHERE event_id = ? AND status = 'open'"
+        );
+        $volStmt->execute([$eventId]);
+        $vol = $volStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
+        $yesVolMinor = (int)($vol['yes_volume_minor'] ?? 0);
+        $noVolMinor = (int)($vol['no_volume_minor'] ?? 0);
+        $totalVolMinor = $yesVolMinor + $noVolMinor;
+        $positionCount = (int)($vol['position_count'] ?? 0);
+
+        // Bayesian AMM liquidity weighting (constant depth ₦100,000 = 10,000,000 kobo)
+        $virtualDepth = 10000000;
+        $priorYesMinor = (int)round($virtualDepth * ($baseline / 100));
+
+        $probYesFloat = ($priorYesMinor + $yesVolMinor) / ($virtualDepth + $totalVolMinor);
+        $probYesPct = max(5, min(95, (int)round($probYesFloat * 100)));
+        $probNoPct = 100 - $probYesPct;
+
+        $probYesDec = max(0.05, min(0.95, $probYesPct / 100));
+        $probNoDec = max(0.05, min(0.95, $probNoPct / 100));
+
+        $oddsYes = round(1.0 / $probYesDec, 2);
+        $oddsNo = round(1.0 / $probNoDec, 2);
+
+        return [
+            'probability_yes' => $probYesPct,
+            'probability_no' => $probNoPct,
+            'odds_yes' => $oddsYes,
+            'odds_no' => $oddsNo,
+            'yes_volume_vngn' => (int)round($yesVolMinor / 100),
+            'no_volume_vngn' => (int)round($noVolMinor / 100),
+            'total_volume_vngn' => (int)round($totalVolMinor / 100),
+            'position_count' => $positionCount,
+        ];
     }
 
     public static function getMarket(string $id): ?array
@@ -77,14 +134,15 @@ class PredictorService
         $market['metrics'] = !empty($market['metrics']) ? json_decode((string)$market['metrics'], true) : [];
         $market['historical_cases'] = !empty($market['historical_cases']) ? json_decode((string)$market['historical_cases'], true) : [];
         
-        $market['probability_yes'] = match ($market['slug']) {
-            'cbn-mpr-hike' => 64,
-            'dangote-cement-q4' => 42,
-            'us-fed-rate-cut' => 58,
-            'brent-crude-dec' => 36,
-            'nigerian-food-inflation' => 47,
-            default => 50,
-        };
+        $dyn = self::computeDynamicMarketMetrics($pdo, $market['id'], $market['slug']);
+        $market['probability_yes'] = $dyn['probability_yes'];
+        $market['probability_no'] = $dyn['probability_no'];
+        $market['odds_yes'] = $dyn['odds_yes'];
+        $market['odds_no'] = $dyn['odds_no'];
+        $market['total_volume_vngn'] = $dyn['total_volume_vngn'];
+        $market['yes_volume_vngn'] = $dyn['yes_volume_vngn'];
+        $market['no_volume_vngn'] = $dyn['no_volume_vngn'];
+        $market['position_count'] = $dyn['position_count'];
 
         // Fetch sources
         $sStmt = $pdo->prepare(
@@ -121,8 +179,10 @@ class PredictorService
         }
 
         $stakeMinor = $stakeVngn * 100;
-        $prob = $outcome ? ($market['probability_yes'] / 100) : ((100 - $market['probability_yes']) / 100);
-        $prob = max(0.01, min(0.99, $prob));
+        $probPct = $outcome ? $market['probability_yes'] : $market['probability_no'];
+        $prob = max(0.05, min(0.95, $probPct / 100));
+        $entryOdds = round(1.0 / $prob, 2);
+        $potentialPayoutVngn = (int)round($stakeVngn * $entryOdds);
 
         $positionId = Security::uuid();
         $idempotencyKey = "forecast_{$userId}_{$positionId}";
@@ -140,7 +200,7 @@ class PredictorService
         $pdo = Database::getConnection();
         $pdo->beginTransaction();
         try {
-            // Step 2: Record position
+            // Step 2: Record position with exact point-in-time entry odds
             $posStmt = $pdo->prepare(
                 "INSERT INTO forecast_positions 
                     (id, event_id, user_id, mode, selected_outcome, stake_minor, quote_probability, quote_version, status, created_at)
@@ -193,6 +253,8 @@ class PredictorService
                 'outcome' => $outcome ? 'Yes' : 'No',
                 'stake' => $stakeVngn,
                 'quote_probability' => round($prob * 100, 1),
+                'entry_odds' => $entryOdds,
+                'potential_payout' => $potentialPayoutVngn,
                 'xp_awarded' => 25,
             ];
         } catch (\Throwable $e) {
@@ -220,13 +282,24 @@ class PredictorService
 
         return array_map(function ($r) {
             $stake = (int)($r['stake_minor'] / 100);
+            $prob = (float)$r['quote_probability'];
+            $probPct = round($prob * 100, 1);
+            $entryOdds = $prob > 0 ? round(1.0 / $prob, 2) : 2.0;
+            $potentialPayout = (int)round($stake * $entryOdds);
+            $totalReturn = $r['total_return_minor'] !== null ? (int)round($r['total_return_minor'] / 100) : null;
+
             return [
                 'id' => $r['id'],
+                'event_id' => $r['event_id'],
                 'title' => $r['title'],
+                'slug' => $r['slug'],
                 'industry' => $r['industry_name'],
                 'outcome' => $r['selected_outcome'] ? 'Yes' : 'No',
                 'stake' => $stake,
-                'quote_probability' => round((float)$r['quote_probability'] * 100),
+                'quote_probability' => $probPct,
+                'entry_odds' => $entryOdds,
+                'potential_payout' => $potentialPayout,
+                'total_return' => $totalReturn,
                 'status' => $r['status'],
                 'created_at' => $r['created_at'],
             ];
