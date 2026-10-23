@@ -834,7 +834,7 @@ function renderAuthPage(type) {
         <label>6-Digit Verification Code</label>
         <input class="input" id="auth-code" maxlength="6" placeholder="123456" style="letter-spacing: 4px; font-size: 18px; text-align: center;" required>
       </div>
-      <button type="submit" class="btn btn-primary btn-full" style="margin-top: 10px;">Verify & Claim ₦500k Demo Capital ↗</button>
+      <button type="submit" class="btn btn-primary btn-full" style="margin-top: 10px;">Verify & Continue ↗</button>
     `;
     footerHtml = `
       <p style="margin-top: 16px; font-size: 13.5px; color: var(--muted);">
@@ -868,7 +868,7 @@ function renderAuthPage(type) {
         <div class="eyebrow" style="color: #38bdf8;">FINANCIAL INTELLIGENCE TERMINAL</div>
         <h1>Learn the market.<br>Lead the decision.</h1>
         <p style="color: #cbd5e1; font-size: 16px; max-width: 480px;">
-          Forecast economic contracts with ₦500,000 educational virtual capital, solve business dilemmas in the Boardroom, and sharpen your thinking with AI adjudication.
+          Forecast economic contracts, solve business dilemmas in the Boardroom, and sharpen your strategic thinking with AI adjudication.
         </p>
       </div>
 
@@ -896,7 +896,7 @@ function renderOnboardingPage() {
           <div class="eyebrow" style="color: var(--jade);">STEP 2 OF 2</div>
           <h2 style="font-size: 28px; margin: 6px 0;">Personalize Your Intelligence Feed</h2>
           <p style="color: var(--muted); margin-bottom: 24px;">
-            Choose your primary industries of interest. Your wallet has been credited with <b>₦500,000 VNGN</b> virtual capital.
+            Choose your primary industries of interest to customize your financial workspace and cases.
           </p>
 
           <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px;">
@@ -907,12 +907,7 @@ function renderOnboardingPage() {
             `).join('')}
           </div>
 
-          <div class="panel" style="background: var(--jade-light); color: var(--jade); border: none; margin-bottom: 24px;">
-            <b>₦500,000 Virtual Capital Credited</b><br>
-            <small style="color: var(--text);">Simulation funds for educational modeling. No cash value.</small>
-          </div>
-
-          <button class="btn btn-primary btn-full" onclick="navigate('dashboard')">Enter EconSim Terminal ↗</button>
+          <button class="btn btn-primary btn-full" onclick="navigate('dashboard')">Enter Developing Market Terminal ↗</button>
         </div>
       </div>
     </div>
