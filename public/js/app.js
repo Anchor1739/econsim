@@ -19,7 +19,6 @@ let state = {
     active_forecasts: 0,
     completed_boardroom: 0,
   },
-  activeProvider: { display_name: 'Institutional Settlement Rail', status: 'live' },
   features: {},
   leaderboardTab: 'Overall',
   lab: {
@@ -2267,7 +2266,6 @@ async function loadWalletData() {
     if (res?.data) {
       if (res.data.demo_balance) state.wallet = res.data.demo_balance;
       if (res.data.real_balance) state.realWallet = res.data.real_balance;
-      if (res.data.active_provider) state.activeProvider = res.data.active_provider;
       if (res.data.features) state.features = res.data.features;
 
       const el = document.getElementById('wallet-transactions-table');

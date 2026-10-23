@@ -30,7 +30,6 @@ class WalletController
         $realBalances = LedgerService::getUserBalances($user['id'], 'real');
         $transactions = LedgerService::getUserTransactions($user['id'], $mode);
 
-        $provider = FeatureService::getActiveProvider();
         $features = FeatureService::getAllFeatures();
 
         Response::success([
@@ -38,7 +37,6 @@ class WalletController
             'demo_balance' => $demoBalances,
             'real_balance' => $realBalances,
             'transactions' => $transactions,
-            'active_provider' => $provider,
             'features' => $features,
         ]);
     }
