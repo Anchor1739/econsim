@@ -19,6 +19,12 @@ Env::load();
 $uri = $_SERVER['REQUEST_URI'] ?? '/';
 $path = parse_url($uri, PHP_URL_PATH) ?: '/';
 
+// Route dedicated Admin portal directly to admin.html
+if ($path === '/admin' || $path === '/admin/' || $path === '/admin.html') {
+    require_once __DIR__ . '/admin.html';
+    exit;
+}
+
 // Serve static assets directly if requested
 $publicDir = __DIR__;
 $filePath = realpath($publicDir . $path);
@@ -85,6 +91,8 @@ if (str_starts_with($path, '/api/')) {
     $router->post('/api/webhooks/korapay', [PaymentController::class, 'korapayWebhook']);
 
     // Admin Controls & Real Mode Engine
+    $router->get('/api/admin/auth/verify', [AdminController::class, 'verifyAuth']);
+    $router->post('/api/admin/auth/verify', [AdminController::class, 'verifyAuth']);
     $router->get('/api/admin/features', [AdminController::class, 'getFeatures']);
     $router->post('/api/admin/features/toggle', [AdminController::class, 'toggleFeature']);
     $router->post('/api/admin/providers/switch', [AdminController::class, 'updateProvider']);

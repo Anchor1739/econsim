@@ -25,6 +25,30 @@ let state = {
   lab: { rate: 20, inflation: 24, spend: 12 },
 };
 
+function toggleMobileDrawer() {
+  const drawer = document.getElementById('mobile-drawer');
+  const backdrop = document.getElementById('mobile-drawer-backdrop');
+  if (drawer && backdrop) {
+    const isActive = drawer.classList.contains('active');
+    if (isActive) {
+      drawer.classList.remove('active');
+      backdrop.classList.remove('active');
+    } else {
+      drawer.classList.add('active');
+      backdrop.classList.add('active');
+    }
+  }
+}
+
+function closeMobileDrawer() {
+  const drawer = document.getElementById('mobile-drawer');
+  const backdrop = document.getElementById('mobile-drawer-backdrop');
+  if (drawer && backdrop) {
+    drawer.classList.remove('active');
+    backdrop.classList.remove('active');
+  }
+}
+
 function formatMoney(n) {
   return '₦' + Math.round(Number(n) || 0).toLocaleString('en-NG');
 }
@@ -84,6 +108,12 @@ async function initApp() {
     targetPage = window.location.hash.replace(/^#\/?/, '');
   }
 
+  // Standalone Admin Portal redirect
+  if (targetPage === 'admin') {
+    window.location.href = '/admin';
+    return;
+  }
+
   const targetMarketId = urlParams.get('marketId');
   const targetChallengeId = urlParams.get('challengeId');
 
@@ -115,6 +145,12 @@ async function initApp() {
 }
 
 function navigate(page, params = {}) {
+  // Standalone Admin Portal is decoupled from user workspace
+  if (page === 'admin') {
+    window.location.href = '/admin';
+    return;
+  }
+
   state.page = page;
   if (params.marketId) state.selectedMarketId = params.marketId;
   if (params.challengeId) state.currentChallengeId = params.challengeId;
@@ -168,7 +204,6 @@ function render() {
     case 'leaderboard': content = renderLeaderboardPage(); break;
     case 'mentor': content = renderMentorPage(); break;
     case 'lab': content = renderScenarioLab(); break;
-    case 'admin': content = renderAdminPage(); break;
     case 'profile': content = renderProfilePage(); break;
     case 'settings': content = renderSettingsPage(); break;
     default: content = renderDashboard(); break;
@@ -182,17 +217,55 @@ function render() {
 // App Shell Layout
 // -------------------------------------------------------------
 function renderAppShell(innerHtml) {
-  const navItems = [
-    { id: 'dashboard', icon: '⌂', label: 'Dashboard' },
-    { id: 'predictor', icon: '◈', label: 'The Predictor' },
-    { id: 'boardroom', icon: '▦', label: 'The Boardroom' },
-    { id: 'wallet', icon: '▣', label: 'Ledger Wallet' },
-    { id: 'leaderboard', icon: '♛', label: 'Leaderboard' },
-    { id: 'mentor', icon: '✧', label: 'AI Mentor' },
-    { id: 'lab', icon: '⚗', label: 'Scenario Lab' },
-    { id: 'admin', icon: '⚡', label: 'Admin Console' },
-    { id: 'profile', icon: '◉', label: 'Profile' },
-    { id: 'settings', icon: '⚙', label: 'Settings' },
+  const navWorkspace = [
+    { 
+      id: 'dashboard', 
+      label: 'Dashboard', 
+      icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>` 
+    },
+    { 
+      id: 'predictor', 
+      label: 'The Predictor', 
+      icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>` 
+    },
+    { 
+      id: 'boardroom', 
+      label: 'The Boardroom', 
+      icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>` 
+    },
+    { 
+      id: 'wallet', 
+      label: 'Ledger Wallet', 
+      icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>` 
+    },
+    { 
+      id: 'mentor', 
+      label: 'AI Mentor', 
+      icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 5.6L20 10l-4.4 4 1.4 6-5-3.2-5 3.2 1.4-6L4 10l5.6-2.4L12 2z"/></svg>` 
+    },
+    { 
+      id: 'lab', 
+      label: 'Scenario Lab', 
+      icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.31L4.2 19.37A2 2 0 0 0 5.92 22h12.16a2 2 0 0 0 1.72-2.63L14 9.31V2"/></svg>` 
+    },
+    { 
+      id: 'leaderboard', 
+      label: 'Leaderboard', 
+      icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34c3.48-1.07 6-4.28 6-8.66V3H4v3c0 4.38 2.52 7.59 6 8.66z"/></svg>` 
+    },
+  ];
+
+  const navAccount = [
+    { 
+      id: 'profile', 
+      label: 'Profile', 
+      icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>` 
+    },
+    { 
+      id: 'settings', 
+      label: 'Settings', 
+      icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0-.33-1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>` 
+    },
   ];
 
   const userInitial = (state.user?.display_name || 'A')[0].toUpperCase();
@@ -203,23 +276,25 @@ function renderAppShell(innerHtml) {
 
   return `
     <div class="app-container">
+      <!-- Desktop Sidebar -->
       <aside class="sidebar">
         <div class="brand">
           <div class="brand-icon">↗</div>
           <span>econsim<b>.</b></span>
+          <span class="live-pill">SIMULATOR</span>
         </div>
         <div class="sidebar-label">WORKSPACE</div>
-        ${navItems.slice(0, 8).map(item => `
+        ${navWorkspace.map(item => `
           <button class="nav-item ${state.page === item.id ? 'active' : ''}" onclick="navigate('${item.id}')">
-            <span>${item.icon}</span>
+            <span class="nav-icon">${item.icon}</span>
             <span class="text">${item.label}</span>
           </button>
         `).join('')}
 
         <div class="sidebar-label">ACCOUNT</div>
-        ${navItems.slice(8).map(item => `
+        ${navAccount.map(item => `
           <button class="nav-item ${state.page === item.id ? 'active' : ''}" onclick="navigate('${item.id}')">
-            <span>${item.icon}</span>
+            <span class="nav-icon">${item.icon}</span>
             <span class="text">${item.label}</span>
           </button>
         `).join('')}
@@ -231,13 +306,34 @@ function renderAppShell(innerHtml) {
             <div class="progress-bar"><i style="width: ${levelPct}%;"></i></div>
           </div>
           <button class="nav-item" onclick="handleLogout()">
-            <span>↪</span>
+            <span class="nav-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            </span>
             <span class="text">Sign out</span>
           </button>
         </div>
       </aside>
 
+      <!-- Main Wrapper -->
       <div class="main-wrapper">
+        <!-- Mobile Topbar -->
+        <header class="mobile-topbar">
+          <div class="mobile-topbar-brand" onclick="navigate('dashboard')">
+            <div class="brand-icon" style="width: 28px; height: 28px; font-size: 13px;">↗</div>
+            <span class="brand-text">econsim<b>.</b></span>
+            <span class="live-pill">LIVE</span>
+          </div>
+          <div class="mobile-topbar-actions">
+            <div class="wallet-badge" onclick="navigate('wallet')">
+              ${formatMoney(state.wallet.available)}
+            </div>
+            <button class="mobile-hamburger-btn" onclick="toggleMobileDrawer()" aria-label="Open Navigation">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+          </div>
+        </header>
+
+        <!-- Desktop Topbar -->
         <header class="topbar">
           <div class="breadcrumb">
             ECONSIM <span>/</span> ${state.page.replace('_', ' ').toUpperCase()}
@@ -255,6 +351,7 @@ function renderAppShell(innerHtml) {
           </div>
         </header>
 
+        <!-- Content Body -->
         <main class="content-body">
           ${state.mode === 'Real' ? `
             <div class="panel" style="border-left: 4px solid var(--gold); background: var(--gold-light); color: var(--gold); margin-bottom: 24px;">
@@ -264,6 +361,92 @@ function renderAppShell(innerHtml) {
           ` : ''}
           ${innerHtml}
         </main>
+
+        <!-- Mobile Bottom Navigation Bar -->
+        <nav class="mobile-bottom-bar" aria-label="Mobile Navigation">
+          <button class="mobile-nav-btn ${state.page === 'dashboard' ? 'active' : ''}" onclick="navigate('dashboard')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            <span>Home</span>
+          </button>
+          <button class="mobile-nav-btn ${['predictor', 'market'].includes(state.page) ? 'active' : ''}" onclick="navigate('predictor')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+            <span>Markets</span>
+          </button>
+          <button class="mobile-nav-btn ${['boardroom', 'create_challenge', 'waiting_room', 'live_challenge', 'challenge_report'].includes(state.page) ? 'active' : ''}" onclick="navigate('boardroom')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+            <span>Boardroom</span>
+          </button>
+          <button class="mobile-nav-btn ${state.page === 'wallet' ? 'active' : ''}" onclick="navigate('wallet')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+            <span>Wallet</span>
+          </button>
+          <button class="mobile-nav-btn" onclick="toggleMobileDrawer()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+            <span>Menu</span>
+          </button>
+        </nav>
+
+        <!-- Mobile Drawer & Backdrop -->
+        <div class="drawer-backdrop" id="mobile-drawer-backdrop" onclick="closeMobileDrawer()"></div>
+        <aside class="mobile-drawer" id="mobile-drawer">
+          <div class="mobile-drawer-header">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div class="avatar-btn" style="width: 38px; height: 38px; font-size: 15px;">${userInitial}</div>
+              <div>
+                <b style="color: white; font-size: 13.5px; display: block;">${state.user?.display_name || 'Strategist'}</b>
+                <small style="color: var(--muted); font-size: 11px;">${state.user?.email || ''}</small>
+              </div>
+            </div>
+            <button class="drawer-close-btn" onclick="closeMobileDrawer()">✕</button>
+          </div>
+
+          <div class="mobile-drawer-content">
+            <div class="level-card" style="margin-bottom: 18px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <b>${userLevel.name}</b>
+                <span style="font-size: 11px; font-weight: 700; color: #38bdf8;">LVL ${levelNumStr}</span>
+              </div>
+              <small>${userXp.toLocaleString()} XP Accumulated</small>
+              <div class="progress-bar" style="margin-top: 8px;"><i style="width: ${levelPct}%;"></i></div>
+            </div>
+
+            <div class="sidebar-label">WORKSPACE</div>
+            <button class="nav-item ${state.page === 'mentor' ? 'active' : ''}" onclick="navigate('mentor'); closeMobileDrawer();">
+              <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 5.6L20 10l-4.4 4 1.4 6-5-3.2-5 3.2 1.4-6L4 10l5.6-2.4L12 2z"/></svg></span>
+              <span class="text">AI Mentor Masterclass</span>
+            </button>
+            <button class="nav-item ${state.page === 'lab' ? 'active' : ''}" onclick="navigate('lab'); closeMobileDrawer();">
+              <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 2v7.31L4.2 19.37A2 2 0 0 0 5.92 22h12.16a2 2 0 0 0 1.72-2.63L14 9.31V2"/></svg></span>
+              <span class="text">Scenario Lab</span>
+            </button>
+            <button class="nav-item ${state.page === 'leaderboard' ? 'active' : ''}" onclick="navigate('leaderboard'); closeMobileDrawer();">
+              <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34c3.48-1.07 6-4.28 6-8.66V3H4v3c0 4.38 2.52 7.59 6 8.66z"/></svg></span>
+              <span class="text">Leaderboard</span>
+            </button>
+
+            <div class="sidebar-label" style="margin-top: 18px;">ACCOUNT</div>
+            <button class="nav-item ${state.page === 'profile' ? 'active' : ''}" onclick="navigate('profile'); closeMobileDrawer();">
+              <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+              <span class="text">Strategist Profile</span>
+            </button>
+            <button class="nav-item ${state.page === 'settings' ? 'active' : ''}" onclick="navigate('settings'); closeMobileDrawer();">
+              <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0-.33-1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+              <span class="text">Platform Settings</span>
+            </button>
+
+            <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.08); display: flex; flex-direction: column; gap: 10px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 13px; color: var(--muted);">Interface Mode</span>
+                <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="applyTheme(state.theme === 'dark' ? 'light' : 'dark')">
+                  ${state.theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
+                </button>
+              </div>
+              <button class="btn btn-secondary" style="width: 100%; justify-content: center; margin-top: 10px; color: #ef4444; border-color: rgba(239, 68, 68, 0.3);" onclick="handleLogout()">
+                Sign Out ↪
+              </button>
+            </div>
+          </div>
+        </aside>
       </div>
     </div>
   `;
@@ -1095,7 +1278,7 @@ function attachViewEvents() {
   } else if (state.page === 'leaderboard') {
     loadLeaderboardData(state.leaderboardTab);
   } else if (state.page === 'admin') {
-    loadAdminData();
+    window.location.href = '/admin';
   } else if (state.page === 'waiting_room' && state.currentChallengeId) {
     loadWaitingRoomData(state.currentChallengeId);
   } else if (state.page === 'live_challenge' && state.currentChallengeId) {
@@ -1705,362 +1888,25 @@ async function loadLeaderboardData(tab = 'Overall') {
 }
 
 // -------------------------------------------------------------
-// Admin Terminal & Engine Controls View
+// Standalone Admin Portal Redirection
 // -------------------------------------------------------------
 function renderAdminPage() {
+  window.location.href = '/admin';
   return `
-    <div class="page-head">
-      <div>
-        <div class="eyebrow" style="color: var(--gold);">EXECUTIVE CONTROL TERMINAL</div>
-        <h1>System Administration & Engine Controls</h1>
-        <p>Manage real-mode activation, gateway providers (Flutterwave vs Korapay), and macroeconomic market settlement.</p>
-      </div>
-      <button class="btn btn-secondary" onclick="loadAdminData()">Refresh Engine ↺</button>
-    </div>
-
-    <!-- Stats Overview -->
-    <div class="metrics-row" id="admin-stats-container">
-      <div class="metric-card">
-        <span>Registered Strategists</span>
-        <strong id="stat-users">--</strong>
-        <small>Active user accounts</small>
-      </div>
-      <div class="metric-card">
-        <span>Active Forecasts</span>
-        <strong id="stat-forecasts">--</strong>
-        <small>Submitted commitments</small>
-      </div>
-      <div class="metric-card">
-        <span>Boardroom Matches</span>
-        <strong id="stat-challenges">--</strong>
-        <small>Arena strategy cases</small>
-      </div>
-      <div class="metric-card">
-        <span>Virtual Ledger Volume</span>
-        <strong id="stat-volume" style="color: var(--jade);">--</strong>
-        <small>Total VNGN transacted</small>
-      </div>
-    </div>
-
-    <!-- Feature Switches & Payment Gateways -->
-    <div class="two-col" style="margin-bottom: 24px;">
-      <!-- Feature Toggles -->
-      <div class="panel">
-        <div class="eyebrow">PLATFORM ENGINE TOGGLES</div>
-        <h2 style="margin: 8px 0 16px;">Core System Modes</h2>
-        <div style="display: flex; flex-direction: column; gap: 14px;" id="admin-features-container">
-          <p class="muted">Loading feature flags...</p>
-        </div>
-      </div>
-
-      <!-- Payment Gateway Selector -->
-      <div class="panel">
-        <div class="eyebrow">FUNDING ARCHITECTURE</div>
-        <h2 style="margin: 8px 0 16px;">Payment Gateways (Flutterwave & Korapay)</h2>
-        <p style="font-size: 13px; color: var(--muted); margin-bottom: 16px;">
-          Choose which provider handles live deposits. Switch anytime between Flutterwave and Korapay depending on verification status.
-        </p>
-        <div style="display: flex; flex-direction: column; gap: 12px;" id="admin-providers-container">
-          <p class="muted">Loading providers...</p>
-        </div>
-
-        <div style="margin-top: 18px; background: var(--bg); padding: 12px; border-radius: 8px; font-size: 12px; border: 1px solid var(--line);">
-          <b>Webhooks Endpoints:</b><br>
-          • <code>/api/webhooks/flutterwave</code><br>
-          • <code>/api/webhooks/korapay</code>
-        </div>
-      </div>
-    </div>
-
-    <!-- AI Model Controls & On-Demand Switcher -->
-    <div class="panel" style="margin-bottom: 24px;">
-      <div class="eyebrow" style="color: var(--jade);">AUTONOMOUS AI ADJUDICATION</div>
-      <h2 style="margin: 8px 0 12px;">NVIDIA NIM Model Engine & On-Demand Failover</h2>
-      <p style="font-size: 13px; color: var(--muted); margin-bottom: 16px;">
-        The system dynamically switches models on demand if rate limits (HTTP 429) or quota constraints are approached. You can also manually switch the active primary model below.
-      </p>
-
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
-        <div class="admin-card">
-          <div>
-            <b>Active Primary Model:</b><br>
-            <code id="admin-ai-active-model" style="color: var(--jade); font-size: 13px;">meta/llama-3.1-70b-instruct</code>
-          </div>
-          <span class="badge-enabled">ONLINE</span>
-        </div>
-        <div class="admin-card">
-          <div>
-            <b>Last Adjudicated With:</b><br>
-            <code id="admin-ai-last-model" style="color: var(--muted); font-size: 13px;">meta/llama-3.1-70b-instruct</code>
-          </div>
-          <span class="badge-sandbox">RECORDED</span>
-        </div>
-      </div>
-
-      <div style="margin-top: 16px; display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
-        <div class="form-group" style="flex: 1; min-width: 280px; margin-bottom: 0;">
-          <label>Switch Primary Model On-Demand</label>
-          <select class="select" id="admin-ai-model-select">
-            <option value="meta/llama-3.1-70b-instruct">Llama 3.1 70B Instruct (Flagship)</option>
-            <option value="meta/llama-3.3-70b-instruct">Llama 3.3 70B Instruct (High-Speed Fallback)</option>
-            <option value="mistralai/mixtral-8x22b-instruct-v0.1">Mixtral 8x22B Instruct (Enterprise MoE)</option>
-            <option value="meta/llama-3.1-8b-instruct">Llama 3.1 8B Instruct (High-Throughput / High-Quota)</option>
-            <option value="mistralai/mistral-large-2-instruct">Mistral Large 2 (Deep Reasoning)</option>
-          </select>
-        </div>
-        <button class="btn btn-primary" onclick="handleSwitchAiModel()">Apply Model Switch ↗</button>
-      </div>
-    </div>
-
-    <!-- Market Creation & Market Resolution -->
-    <div class="two-col">
-      <!-- Create Market -->
-      <div class="panel">
-        <div class="eyebrow">MARKET DESK</div>
-        <h2 style="margin: 8px 0 16px;">Publish Macroeconomic Contract</h2>
-        <form onsubmit="handleCreateAdminMarket(event)">
-          <div class="form-group">
-            <label>Contract Title / Question</label>
-            <input class="input" id="admin-m-title" placeholder="e.g. CBN to adjust MPR at next MPC meeting?" required>
-          </div>
-          <div class="form-group" style="margin-top: 12px;">
-            <label>Industry</label>
-            <select class="select" id="admin-m-industry">
-              <option value="1">Monetary Policy</option>
-              <option value="2">Equities</option>
-              <option value="3">Energy</option>
-              <option value="4">Agriculture</option>
-              <option value="5">FX & Reserves</option>
-              <option value="6">Fintech</option>
-              <option value="7">Manufacturing</option>
-              <option value="8">Telecoms & Digital</option>
-              <option value="9">Real Estate & Infra</option>
-              <option value="10">FMCG & Retail</option>
-              <option value="11">Aviation & Logistics</option>
-            </select>
-          </div>
-          <div class="form-group" style="margin-top: 12px;">
-            <label>Resolution Source / Benchmark</label>
-            <input class="input" id="admin-m-source" value="CBN Official Communiqué / NBS Bulletin" required>
-          </div>
-          <div class="form-group" style="margin-top: 12px;">
-            <label>Closes At Date</label>
-            <input class="input" type="date" id="admin-m-date" required>
-          </div>
-          <div class="form-group" style="margin-top: 12px;">
-            <label>Study Context / Evidence Summary</label>
-            <textarea class="textarea" id="admin-m-def" rows="3" placeholder="Contextual macroeconomic drivers..."></textarea>
-          </div>
-          <button type="submit" class="btn btn-primary btn-full" style="margin-top: 16px;">
-            Publish Contract to The Predictor ↗
-          </button>
-        </form>
-      </div>
-
-      <!-- Resolve Market -->
-      <div class="panel">
-        <div class="eyebrow">DOUBLE-ENTRY SETTLEMENT DESK</div>
-        <h2 style="margin: 8px 0 16px;">Resolve Open Contracts</h2>
-        <p style="font-size: 13px; color: var(--muted); margin-bottom: 14px;">
-          Settling an event evaluates all participants' forecast positions and atomically distributes payouts to winners.
-        </p>
-        <div id="admin-open-markets-list">
-          <p class="muted">Loading open contracts...</p>
-        </div>
-      </div>
+    <div style="padding: 60px 20px; text-align: center; color: var(--muted);">
+      <div style="font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 8px;">EconSim Standalone Operations Terminal</div>
+      <p>Redirecting to dedicated Admin Console at <a href="/admin" style="color: var(--jade);">/admin</a>...</p>
     </div>
   `;
 }
 
-async function loadAdminData() {
-  try {
-    const [statsRes, featsRes, marketsRes, aiRes] = await Promise.all([
-      api.get('/admin/stats'),
-      api.get('/admin/features'),
-      api.get('/markets'),
-      api.get('/admin/ai/model').catch(() => null),
-    ]);
 
-    // Update stats
-    if (statsRes?.data) {
-      const s = statsRes.data;
-      const uEl = document.getElementById('stat-users');
-      const fEl = document.getElementById('stat-forecasts');
-      const cEl = document.getElementById('stat-challenges');
-      const vEl = document.getElementById('stat-volume');
-      if (uEl) uEl.innerText = s.total_users;
-      if (fEl) fEl.innerText = s.total_forecasts;
-      if (cEl) cEl.innerText = s.total_challenges;
-      if (vEl) vEl.innerText = '₦' + (s.ledger_volume_vngn || 0).toLocaleString();
-    }
 
-    // Update AI Model Controls
-    if (aiRes?.data) {
-      const actEl = document.getElementById('admin-ai-active-model');
-      const lastEl = document.getElementById('admin-ai-last-model');
-      const selEl = document.getElementById('admin-ai-model-select');
-      if (actEl) actEl.innerText = aiRes.data.active_model;
-      if (lastEl) lastEl.innerText = aiRes.data.last_used_model || aiRes.data.active_model;
-      if (selEl && aiRes.data.active_model) selEl.value = aiRes.data.active_model;
-    }
 
-    // Update features
-    if (featsRes?.data) {
-      const fEl = document.getElementById('admin-features-container');
-      if (fEl) {
-        const featureLabels = {
-          real_mode: { name: 'Real Money Engine', desc: 'Master switch enabling real capital operations' },
-          real_funding: { name: 'Payment Ingestion', desc: 'Allows deposits via Flutterwave and Korapay' },
-          real_payouts: { name: 'Real Payouts', desc: 'Automated bank account withdrawals' },
-          real_boardroom: { name: 'Live Boardroom', desc: 'Permits real-money stakes in strategy arenas' },
-        };
 
-        fEl.innerHTML = (featsRes.data.features || []).map(f => {
-          const meta = featureLabels[f.code] || { name: f.code, desc: 'Feature toggle' };
-          const checked = Boolean(parseInt(f.enabled, 10));
-          return `
-            <div class="admin-card">
-              <div>
-                <b>${meta.name}</b>
-                <p style="font-size: 12px; color: var(--muted); margin-top: 2px;">${meta.desc}</p>
-              </div>
-              <label class="switch">
-                <input type="checkbox" ${checked ? 'checked' : ''} onchange="handleToggleFeature('${f.code}', this.checked)">
-                <span class="slider"></span>
-              </label>
-            </div>
-          `;
-        }).join('');
-      }
 
-      // Update providers
-      const pEl = document.getElementById('admin-providers-container');
-      if (pEl) {
-        pEl.innerHTML = (featsRes.data.providers || []).map(p => {
-          const isEnabled = p.status === 'enabled';
-          const isSandbox = p.status === 'sandbox';
-          return `
-            <div class="admin-card">
-              <div>
-                <b style="font-size: 15px;">${p.display_name}</b>
-                <span class="badge-${p.status}" style="margin-left: 8px;">${p.status.toUpperCase()}</span>
-                <p style="font-size: 12px; color: var(--muted); margin-top: 4px;">Gateway Slug: <code>${p.slug}</code></p>
-              </div>
-              <div style="display: flex; gap: 6px;">
-                <button class="btn ${isEnabled ? 'btn-primary' : 'btn-secondary'}" style="padding: 4px 10px; font-size: 12px;" onclick="handleSwitchProvider('${p.slug}', 'enabled')">
-                  ${isEnabled ? 'Active ✓' : 'Set Active'}
-                </button>
-                <button class="btn ${isSandbox ? 'btn-primary' : 'btn-secondary'}" style="padding: 4px 10px; font-size: 12px;" onclick="handleSwitchProvider('${p.slug}', 'sandbox')">
-                  Sandbox
-                </button>
-              </div>
-            </div>
-          `;
-        }).join('');
-      }
 
-      // Update industries in creator dropdown if returned
-      if (featsRes.data.industries?.length) {
-        const indSelect = document.getElementById('admin-m-industry');
-        if (indSelect) {
-          indSelect.innerHTML = featsRes.data.industries.map(i => `
-            <option value="${i.id}">${i.name}</option>
-          `).join('');
-        }
-      }
-    }
 
-    // Update open markets for resolution
-    if (marketsRes?.data) {
-      const openMarkets = marketsRes.data.filter(m => m.state === 'open');
-      const mEl = document.getElementById('admin-open-markets-list');
-      if (mEl) {
-        if (!openMarkets.length) {
-          mEl.innerHTML = '<p class="muted">No open markets waiting for resolution.</p>';
-        } else {
-          mEl.innerHTML = openMarkets.map(m => `
-            <div style="background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 10px;">
-              <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-                <span class="market-tag">${m.industry_name}</span>
-                <small style="color: var(--muted);">${m.closes_at ? m.closes_at.substring(0, 10) : 'Open'}</small>
-              </div>
-              <b style="font-size: 13.5px; display: block; margin-bottom: 8px;">${m.title}</b>
-              <div style="display: flex; gap: 8px;">
-                <button class="btn btn-primary" style="flex: 1; padding: 6px;" onclick="handleResolveMarket('${m.id}', true)">
-                  Resolve YES ✓
-                </button>
-                <button class="btn btn-secondary" style="flex: 1; padding: 6px;" onclick="handleResolveMarket('${m.id}', false)">
-                  Resolve NO ✗
-                </button>
-              </div>
-            </div>
-          `).join('');
-        }
-      }
-    }
-  } catch (e) {}
-}
-
-async function handleToggleFeature(code, isChecked) {
-  try {
-    await api.post('/admin/features/toggle', { code, enabled: isChecked });
-    api.toast(`Feature ${code} set to ${isChecked ? 'ON' : 'OFF'}`, 'success');
-  } catch (e) {
-    loadAdminData();
-  }
-}
-
-async function handleSwitchProvider(slug, status) {
-  try {
-    await api.post('/admin/providers/switch', { slug, status });
-    api.toast(`Provider ${slug} set to ${status}`, 'success');
-    loadAdminData();
-  } catch (e) {}
-}
-
-async function handleCreateAdminMarket(e) {
-  e.preventDefault();
-  const title = document.getElementById('admin-m-title').value;
-  const industryId = parseInt(document.getElementById('admin-m-industry').value, 10);
-  const source = document.getElementById('admin-m-source').value;
-  const dateVal = document.getElementById('admin-m-date').value;
-  const def = document.getElementById('admin-m-def').value;
-
-  try {
-    await api.post('/admin/markets/create', {
-      title,
-      industry_id: industryId,
-      resolution_source: source,
-      closes_at: dateVal ? `${dateVal} 23:59:59` : undefined,
-      definition: def,
-    });
-    api.toast('Contract published successfully!', 'success');
-    loadAdminData();
-  } catch (e) {}
-}
-
-async function handleResolveMarket(eventId, outcome) {
-  if (!confirm(`Are you sure you want to resolve this contract as ${outcome ? 'YES' : 'NO'} and distribute payouts?`)) {
-    return;
-  }
-  try {
-    const res = await api.post('/admin/markets/resolve', {
-      event_id: eventId,
-      outcome,
-    });
-    api.toast(res.message || 'Market resolved and settled!', 'success');
-    loadAdminData();
-  } catch (e) {}
-}
-
-async function handleSwitchAiModel() {
-  const model = document.getElementById('admin-ai-model-select').value;
-  try {
-    const res = await api.post('/admin/ai/model', { model });
-    api.toast(res.message || 'AI adjudication model switched successfully!', 'success');
-    loadAdminData();
-  } catch (e) {}
-}
 
 // -------------------------------------------------------------
 // AI Mentor

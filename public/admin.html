@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EconSim Engine Terminal // Executive Admin Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #070b12;
+      --surface: #0d1424;
+      --surface-elevated: #131d33;
+      --surface-card: #10192d;
+      --border: #1e2c4a;
+      --border-focus: #38bdf8;
+      --text: #f1f5f9;
+      --text-muted: #8493ad;
+      --primary: #059669;
+      --primary-glow: rgba(5, 150, 105, 0.25);
+      --accent: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.2);
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --font-main: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-main);
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Executive Topbar */
+    .admin-header {
+      background: rgba(13, 20, 36, 0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      padding: 0 28px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-tag {
+      background: linear-gradient(135deg, #059669, #10b981);
+      color: white;
+      font-weight: 800;
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .brand-title {
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: white;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-title span {
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(5, 150, 105, 0.12);
+      border: 1px solid rgba(5, 150, 105, 0.3);
+      color: #34d399;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #34d399;
+      box-shadow: 0 0 8px #34d399;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.9); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+    .btn-primary:hover {
+      background: #047857;
+      box-shadow: 0 0 14px var(--primary-glow);
+    }
+
+    .btn-secondary {
+      background: var(--surface-elevated);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover {
+      background: #1b2947;
+      border-color: #2b3d63;
+    }
+
+    .btn-danger {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #f87171;
+    }
+    .btn-danger:hover {
+      background: var(--danger);
+      color: white;
+    }
+
+    /* Layout */
+    .admin-container {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 32px 28px 80px;
+    }
+
+    .terminal-banner {
+      background: linear-gradient(180deg, #0f182c 0%, #0a1120 100%);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px 28px;
+      margin-bottom: 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .terminal-banner h1 {
+      font-size: 20px;
+      font-weight: 800;
+      color: white;
+      margin-bottom: 4px;
+    }
+
+    .terminal-banner p {
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    /* Metrics Grid */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 18px;
+      margin-bottom: 28px;
+    }
+
+    .metric-box {
+      background: var(--surface-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .metric-box::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 3px;
+      height: 100%;
+      background: var(--accent);
+    }
+
+    .metric-box.emerald::before { background: var(--primary); }
+    .metric-box.amber::before { background: var(--warning); }
+
+    .metric-box label {
+      display: block;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+
+    .metric-box .value {
+      font-size: 24px;
+      font-weight: 800;
+      color: white;
+      font-family: var(--font-mono);
+    }
+
+    /* Grid layout for Controls */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 28px;
+    }
+
+    @media (max-width: 980px) {
+      .dashboard-grid { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--surface-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+    }
+
+    .card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 14px;
+    }
+
+    .card-head h2 {
+      font-size: 16px;
+      font-weight: 700;
+      color: white;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Toggle Item */
+    .control-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+
+    .control-info b {
+      display: block;
+      font-size: 14px;
+      color: white;
+      margin-bottom: 2px;
+    }
+
+    .control-info span {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Toggle Switch */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #273553;
+      transition: .3s;
+      border-radius: 24px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+    input:checked + .slider { background-color: var(--primary); }
+    input:checked + .slider:before { transform: translateX(20px); }
+
+    /* Form Fields */
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .form-control {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 14px;
+      color: white;
+      font-family: var(--font-main);
+      font-size: 13.5px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-control:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    select.form-control {
+      cursor: pointer;
+    }
+
+    /* Table */
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 13px;
+    }
+    th {
+      background: var(--surface);
+      color: var(--text-muted);
+      font-weight: 700;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.05em;
+    }
+    td {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255, 255, 255, 0.02); }
+
+    /* Auth Gate Modal */
+    #auth-gate {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 8, 15, 0.96);
+      backdrop-filter: blur(16px);
+      z-index: 999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .auth-box {
+      width: 100%;
+      max-width: 440px;
+      background: var(--surface-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 36px 32px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+      text-align: center;
+    }
+
+    .auth-box .lock-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 12px;
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      color: var(--accent);
+    }
+
+    .auth-box h2 {
+      font-size: 20px;
+      font-weight: 800;
+      color: white;
+      margin-bottom: 8px;
+    }
+
+    .auth-box p {
+      color: var(--text-muted);
+      font-size: 13px;
+      margin-bottom: 24px;
+      line-height: 1.6;
+    }
+
+    /* Toast */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .toast {
+      background: var(--surface-elevated);
+      color: white;
+      border: 1px solid var(--border);
+      padding: 12px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: slideIn 0.25s ease-out;
+    }
+    .toast.success { border-color: var(--primary); color: #34d399; }
+    .toast.error { border-color: var(--danger); color: #f87171; }
+    @keyframes slideIn {
+      from { transform: translateX(30px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Executive Topbar -->
+  <header class="admin-header">
+    <div class="brand-group">
+      <div class="brand-tag">OPS</div>
+      <div class="brand-title">
+        ECONSIM <span>// ENGINE CONTROL TERMINAL</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <div class="status-pill">
+        <span class="status-dot"></span>
+        <span id="header-engine-mode">STANDALONE ENGINE</span>
+      </div>
+      <a href="/" class="btn btn-secondary" style="text-decoration: none;">
+        <span>↗</span> Public App
+      </a>
+      <button class="btn btn-secondary" onclick="handleLockSession()">
+        Lock Terminal
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="admin-container">
+    <div class="terminal-banner">
+      <div>
+        <div style="font-family: var(--font-mono); color: var(--accent); font-size: 12px; margin-bottom: 4px;">
+          INSTITUTIONAL CORE · DUAL-GATEWAY LIQUIDITY ENGINE
+        </div>
+        <h1>Platform Administration & Monetary Engine</h1>
+        <p>Full control over real-mode operations, payment gateways (Flutterwave & Korapay), AI adjudication pools, and market clearing.</p>
+      </div>
+      <button class="btn btn-primary" onclick="loadAllAdminData()">
+        Refresh Diagnostics ↺
+      </button>
+    </div>
+
+    <!-- Key Metrics Grid -->
+    <div class="metrics-grid">
+      <div class="metric-box emerald">
+        <label>Registered Strategists</label>
+        <div class="value" id="stat-users">0</div>
+      </div>
+      <div class="metric-box">
+        <label>Open Market Contracts</label>
+        <div class="value" id="stat-markets">0</div>
+      </div>
+      <div class="metric-box amber">
+        <label>Demo Capital Escrow (VNGN)</label>
+        <div class="value" id="stat-virtual-deposits">₦0</div>
+      </div>
+      <div class="metric-box">
+        <label>Real Escrow Balance (NGN)</label>
+        <div class="value" id="stat-real-escrow">₦0</div>
+      </div>
+    </div>
+
+    <!-- Grid of Engine Controls -->
+    <div class="dashboard-grid">
+      
+      <!-- Card 1: Platform Engine Toggles -->
+      <div class="card">
+        <div class="card-head">
+          <h2>⚡ Core Platform Engine Modes</h2>
+          <span style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">PLATFORM_FEATURES</span>
+        </div>
+        <p style="color: var(--text-muted); font-size: 12.5px; margin-bottom: 16px;">
+          Enable or disable core system modes. Changes take effect across the platform immediately without server restart.
+        </p>
+        <div id="features-list">
+          <p style="color: var(--text-muted);">Querying engine features...</p>
+        </div>
+      </div>
+
+      <!-- Card 2: Payment Gateway Controller -->
+      <div class="card">
+        <div class="card-head">
+          <h2>💳 Payment Gateways (Flutterwave vs Korapay)</h2>
+          <span style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">FUNDING_PROVIDERS</span>
+        </div>
+        <p style="color: var(--text-muted); font-size: 12.5px; margin-bottom: 16px;">
+          Switch active gateway dynamically based on provider verification and webhook health.
+        </p>
+        <div id="providers-list">
+          <p style="color: var(--text-muted);">Querying gateway providers...</p>
+        </div>
+      </div>
+
+      <!-- Card 3: NVIDIA NIM AI Model Failover Pool -->
+      <div class="card">
+        <div class="card-head">
+          <h2>🤖 AI Adjudication & Model Pool</h2>
+          <span style="font-size: 11px; color: var(--accent); font-family: var(--font-mono);">NVIDIA NIM</span>
+        </div>
+        <p style="color: var(--text-muted); font-size: 12.5px; margin-bottom: 16px;">
+          Select active model for boardroom evaluations and macroeconomic synthesis. Built-in failover handles rate-limit bounds automatically.
+        </p>
+        <div class="form-group">
+          <label>Primary Evaluation Model</label>
+          <select id="ai-model-select" class="form-control">
+            <option value="meta/llama-3.1-70b-instruct">meta/llama-3.1-70b-instruct (Primary Masterclass Analysis)</option>
+            <option value="meta/llama-3.3-70b-instruct">meta/llama-3.3-70b-instruct (Enhanced Reasoning)</option>
+            <option value="mistralai/mixtral-8x22b-instruct-v0.1">mistralai/mixtral-8x22b-instruct-v0.1 (High-Throughput MoE)</option>
+            <option value="meta/llama-3.1-8b-instruct">meta/llama-3.1-8b-instruct (Ultra-Fast Fallback)</option>
+            <option value="mistralai/mistral-large-2-instruct">mistralai/mistral-large-2-instruct (Complex Strategic Matrix)</option>
+          </select>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center; margin-top: 14px;">
+          <button class="btn btn-primary" onclick="handleSwitchAiModel()">Apply AI Model</button>
+          <span id="ai-model-active-badge" style="font-family: var(--font-mono); font-size: 12px; color: var(--accent);"></span>
+        </div>
+        <div style="margin-top: 16px; padding: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; font-size: 12px; color: var(--text-muted);">
+          <b>Failover Sequence:</b> If NVIDIA NIM returns HTTP 429 or quota limit, the runner cascades: <code style="color: #38bdf8;">llama-3.1-70b</code> &rarr; <code style="color: #38bdf8;">llama-3.3-70b</code> &rarr; <code style="color: #38bdf8;">mixtral-8x22b</code> &rarr; <code style="color: #38bdf8;">llama-3.1-8b</code>.
+        </div>
+      </div>
+
+      <!-- Card 4: Macro Market Contract Publishing -->
+      <div class="card">
+        <div class="card-head">
+          <h2>📈 Publish Macroeconomic Contract</h2>
+          <span style="font-size: 11px; color: var(--primary); font-family: var(--font-mono);">MARKET_PUBLISHER</span>
+        </div>
+        <form onsubmit="handleCreateMarket(event)">
+          <div class="form-group">
+            <label>Contract Question / Title</label>
+            <input type="text" id="m-title" class="form-control" placeholder="e.g. CBN MPC to raise MPR past 28.00% at next policy meeting" required>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label>Macro Industry</label>
+              <select id="m-industry" class="form-control" required></select>
+            </div>
+            <div class="form-group">
+              <label>Resolution Date</label>
+              <input type="date" id="m-date" class="form-control" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Verification Authority Source</label>
+            <input type="text" id="m-source" class="form-control" placeholder="e.g. Central Bank of Nigeria (cbn.gov.ng)" required>
+          </div>
+          <div class="form-group">
+            <label>Contract Resolution Criterion & Pedagogy</label>
+            <textarea id="m-def" class="form-control" rows="3" placeholder="Define exact threshold, transmission levers, and analytical criteria for settlement..." required></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width: 100%;">Publish Contract to Market 🚀</button>
+        </form>
+      </div>
+
+    </div>
+
+    <!-- Active Markets & Atomic Settlement -->
+    <div class="card">
+      <div class="card-head">
+        <h2>⚖ Open Contracts & Atomic Settlement Engine</h2>
+        <span style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">DOUBLE_ENTRY_SETTLEMENT</span>
+      </div>
+      <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">
+        Resolving a contract executes double-entry settlements: winning strategists receive payouts, losing commitments are closed, and uncommitted holds are released.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Contract Title</th>
+              <th>Industry</th>
+              <th>Resolution Date</th>
+              <th>Authority Source</th>
+              <th style="text-align: right;">Action</th>
+            </tr>
+          </thead>
+          <tbody id="open-markets-table">
+            <tr>
+              <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 24px;">Loading open market contracts...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- Security Gate Modal (When not authorized) -->
+  <div id="auth-gate" style="display: none;">
+    <div class="auth-box">
+      <div class="lock-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+      </div>
+      <h2>Engine Access Gate</h2>
+      <p>This is a restricted operations terminal for EconSim system administrators. Enter Master Passkey to unlock engine controls.</p>
+      <form onsubmit="handleAuthSubmit(event)">
+        <div class="form-group" style="text-align: left;">
+          <label>Master Admin Key</label>
+          <input type="password" id="gate-key" class="form-control" placeholder="Enter APP_SECRET / Master Passkey..." autofocus required>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 12px;">
+          Authenticate & Unlock Terminal 🔓
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <script>
+    const API_BASE = '/api';
+    let adminKey = localStorage.getItem('econsim_admin_key') || sessionStorage.getItem('econsim_admin_key') || '';
+
+    function toast(msg, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const el = document.createElement('div');
+      el.className = `toast ${type}`;
+      el.innerText = msg;
+      container.appendChild(el);
+      setTimeout(() => el.remove(), 4000);
+    }
+
+    async function apiRequest(endpoint, method = 'GET', body = null) {
+      const headers = { 'Content-Type': 'application/json' };
+      if (adminKey) {
+        headers['X-Admin-Key'] = adminKey;
+      }
+      const opts = { method, headers };
+      if (body) opts.body = JSON.stringify(body);
+
+      const res = await fetch(`${API_BASE}${endpoint}`, opts);
+      const data = await res.json().catch(() => null);
+
+      if (res.status === 401) {
+        showAuthGate();
+        throw new Error('Unauthorized');
+      }
+      if (!res.ok) {
+        throw new Error(data?.error || data?.message || 'Request failed');
+      }
+      return data;
+    }
+
+    function showAuthGate() {
+      document.getElementById('auth-gate').style.display = 'flex';
+    }
+
+    function hideAuthGate() {
+      document.getElementById('auth-gate').style.display = 'none';
+    }
+
+    async function handleAuthSubmit(e) {
+      e.preventDefault();
+      const key = document.getElementById('gate-key').value.trim();
+      if (!key) return;
+      adminKey = key;
+      sessionStorage.setItem('econsim_admin_key', key);
+      try {
+        await apiRequest('/admin/auth/verify');
+        hideAuthGate();
+        toast('Terminal unlocked successfully!', 'success');
+        loadAllAdminData();
+      } catch (err) {
+        toast('Invalid Master Key. Access Denied.', 'error');
+      }
+    }
+
+    function handleLockSession() {
+      adminKey = '';
+      sessionStorage.removeItem('econsim_admin_key');
+      localStorage.removeItem('econsim_admin_key');
+      showAuthGate();
+      toast('Terminal session locked.', 'info');
+    }
+
+    async function checkInitialAuth() {
+      try {
+        await apiRequest('/admin/auth/verify');
+        hideAuthGate();
+        loadAllAdminData();
+      } catch (e) {
+        showAuthGate();
+      }
+    }
+
+    async function loadAllAdminData() {
+      try {
+        const [feats, stats, ai, markets] = await Promise.all([
+          apiRequest('/admin/features'),
+          apiRequest('/admin/stats'),
+          apiRequest('/admin/ai/model'),
+          apiRequest('/markets')
+        ]);
+
+        renderStats(stats?.data);
+        renderFeatures(feats?.data?.features);
+        renderProviders(feats?.data?.providers);
+        renderIndustries(feats?.data?.industries);
+        renderAiModel(ai?.data);
+        renderMarkets(markets?.data);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function renderStats(s) {
+      if (!s) return;
+      document.getElementById('stat-users').innerText = (s.total_users || 0).toLocaleString();
+      document.getElementById('stat-markets').innerText = (s.open_markets || 0).toLocaleString();
+      document.getElementById('stat-virtual-deposits').innerText = '₦' + Math.round(s.virtual_deposits_total || 0).toLocaleString('en-NG');
+      document.getElementById('stat-real-escrow').innerText = '₦' + Math.round(s.real_escrow_balance || 0).toLocaleString('en-NG');
+    }
+
+    function renderFeatures(feats) {
+      const container = document.getElementById('features-list');
+      if (!container || !feats) return;
+
+      const meta = {
+        real_mode: { name: 'Real Money Platform Mode', desc: 'Allows switching to real accounts across platform' },
+        real_funding: { name: 'Live Gateway Deposits', desc: 'Permits processing real card/bank deposits via active gateway' },
+        real_payouts: { name: 'Real Ledger Settlements', desc: 'Allows automated real-money payouts' },
+        real_boardroom: { name: 'Real Boardroom Stakes', desc: 'Permits real-money executive challenge matches' }
+      };
+
+      container.innerHTML = feats.map(f => {
+        const info = meta[f.code] || { name: f.code, desc: 'Core platform parameter' };
+        const checked = Boolean(parseInt(f.enabled, 10));
+        return `
+          <div class="control-row">
+            <div class="control-info">
+              <b>${info.name}</b>
+              <span>${info.desc}</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" ${checked ? 'checked' : ''} onchange="handleToggleFeature('${f.code}', this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderProviders(providers) {
+      const container = document.getElementById('providers-list');
+      if (!container || !providers) return;
+
+      container.innerHTML = providers.map(p => {
+        const isEnabled = p.status === 'enabled';
+        const isSandbox = p.status === 'sandbox';
+        return `
+          <div class="control-row">
+            <div class="control-info">
+              <b>${p.display_name}</b>
+              <span>Status: <code style="color: ${isEnabled ? '#34d399' : (isSandbox ? '#f59e0b' : '#8493ad')}">${p.status.toUpperCase()}</code></span>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn ${isEnabled ? 'btn-primary' : 'btn-secondary'}" style="padding: 4px 10px; font-size: 11px;" onclick="handleSwitchProvider('${p.slug}', 'enabled')">
+                ${isEnabled ? 'Active ✓' : 'Set Active'}
+              </button>
+              <button class="btn ${isSandbox ? 'btn-primary' : 'btn-secondary'}" style="padding: 4px 10px; font-size: 11px;" onclick="handleSwitchProvider('${p.slug}', 'sandbox')">
+                Sandbox
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderIndustries(inds) {
+      const select = document.getElementById('m-industry');
+      if (!select || !inds) return;
+      select.innerHTML = inds.map(i => `<option value="${i.id}">${i.name}</option>`).join('');
+    }
+
+    function renderAiModel(ai) {
+      if (!ai) return;
+      const select = document.getElementById('ai-model-select');
+      const badge = document.getElementById('ai-model-active-badge');
+      if (select && ai.active_model) select.value = ai.active_model;
+      if (badge && ai.active_model) badge.innerText = `[ACTIVE: ${ai.active_model}]`;
+    }
+
+    function renderMarkets(markets) {
+      const tbody = document.getElementById('open-markets-table');
+      if (!tbody) return;
+      const open = (markets || []).filter(m => m.state === 'open');
+      if (!open.length) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 24px;">No open contracts pending settlement.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = open.map(m => `
+        <tr>
+          <td><b>${m.title}</b></td>
+          <td><span style="font-size: 12px; color: var(--accent);">${m.industry_name || 'Macroeconomics'}</span></td>
+          <td style="font-family: var(--font-mono); font-size: 12px;">${(m.resolution_date || '').slice(0, 10)}</td>
+          <td style="font-size: 12px; color: var(--text-muted);">${m.source_name || 'Official Source'}</td>
+          <td style="text-align: right;">
+            <div style="display: inline-flex; gap: 6px;">
+              <button class="btn btn-primary" style="padding: 4px 10px; font-size: 11px;" onclick="handleResolveMarket('${m.id}', 'yes')">Resolve YES</button>
+              <button class="btn btn-danger" style="padding: 4px 10px; font-size: 11px;" onclick="handleResolveMarket('${m.id}', 'no')">Resolve NO</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function handleToggleFeature(code, enabled) {
+      try {
+        await apiRequest('/admin/features/toggle', 'POST', { code, enabled });
+        toast(`Engine feature '${code}' set to ${enabled ? 'ENABLED' : 'PAUSED'}`, 'success');
+      } catch (err) {
+        toast(err.message, 'error');
+        loadAllAdminData();
+      }
+    }
+
+    async function handleSwitchProvider(slug, status) {
+      try {
+        await apiRequest('/admin/providers/switch', 'POST', { slug, status });
+        toast(`Provider '${slug}' updated to ${status}.`, 'success');
+        loadAllAdminData();
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    }
+
+    async function handleSwitchAiModel() {
+      const model = document.getElementById('ai-model-select').value;
+      try {
+        await apiRequest('/admin/ai/model', 'POST', { model });
+        toast('Primary AI Model switched successfully!', 'success');
+        loadAllAdminData();
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    }
+
+    async function handleCreateMarket(e) {
+      e.preventDefault();
+      const title = document.getElementById('m-title').value.trim();
+      const industry_id = parseInt(document.getElementById('m-industry').value, 10);
+      const resolution_date = document.getElementById('m-date').value;
+      const source_name = document.getElementById('m-source').value.trim();
+      const definition = document.getElementById('m-def').value.trim();
+
+      try {
+        await apiRequest('/admin/markets/create', 'POST', {
+          title,
+          industry_id,
+          resolution_date,
+          source_name,
+          definition
+        });
+        toast('Contract published to market successfully!', 'success');
+        document.getElementById('m-title').value = '';
+        document.getElementById('m-def').value = '';
+        loadAllAdminData();
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    }
+
+    async function handleResolveMarket(eventId, outcome) {
+      if (!confirm(`Are you sure you want to resolve this contract as ${outcome.toUpperCase()}? This will execute double-entry ledger payouts immediately.`)) {
+        return;
+      }
+      try {
+        const res = await apiRequest('/admin/markets/resolve', 'POST', { event_id: eventId, outcome });
+        toast(res.message || 'Market resolved and settled!', 'success');
+        loadAllAdminData();
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    }
+
+    // Initialize
+    checkInitialAuth();
+  </script>
+</body>
+</html>
