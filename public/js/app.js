@@ -21,6 +21,39 @@ let state = {
   },
   features: {},
   leaderboardTab: 'Overall',
+  notifications: JSON.parse(localStorage.getItem('econsim-notifications') || 'null') || [
+    {
+      id: 'notif_init_1',
+      title: 'Executive Boardroom Challenge Ready',
+      message: 'The Runway Crisis dilemma is active. Step into the arena and formulate your liquidity plan.',
+      target_page: 'boardroom',
+      target_id: 'ch_1',
+      category: 'boardroom',
+      time: '12m ago',
+      read: false,
+    },
+    {
+      id: 'notif_init_2',
+      title: 'Economic Catalyst Contract Alert',
+      message: 'MPC Interest Rate Communique decision contract is approaching resolution. Inspect your position.',
+      target_page: 'predictor',
+      target_id: 'mkt_1',
+      category: 'market',
+      time: '45m ago',
+      read: false,
+    },
+    {
+      id: 'notif_init_3',
+      title: 'Virtual Educational Capital Credited',
+      message: '₦500,000 demonstration capital is available on your virtual ledger account.',
+      target_page: 'wallet',
+      target_id: null,
+      category: 'wallet',
+      time: '2h ago',
+      read: true,
+    },
+  ],
+  isNotifOpen: false,
   lab: {
     selectedIndustry: 'monetary',
     industries: [],
@@ -71,6 +104,16 @@ function formatMoney(n) {
   return '₦' + Math.round(Number(n) || 0).toLocaleString('en-NG');
 }
 
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 function applyTheme(t) {
   state.theme = t;
   localStorage.setItem('econsim-theme', t);
@@ -104,6 +147,17 @@ function renderMarkdown(md) {
 
 async function initApp() {
   applyTheme(state.theme);
+
+  // Close notifications dropdown on outside click
+  document.addEventListener('click', (e) => {
+    const notifContainer = document.getElementById('notif-container');
+    const notifBtn = e.target.closest('.notif-btn');
+    if (state.isNotifOpen && notifContainer && !notifContainer.contains(e.target) && !notifBtn) {
+      state.isNotifOpen = false;
+      const dd = document.getElementById('notif-dropdown');
+      if (dd) dd.classList.remove('active');
+    }
+  });
 
   // Load platform engine features and active gateway immediately
   try {
@@ -240,6 +294,325 @@ function render() {
 }
 
 // -------------------------------------------------------------
+// Shimmer & Skeleton Screen Helpers
+// -------------------------------------------------------------
+function renderMarketSkeletonGrid(count = 3) {
+  return `
+    <div class="market-grid">
+      ${Array(count).fill(0).map(() => `
+        <div class="skeleton-card">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="skeleton-shimmer skeleton-line pill" style="width: 85px;"></div>
+            <div class="skeleton-shimmer skeleton-line" style="width: 55px; height: 12px;"></div>
+          </div>
+          <div class="skeleton-shimmer skeleton-line title" style="margin-top: 4px;"></div>
+          <div class="skeleton-shimmer skeleton-line subtitle"></div>
+          <div class="skeleton-shimmer skeleton-line" style="width: 90%;"></div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--line);">
+            <div class="skeleton-shimmer skeleton-line" style="width: 90px; height: 14px;"></div>
+            <div class="skeleton-shimmer skeleton-line pill" style="width: 75px; height: 26px;"></div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderBoardroomSkeleton(count = 2) {
+  return `
+    <div class="market-grid">
+      ${Array(count).fill(0).map(() => `
+        <div class="skeleton-card">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="skeleton-shimmer skeleton-line pill" style="width: 90px;"></div>
+            <div class="skeleton-shimmer skeleton-line pill" style="width: 65px;"></div>
+          </div>
+          <div class="skeleton-shimmer skeleton-line title" style="margin: 6px 0; width: 75%;"></div>
+          <div class="skeleton-shimmer skeleton-line subtitle"></div>
+          <div class="skeleton-shimmer skeleton-line" style="width: 80%;"></div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line);">
+            <div class="skeleton-shimmer skeleton-line short" style="height: 14px;"></div>
+            <div class="skeleton-shimmer skeleton-line pill" style="width: 100px; height: 30px;"></div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderTableSkeleton(rows = 4, cols = 4) {
+  return `
+    <table style="width: 100%; border-collapse: collapse;">
+      <tbody>
+        ${Array(rows).fill(0).map(() => `
+          <tr style="border-bottom: 1px solid var(--line);">
+            ${Array(cols).fill(0).map((_, i) => `
+              <td style="padding: 14px 10px;">
+                <div class="skeleton-shimmer skeleton-line" style="width: ${i === 0 ? '45%' : (i === 1 ? '75%' : '55%')}; height: 14px;"></div>
+              </td>
+            `).join('')}
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderLeaderboardSkeleton(rows = 6) {
+  return Array(rows).fill(0).map(() => `
+    <tr style="border-bottom: 1px solid var(--line);">
+      <td style="padding: 12px 8px;"><div class="skeleton-shimmer skeleton-line pill" style="width: 40px; height: 18px;"></div></td>
+      <td style="padding: 12px 8px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div class="skeleton-shimmer skeleton-avatar" style="width: 26px; height: 26px;"></div>
+          <div class="skeleton-shimmer skeleton-line title" style="width: 130px; height: 14px;"></div>
+        </div>
+      </td>
+      <td style="padding: 12px 8px;"><div class="skeleton-shimmer skeleton-line" style="width: 90px; height: 14px;"></div></td>
+      <td style="padding: 12px 8px; text-align: right;"><div class="skeleton-shimmer skeleton-line" style="width: 60px; height: 14px; margin-left: auto;"></div></td>
+    </tr>
+  `).join('');
+}
+
+function renderScenarioSkeleton(count = 2) {
+  return Array(count).fill(0).map(() => `
+    <div class="skeleton-card" style="margin-bottom: 10px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div class="skeleton-shimmer skeleton-line title" style="width: 60%; height: 16px;"></div>
+        <div class="skeleton-shimmer skeleton-line pill" style="width: 50px; height: 18px;"></div>
+      </div>
+      <div class="skeleton-shimmer skeleton-line subtitle"></div>
+      <div class="skeleton-shimmer skeleton-line" style="width: 85%;"></div>
+      <div class="skeleton-shimmer skeleton-line" style="height: 24px; border-radius: 6px; margin-top: 4px;"></div>
+    </div>
+  `).join('');
+}
+
+function renderInlineLoader(text = 'Loading data...') {
+  return `
+    <div class="page-loader-box">
+      <div class="page-loader-spinner"></div>
+      <span style="font-size: 13px; font-weight: 600;">${text}</span>
+    </div>
+  `;
+}
+
+// -------------------------------------------------------------
+// In-App Notifications & Deep Linking Engine
+// -------------------------------------------------------------
+function saveNotificationsToStorage() {
+  try {
+    localStorage.setItem('econsim-notifications', JSON.stringify(state.notifications || []));
+  } catch (e) {}
+}
+
+function updateNotifBadges() {
+  const unreadCount = (state.notifications || []).filter(n => !n.read).length;
+  const badgeDesktop = document.getElementById('notif-badge-count');
+  if (badgeDesktop) {
+    badgeDesktop.textContent = unreadCount;
+    badgeDesktop.style.display = unreadCount > 0 ? 'flex' : 'none';
+  }
+  const badgeMobile = document.getElementById('notif-badge-mobile');
+  if (badgeMobile) {
+    badgeMobile.textContent = unreadCount;
+    badgeMobile.style.display = unreadCount > 0 ? 'flex' : 'none';
+  }
+}
+
+function toggleNotifDropdown(e) {
+  if (e) e.stopPropagation();
+  state.isNotifOpen = !state.isNotifOpen;
+  const dropdown = document.getElementById('notif-dropdown');
+  if (dropdown) {
+    if (state.isNotifOpen) {
+      dropdown.innerHTML = renderNotifDropdownContent();
+      dropdown.classList.add('active');
+    } else {
+      dropdown.classList.remove('active');
+    }
+  }
+}
+
+function markAllNotificationsRead(e) {
+  if (e) e.stopPropagation();
+  (state.notifications || []).forEach(n => { n.read = true; });
+  saveNotificationsToStorage();
+  updateNotifBadges();
+  const dropdown = document.getElementById('notif-dropdown');
+  if (dropdown) {
+    dropdown.innerHTML = renderNotifDropdownContent();
+  }
+}
+
+function handleNotificationClick(notifId) {
+  const notif = (state.notifications || []).find(n => n.id === notifId);
+  if (!notif) return;
+
+  notif.read = true;
+  saveNotificationsToStorage();
+  state.isNotifOpen = false;
+  const dropdown = document.getElementById('notif-dropdown');
+  if (dropdown) dropdown.classList.remove('active');
+  updateNotifBadges();
+
+  api.toast(`Navigating to ${notif.title}...`, 'info');
+
+  if (notif.target_page === 'live_challenge' && notif.target_id) {
+    navigate('live_challenge', { challengeId: notif.target_id });
+  } else if (notif.target_page === 'waiting_room' && notif.target_id) {
+    navigate('waiting_room', { challengeId: notif.target_id });
+  } else if (notif.target_page === 'challenge_report' && notif.target_id) {
+    navigate('challenge_report', { challengeId: notif.target_id });
+  } else if (notif.target_page === 'boardroom') {
+    navigate('boardroom');
+  } else if (notif.target_page === 'predictor') {
+    navigate('predictor');
+  } else if (notif.target_page === 'wallet') {
+    navigate('wallet');
+  } else if (notif.target_page) {
+    navigate(notif.target_page);
+  }
+}
+
+async function requestPushPermission() {
+  if (!('Notification' in window)) {
+    api.toast('Browser Web Push is not supported in this browser environment.', 'warning');
+    return;
+  }
+
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission === 'granted') {
+      api.toast('Push alerts enabled! You will receive live alerts for boardroom matches.', 'success');
+      sendSystemNotification(
+        'Push Notifications Active',
+        'Real-time alerts are now enabled for boardroom match starts and catalyst resolutions.',
+        'dashboard',
+        null,
+        'boardroom'
+      );
+    } else {
+      api.toast('Push permission was declined or dismissed in browser settings.', 'warning');
+    }
+  } catch (err) {
+    api.toast('Could not request notification permission.', 'error');
+  }
+}
+
+function sendSystemNotification(title, message, target_page = 'dashboard', target_id = null, category = 'boardroom') {
+  const newNotif = {
+    id: 'notif_' + Date.now(),
+    title,
+    message,
+    target_page,
+    target_id,
+    category,
+    time: 'Just now',
+    read: false,
+  };
+
+  if (!state.notifications) state.notifications = [];
+  state.notifications.unshift(newNotif);
+  saveNotificationsToStorage();
+  updateNotifBadges();
+
+  // In-App Toast
+  api.toast(`🔔 ${title}: ${message}`, 'info');
+
+  // Native Web Push Notification
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try {
+      const n = new Notification(title, {
+        body: message,
+        icon: '/favicon.ico',
+      });
+      n.onclick = () => {
+        window.focus();
+        handleNotificationClick(newNotif.id);
+      };
+    } catch (e) {}
+  }
+}
+
+function triggerSampleBoardroomNotif(e) {
+  if (e) e.stopPropagation();
+  sendSystemNotification(
+    'Executive Boardroom Dilemma Live',
+    'The Liquidity Squeeze challenge has started. Click here to enter the arena and submit your memo.',
+    'boardroom',
+    'ch_live_demo',
+    'boardroom'
+  );
+}
+
+function clearAllNotifications(e) {
+  if (e) e.stopPropagation();
+  state.notifications = [];
+  saveNotificationsToStorage();
+  updateNotifBadges();
+  const dd = document.getElementById('notif-dropdown');
+  if (dd) dd.innerHTML = renderNotifDropdownContent();
+  api.toast('Notification center cleared.', 'info');
+  if (state.page === 'settings') {
+    navigate('settings');
+  }
+}
+
+function renderNotifDropdownContent() {
+  const notifs = state.notifications || [];
+  const unreadCount = notifs.filter(n => !n.read).length;
+
+  return `
+    <div class="notif-header">
+      <div>
+        <b style="font-size: 13.5px; color: var(--text);">Strategic Notifications</b>
+        <small style="display: block; color: var(--muted); font-size: 11px;">${unreadCount} unread alert${unreadCount === 1 ? '' : 's'}</small>
+      </div>
+      <div style="display: flex; gap: 6px;">
+        ${unreadCount > 0 ? `
+          <button type="button" class="btn-link" style="font-size: 11.5px; color: var(--jade); background: none; border: none; cursor: pointer; font-weight: 700;" onclick="markAllNotificationsRead(event)">Mark all read</button>
+        ` : ''}
+      </div>
+    </div>
+
+    <div class="notif-list">
+      ${notifs.length === 0 ? `
+        <div style="padding: 28px 16px; text-align: center; color: var(--muted); font-size: 12.5px;">
+          No notifications yet. You will receive live alerts for boardroom matches and market events.
+        </div>
+      ` : notifs.map(n => `
+        <div class="notif-item ${!n.read ? 'unread' : ''}" onclick="handleNotificationClick('${n.id}')">
+          <div class="notif-icon-box">
+            ${n.category === 'boardroom' ? '🏦' : (n.category === 'market' ? '📈' : (n.category === 'wallet' ? '💳' : '✦'))}
+          </div>
+          <div class="notif-content">
+            <div class="notif-title">
+              <span>${n.title}</span>
+              <span class="notif-unread-dot"></span>
+            </div>
+            <div class="notif-desc">${n.message}</div>
+            <div class="notif-meta">
+              <span>${n.time}</span>
+              <span style="color: var(--jade); font-weight: 600;">Open &rarr;</span>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="notif-footer">
+      <button type="button" class="btn-link" style="font-size: 11.5px; color: var(--muted); background: none; border: none; cursor: pointer;" onclick="requestPushPermission()">
+        🔔 Browser Push Alerts
+      </button>
+      <button type="button" class="btn-link" style="font-size: 11.5px; color: var(--jade); background: none; border: none; cursor: pointer; font-weight: 600;" onclick="triggerSampleBoardroomNotif(event)">
+        + Test Match Alert
+      </button>
+    </div>
+  `;
+}
+
+// -------------------------------------------------------------
 // App Shell Layout
 // -------------------------------------------------------------
 function renderAppShell(innerHtml) {
@@ -299,6 +672,10 @@ function renderAppShell(innerHtml) {
   const userLevel = state.stats?.level ?? (state.user?.stats?.level ?? { level: 1, name: 'Novice Analyst', progress_pct: 0 });
   const levelNumStr = String(userLevel.level || 1).padStart(2, '0');
   const levelPct = Math.max(5, Math.min(100, userLevel.progress_pct || 0));
+  const unreadNotifsCount = (state.notifications || []).filter(n => !n.read).length;
+  const isReal = state.mode?.toLowerCase() === 'real';
+  const activeBal = isReal ? state.realWallet : state.wallet;
+  const currLabel = isReal ? 'NGN' : 'VNGN';
 
   return `
     <div class="app-container">
@@ -347,11 +724,26 @@ function renderAppShell(innerHtml) {
           <div class="mobile-topbar-brand" onclick="navigate('dashboard')">
             <div class="brand-icon" style="width: 28px; height: 28px; font-size: 13px;">↗</div>
             <span class="brand-text">econsim<b>.</b></span>
-            <span class="live-pill">LIVE</span>
           </div>
           <div class="mobile-topbar-actions">
-            <div class="wallet-badge" onclick="navigate('wallet')">
-              ${formatMoney(state.wallet.available)}
+            <!-- Mobile Mode Switcher -->
+            <button class="mobile-mode-pill ${isReal ? 'real' : 'demo'}" onclick="switchMode('${isReal ? 'demo' : 'real'}')" title="Switch Mode">
+              <span class="mode-dot"></span> ${isReal ? 'Real' : 'Demo'}
+            </button>
+
+            <!-- Mobile Notification Bell -->
+            <div class="notif-container">
+              <button class="notif-btn" style="width: 32px; height: 32px;" onclick="toggleNotifDropdown(event)" aria-label="Notifications" title="Notifications">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                </svg>
+                <span class="notif-badge" id="notif-badge-mobile" style="display: ${unreadNotifsCount > 0 ? 'flex' : 'none'}; width: 15px; height: 15px; font-size: 9px; top: -2px; right: -2px;">${unreadNotifsCount}</span>
+              </button>
+            </div>
+
+            <div class="wallet-badge" onclick="navigate('wallet')" style="padding: 4px 10px; font-size: 12px; cursor: pointer;">
+              ${formatMoney(activeBal.available || 0)}
             </div>
             <button class="mobile-hamburger-btn" onclick="toggleMobileDrawer()" aria-label="Open Navigation">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
@@ -366,20 +758,36 @@ function renderAppShell(innerHtml) {
           </div>
           <div class="top-actions">
             <div class="mode-toggle">
-              <button class="mode-btn ${state.mode?.toLowerCase() !== 'real' ? 'active' : ''}" onclick="switchMode('demo')">Demo</button>
-              <button class="mode-btn ${state.mode?.toLowerCase() === 'real' ? 'active' : ''}" onclick="switchMode('real')" title="${!state.features?.real_mode ? 'Real mode is disabled by admin' : 'Live real money mode'}">
-                Real ${!state.features?.real_mode ? '🔒' : ''}
+              <button class="mode-btn ${!isReal ? 'active-demo' : ''}" onclick="switchMode('demo')" title="Virtual Educational Simulation Mode">
+                <span class="mode-dot"></span> Virtual Demo
+              </button>
+              <button class="mode-btn ${isReal ? 'active-real' : ''}" onclick="switchMode('real')" title="${!state.features?.real_mode ? 'Real mode is disabled by admin' : 'Live real money mode'}">
+                <span class="mode-dot" style="${!state.features?.real_mode ? 'opacity: 0.4;' : ''}"></span> Real Capital ${!state.features?.real_mode ? '🔒' : ''}
               </button>
             </div>
-            ${state.mode?.toLowerCase() === 'real' ? `
-              <span class="sim-tag" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">● LIVE CAPITAL (NGN)</span>
-            ` : `
-              <span class="sim-tag">● SIMULATION MODE</span>
-            `}
-            <div class="wallet-badge" onclick="navigate('wallet')" style="cursor: pointer;">
-              <span>${state.mode?.toLowerCase() === 'real' ? '₦' : '◈'}</span> ${formatMoney((state.mode?.toLowerCase() === 'real' ? state.realWallet.available : state.wallet.available) || 0)} <small style="font-size: 10px; margin-left: 2px;">${state.mode?.toLowerCase() === 'real' ? 'NGN' : 'VNGN'}</small>
+
+            <span class="mode-status-pill ${isReal ? 'real' : 'demo'}">
+              <span class="mode-dot"></span> ${isReal ? 'Live Capital' : 'Virtual Mode'}
+            </span>
+
+            <!-- Notifications Dropdown Container -->
+            <div class="notif-container" id="notif-container">
+              <button class="notif-btn" onclick="toggleNotifDropdown(event)" aria-label="Notifications" title="Notifications & Deep Links">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                </svg>
+                <span class="notif-badge" id="notif-badge-count" style="display: ${unreadNotifsCount > 0 ? 'flex' : 'none'};">${unreadNotifsCount}</span>
+              </button>
+              <div class="notif-dropdown ${state.isNotifOpen ? 'active' : ''}" id="notif-dropdown">
+                ${renderNotifDropdownContent()}
+              </div>
             </div>
-            <button class="avatar-btn" onclick="navigate('profile')">${userInitial}</button>
+
+            <div class="wallet-badge" onclick="navigate('wallet')" style="cursor: pointer;" title="Open Ledger Wallet">
+              <span>${isReal ? '💳' : '⛁'}</span> ${formatMoney(activeBal.available || 0)} <small style="font-size: 10px; margin-left: 2px;">${currLabel}</small>
+            </div>
+            <button class="avatar-btn" onclick="navigate('profile')" title="Strategist Profile">${userInitial}</button>
           </div>
         </header>
 
@@ -544,7 +952,7 @@ function renderDashboard() {
           <button class="btn btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="navigate('predictor')">View All ↗</button>
         </div>
         <div id="dashboard-markets-preview">
-          <p class="muted">Loading market events...</p>
+          ${renderMarketSkeletonGrid(2)}
         </div>
       </div>
 
@@ -615,7 +1023,7 @@ function renderPredictor() {
     </div>
 
     <div class="market-grid" id="markets-container">
-      <p class="muted">Loading market contracts...</p>
+      ${renderMarketSkeletonGrid(4)}
     </div>
   `;
 }
@@ -655,7 +1063,30 @@ function renderMarketDetail() {
       <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="navigate('predictor')">← Back to Predictor</button>
     </div>
     <div id="market-detail-container">
-      <p class="muted">Loading market intelligence...</p>
+      <div class="two-col">
+        <div>
+          <div class="skeleton-card" style="margin-bottom: 20px;">
+            <div class="skeleton-shimmer skeleton-line pill" style="width: 80px;"></div>
+            <div class="skeleton-shimmer skeleton-line title" style="width: 85%; height: 26px; margin: 12px 0;"></div>
+            <div class="skeleton-shimmer skeleton-line subtitle"></div>
+            <div class="skeleton-shimmer skeleton-line" style="width: 100%; height: 16px; margin: 14px 0;"></div>
+          </div>
+          <div class="skeleton-card">
+            <div class="skeleton-shimmer skeleton-line title" style="width: 60%;"></div>
+            <div class="skeleton-shimmer skeleton-line" style="width: 95%;"></div>
+            <div class="skeleton-shimmer skeleton-line" style="width: 90%;"></div>
+            <div class="skeleton-shimmer skeleton-line" style="width: 85%;"></div>
+          </div>
+        </div>
+        <div>
+          <div class="skeleton-card">
+            <div class="skeleton-shimmer skeleton-line title" style="width: 50%;"></div>
+            <div class="skeleton-shimmer skeleton-line subtitle"></div>
+            <div class="skeleton-shimmer skeleton-line" style="width: 100%; height: 42px; margin: 16px 0;"></div>
+            <div class="skeleton-shimmer skeleton-line" style="width: 100%; height: 42px;"></div>
+          </div>
+        </div>
+      </div>
     </div>
   `;
 }
@@ -684,7 +1115,7 @@ function renderBoardroom() {
 
     <h2>Open Lobby Challenges</h2>
     <div class="market-grid" id="boardroom-lobby-container">
-      <p class="muted">Loading open boardroom challenges...</p>
+      ${renderBoardroomSkeleton(3)}
     </div>
   `;
 }
@@ -770,13 +1201,13 @@ function renderWaitingRoom() {
         <p>Waiting for match countdown. Dilemma content will unlock when live.</p>
       </div>
     </div>
-    <div id="waiting-room-content"><p class="muted">Loading challenge details...</p></div>
+    <div id="waiting-room-content">${renderInlineLoader('Synchronizing confidential match parameters...')}</div>
   `;
 }
 
 function renderLiveChallenge() {
   return `
-    <div id="live-challenge-content"><p class="muted">Initializing confidential case...</p></div>
+    <div id="live-challenge-content">${renderInlineLoader('Decrypting confidential boardroom scenario...')}</div>
   `;
 }
 
@@ -790,7 +1221,7 @@ function renderChallengeReport() {
       </div>
       <button class="btn btn-secondary" onclick="navigate('boardroom')">Back to Lobby ↗</button>
     </div>
-    <div id="challenge-report-content"><p class="muted">Loading assessment report...</p></div>
+    <div id="challenge-report-content">${renderInlineLoader('Compiling strategic evaluation breakdown and AI score rubric...')}</div>
   `;
 }
 
@@ -962,7 +1393,7 @@ function renderWalletPage() {
     <div class="panel">
       <h2>Ledger Journal Transactions (${currLabel})</h2>
       <div id="wallet-transactions-table">
-        <p class="muted">Loading ledger entries...</p>
+        ${renderTableSkeleton(4, 4)}
       </div>
     </div>
   `;
@@ -1001,7 +1432,7 @@ function renderLeaderboardPage() {
           </tr>
         </thead>
         <tbody id="leaderboard-table-body">
-          <tr><td colspan="4" style="padding: 24px; text-align: center;" class="muted">Loading leaderboard data...</td></tr>
+          ${renderLeaderboardSkeleton(6)}
         </tbody>
       </table>
     </div>
@@ -1169,11 +1600,7 @@ function renderScenarioLab() {
                   <b>Core Dilemma:</b> ${sc.core_dilemma || 'Evaluate transmission channels and strategic counter-measures.'}
                 </div>
               </div>
-            `).join('') : `
-              <div style="text-align: center; padding: 16px; color: var(--muted); font-size: 13px;">
-                Loading empirical scenarios for ${currentInd.name}...
-              </div>
-            `}
+            `).join('') : renderScenarioSkeleton(2)}
           </div>
 
           <!-- Custom AI Scenario Prompt Box -->
@@ -1497,28 +1924,63 @@ function renderProfilePage() {
 }
 
 function renderSettingsPage() {
+  const perm = ('Notification' in window) ? Notification.permission : 'unsupported';
+  const permLabel = perm === 'granted' ? 'Active ✓' : (perm === 'denied' ? 'Blocked ✕' : 'Not Granted 🔔');
+  const permColor = perm === 'granted' ? 'var(--jade)' : (perm === 'denied' ? 'var(--red)' : 'var(--gold)');
+
   return `
     <div class="page-head">
       <div>
         <div class="eyebrow">PREFERENCES</div>
         <h1>Workspace Settings</h1>
+        <p>Configure interface styling, live push notifications, and account options.</p>
       </div>
     </div>
 
-    <div class="panel" style="max-width: 600px;">
+    <div class="panel" style="max-width: 650px; margin-bottom: 24px;">
       <h2>Appearance Theme</h2>
-      <div style="display: flex; gap: 10px; margin: 14px 0 24px;">
+      <p style="color: var(--muted); font-size: 13px; margin: 4px 0 16px;">Select your preferred visual mode for high-contrast analytics.</p>
+      <div style="display: flex; gap: 10px;">
         <button class="btn ${state.theme === 'light' ? 'btn-primary' : 'btn-secondary'}" onclick="setAppTheme('light')">☼ Light Terminal</button>
         <button class="btn ${state.theme === 'dark' ? 'btn-primary' : 'btn-secondary'}" onclick="setAppTheme('dark')">◑ Dark Mode</button>
       </div>
+    </div>
 
-      <h2>Notifications & Reminders</h2>
-      <div style="display: flex; justify-content: space-between; align-items: center; margin: 16px 0;">
+    <div class="panel" style="max-width: 650px;">
+      <h2>Notifications & Deep-Link Alerts</h2>
+      <p style="color: var(--muted); font-size: 13px; margin: 4px 0 16px;">
+        Receive real-time push notifications when boardroom challenges are ready or catalyst contracts resolve.
+      </p>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--line);">
         <div>
-          <b>Challenge Notifications</b><br>
-          <small style="color: var(--muted);">Receive alerts on challenge acceptances</small>
+          <b>Browser Web Push Permission</b><br>
+          <small style="color: var(--muted);">Status: <span style="font-weight: bold; color: ${permColor};">${permLabel}</span></small>
         </div>
-        <button class="btn btn-secondary" onclick="api.toast('Notification preferences saved.')">Enabled ✓</button>
+        <button class="btn btn-secondary" onclick="requestPushPermission()">
+          ${perm === 'granted' ? 'Push Enabled 🔔' : 'Enable Push Alerts 🔔'}
+        </button>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--line);">
+        <div>
+          <b>Simulate Boardroom Challenge Alert</b><br>
+          <small style="color: var(--muted);">Dispatches a test notification with deep linking directly to the dilemma</small>
+        </div>
+        <button class="btn btn-primary" style="padding: 6px 14px; font-size: 12.5px;" onclick="triggerSampleBoardroomNotif()">
+          Dispatch Test Alert ↗
+        </button>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0;">
+        <div>
+          <b>Notification History</b><br>
+          <small style="color: var(--muted);">${state.notifications.length} stored notification(s)</small>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="markAllNotificationsRead(event)">Mark Read ✓</button>
+          <button class="btn btn-secondary" style="font-size: 12px; padding: 6px 12px; color: var(--red);" onclick="clearAllNotifications(event)">Clear All</button>
+        </div>
       </div>
     </div>
   `;
@@ -1741,6 +2203,8 @@ async function loadDashboardData() {
 }
 
 async function loadPredictorData() {
+  const el = document.getElementById('markets-container');
+  if (el) el.innerHTML = renderMarketSkeletonGrid(4);
   try {
     const res = await api.get('/markets');
     if (res?.data) {
@@ -2261,6 +2725,10 @@ async function loadChallengeReportData(challengeId) {
 }
 
 async function loadWalletData() {
+  const el = document.getElementById('wallet-transactions-table');
+  if (el && state.page === 'wallet' && el.querySelector('table')) {
+    el.innerHTML = renderTableSkeleton(4, 4);
+  }
   try {
     const res = await api.get(`/wallet?mode=${state.mode}`);
     if (res?.data) {
@@ -2376,9 +2844,11 @@ async function handleWithdrawSubmit(e) {
 
 async function loadLeaderboardData(tab = 'Overall') {
   state.leaderboardTab = tab;
+  const tbody = document.getElementById('leaderboard-table-body');
+  if (tbody) tbody.innerHTML = renderLeaderboardSkeleton(6);
+
   try {
     const res = await api.get(`/leaderboard?tab=${tab}`);
-    const tbody = document.getElementById('leaderboard-table-body');
     if (!tbody || !res?.data) return;
 
     tbody.innerHTML = res.data.map(u => {
@@ -2427,11 +2897,36 @@ async function handleAskMentor(e) {
   if (!q) return;
 
   input.value = '';
+
+  const thread = document.getElementById('mentor-chat-thread');
+  let tempQEl = null;
+  let tempLoaderEl = null;
+  if (thread) {
+    tempQEl = document.createElement('div');
+    tempQEl.style.cssText = 'align-self: flex-end; background: var(--navy); color: #fff; padding: 12px 18px; border-radius: 12px; max-width: 85%; font-size: 14px;';
+    tempQEl.innerHTML = `<b>Q:</b> ${escapeHtml(q)}`;
+    thread.appendChild(tempQEl);
+
+    tempLoaderEl = document.createElement('div');
+    tempLoaderEl.id = 'mentor-thinking-indicator';
+    tempLoaderEl.style.cssText = 'background: var(--bg); border: 1px solid var(--line); padding: 16px 20px; border-radius: 12px; max-width: 95%; display: flex; align-items: center; gap: 12px;';
+    tempLoaderEl.innerHTML = `
+      <div class="inline-spinner" style="width: 18px; height: 18px; border-width: 2px;"></div>
+      <span style="font-size: 13.5px; color: var(--muted);">AI Mentor is synthesizing macroeconomic transmission channels and executive analysis...</span>
+    `;
+    thread.appendChild(tempLoaderEl);
+    thread.scrollTop = thread.scrollHeight;
+  }
+
   try {
     const res = await api.post('/mentor/ask', { query: q });
     state.mentorHistory.push({ q, a: res.data.answer, source: res.data.source });
     navigate('mentor');
-  } catch (e) {}
+  } catch (err) {
+    if (tempLoaderEl) {
+      tempLoaderEl.innerHTML = `<span style="color: var(--red); font-size: 13px;">Unable to fetch mentor response. Please try again.</span>`;
+    }
+  }
 }
 
 function triggerQuickMentor(q) {
