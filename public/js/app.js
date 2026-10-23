@@ -150,12 +150,10 @@ async function initApp() {
 
   // Close notifications dropdown on outside click
   document.addEventListener('click', (e) => {
-    const notifContainer = document.getElementById('notif-container');
-    const notifBtn = e.target.closest('.notif-btn');
-    if (state.isNotifOpen && notifContainer && !notifContainer.contains(e.target) && !notifBtn) {
+    const isInsideNotif = e.target.closest('.notif-container');
+    if (state.isNotifOpen && !isInsideNotif) {
       state.isNotifOpen = false;
-      const dd = document.getElementById('notif-dropdown');
-      if (dd) dd.classList.remove('active');
+      document.querySelectorAll('.notif-dropdown').forEach(dd => dd.classList.remove('active'));
     }
   });
 
@@ -423,15 +421,14 @@ function updateNotifBadges() {
 function toggleNotifDropdown(e) {
   if (e) e.stopPropagation();
   state.isNotifOpen = !state.isNotifOpen;
-  const dropdown = document.getElementById('notif-dropdown');
-  if (dropdown) {
+  document.querySelectorAll('.notif-dropdown').forEach(dropdown => {
     if (state.isNotifOpen) {
       dropdown.innerHTML = renderNotifDropdownContent();
       dropdown.classList.add('active');
     } else {
       dropdown.classList.remove('active');
     }
-  }
+  });
 }
 
 function markAllNotificationsRead(e) {
@@ -439,10 +436,9 @@ function markAllNotificationsRead(e) {
   (state.notifications || []).forEach(n => { n.read = true; });
   saveNotificationsToStorage();
   updateNotifBadges();
-  const dropdown = document.getElementById('notif-dropdown');
-  if (dropdown) {
+  document.querySelectorAll('.notif-dropdown').forEach(dropdown => {
     dropdown.innerHTML = renderNotifDropdownContent();
-  }
+  });
 }
 
 function handleNotificationClick(notifId) {
@@ -452,8 +448,9 @@ function handleNotificationClick(notifId) {
   notif.read = true;
   saveNotificationsToStorage();
   state.isNotifOpen = false;
-  const dropdown = document.getElementById('notif-dropdown');
-  if (dropdown) dropdown.classList.remove('active');
+  document.querySelectorAll('.notif-dropdown').forEach(dropdown => {
+    dropdown.classList.remove('active');
+  });
   updateNotifBadges();
 
   api.toast(`Navigating to ${notif.title}...`, 'info');
@@ -551,8 +548,9 @@ function clearAllNotifications(e) {
   state.notifications = [];
   saveNotificationsToStorage();
   updateNotifBadges();
-  const dd = document.getElementById('notif-dropdown');
-  if (dd) dd.innerHTML = renderNotifDropdownContent();
+  document.querySelectorAll('.notif-dropdown').forEach(dd => {
+    dd.innerHTML = renderNotifDropdownContent();
+  });
   api.toast('Notification center cleared.', 'info');
   if (state.page === 'settings') {
     navigate('settings');
@@ -732,7 +730,7 @@ function renderAppShell(innerHtml) {
             </button>
 
             <!-- Mobile Notification Bell -->
-            <div class="notif-container">
+            <div class="notif-container" id="notif-container-mobile">
               <button class="notif-btn" style="width: 32px; height: 32px;" onclick="toggleNotifDropdown(event)" aria-label="Notifications" title="Notifications">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
@@ -740,6 +738,9 @@ function renderAppShell(innerHtml) {
                 </svg>
                 <span class="notif-badge" id="notif-badge-mobile" style="display: ${unreadNotifsCount > 0 ? 'flex' : 'none'}; width: 15px; height: 15px; font-size: 9px; top: -2px; right: -2px;">${unreadNotifsCount}</span>
               </button>
+              <div class="notif-dropdown ${state.isNotifOpen ? 'active' : ''}" id="notif-dropdown-mobile" style="right: -60px; width: 320px; max-width: calc(100vw - 32px);">
+                ${renderNotifDropdownContent()}
+              </div>
             </div>
 
             <div class="wallet-badge" onclick="navigate('wallet')" style="padding: 4px 10px; font-size: 12px; cursor: pointer;">
@@ -1221,7 +1222,7 @@ function renderChallengeReport() {
       </div>
       <button class="btn btn-secondary" onclick="navigate('boardroom')">Back to Lobby ↗</button>
     </div>
-    <div id="challenge-report-content">${renderInlineLoader('Compiling strategic evaluation breakdown and AI score rubric...')}</div>
+    <div id="challenge-report-content">${renderInlineLoader('Compiling strategic evaluation breakdown and performance scorecard...')}</div>
   `;
 }
 
