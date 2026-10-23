@@ -74,6 +74,7 @@ if (str_starts_with($path, '/api/')) {
     // Auth Routes
     $router->post('/api/auth/register', [AuthController::class, 'register']);
     $router->post('/api/auth/verify-email', [AuthController::class, 'verifyEmail']);
+    $router->post('/api/auth/resend-code', [AuthController::class, 'resendVerificationCode']);
     $router->post('/api/auth/login', [AuthController::class, 'login']);
     $router->get('/api/auth/me', [AuthController::class, 'me']);
     $router->post('/api/auth/logout', [AuthController::class, 'logout']);

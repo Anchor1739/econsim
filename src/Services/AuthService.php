@@ -157,6 +157,75 @@ class AuthService
         }
     }
 
+    public static function resendVerificationCode(string $email): array
+    {
+        $email = Security::normalizeEmail($email);
+        $pdo = Database::getConnection();
+
+        $stmt = $pdo->prepare("SELECT id, display_name, status FROM users WHERE email = ? LIMIT 1");
+        $stmt->execute([$email]);
+        $user = $stmt->fetch();
+
+        if (!$user) {
+            throw new RuntimeException("No account registered with this email address.");
+        }
+
+        if ($user['status'] === 'active') {
+            throw new RuntimeException("This account is already verified. You can proceed to sign in.");
+        }
+
+        if ($user['status'] === 'suspended' || $user['status'] === 'closed') {
+            throw new RuntimeException("Your account is {$user['status']}. Please contact support.");
+        }
+
+        $userId = $user['id'];
+        $displayName = $user['display_name'];
+
+        $pdo->beginTransaction();
+        try {
+            // Revoke any previous unconsumed verify_email tokens for this user
+            $revoke = $pdo->prepare(
+                "UPDATE auth_one_time_tokens 
+                 SET consumed_at = NOW(3) 
+                 WHERE user_id = ? AND purpose = 'verify_email' AND consumed_at IS NULL"
+            );
+            $revoke->execute([$userId]);
+
+            // Generate fresh 6-digit verification code
+            $rawCode = (string)random_int(100000, 999999);
+            $tokenHash = Security::hashToken($rawCode);
+            $tokenId = Security::uuid();
+
+            $tokStmt = $pdo->prepare(
+                "INSERT INTO auth_one_time_tokens (id, user_id, purpose, token_hash, expires_at)
+                 VALUES (:id, :uid, 'verify_email', :hash, DATE_ADD(NOW(3), INTERVAL 24 HOUR))"
+            );
+            $tokStmt->execute([
+                ':id' => $tokenId,
+                ':uid' => $userId,
+                ':hash' => $tokenHash,
+            ]);
+
+            $pdo->commit();
+
+            // Attempt to dispatch via transactional mailer (e.g. Resend)
+            MailerService::sendVerificationEmail($email, $displayName, $rawCode);
+
+            return [
+                'user_id' => $userId,
+                'email' => $email,
+                'display_name' => $displayName,
+                'status' => 'pending',
+                'verification_preview' => $rawCode,
+            ];
+        } catch (\Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e;
+        }
+    }
+
     public static function login(string $email, string $password): array
     {
         $email = Security::normalizeEmail($email);

@@ -40,6 +40,24 @@ class AuthController
         }
     }
 
+    public function resendVerificationCode(): void
+    {
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+        $email = $body['email'] ?? '';
+
+        if (empty($email)) {
+            Response::error('Email address is required.', 400);
+            return;
+        }
+
+        try {
+            $result = AuthService::resendVerificationCode($email);
+            Response::success($result, 'A fresh 6-digit verification code has been dispatched.');
+        } catch (Throwable $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
+
     public function login(): void
     {
         $body = json_decode(file_get_contents('php://input'), true) ?? [];

@@ -112,6 +112,10 @@ class MailerService
             curl_close($ch);
         }
 
+        if ($httpCode >= 400) {
+            error_log("[EconSim Mailer] Resend API Notice: Outbound email to {$toEmail} rejected with HTTP {$httpCode}. Response: {$response}. (Domain verification required at https://resend.com/domains or use test account owner email).");
+        }
+
         return $httpCode >= 200 && $httpCode < 300;
     }
 

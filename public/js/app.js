@@ -2336,16 +2336,34 @@ function renderAuthPage(type) {
   } else if (type === 'verify') {
     title = 'Verify your email';
     subtitle = 'Enter the 6-digit code dispatched to your email address.';
+    const storedEmail = sessionStorage.getItem('verify_email') || '';
+    const storedCode = sessionStorage.getItem('verify_code_preview') || '';
+
     fieldsHtml = `
+      ${storedCode ? `
+        <div id="verify-preview-badge" style="background: rgba(36,121,101,0.08); border: 1.5px dashed var(--jade); border-radius: 8px; padding: 12px 14px; text-align: center; margin-bottom: 16px; cursor: pointer;" onclick="autoFillVerifyCode('${storedCode}')" title="Click to auto-fill code">
+          <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: var(--jade); display: block; margin-bottom: 4px; letter-spacing: 0.5px;">Account Verification Code</span>
+          <div style="font-family: var(--font-mono, monospace); font-size: 28px; font-weight: 800; letter-spacing: 6px; color: var(--text);">${storedCode}</div>
+          <small style="display: block; font-size: 11px; color: var(--muted); margin-top: 4px;">Click here to auto-fill this code into the box below</small>
+        </div>
+      ` : ''}
       <div class="form-group">
         <label>Email address</label>
-        <input class="input" type="email" id="auth-email" value="${sessionStorage.getItem('verify_email') || ''}" required>
+        <input class="input" type="email" id="auth-email" value="${escapeHtml(storedEmail)}" placeholder="you@example.com" required>
       </div>
       <div class="form-group">
-        <label>6-Digit Verification Code</label>
-        <input class="input" id="auth-code" maxlength="6" placeholder="123456" style="letter-spacing: 4px; font-size: 18px; text-align: center;" required>
+        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px;">
+          <label style="margin: 0;">6-Digit Verification Code</label>
+          <button type="button" id="btn-resend-code" class="btn-link" style="font-size: 11.5px; color: var(--jade); background: none; border: none; cursor: pointer; padding: 0; font-weight: 600;" onclick="handleResendCode()">
+            Resend Code
+          </button>
+        </div>
+        <input class="input" id="auth-code" maxlength="6" value="${storedCode || ''}" placeholder="123456" style="letter-spacing: 4px; font-size: 18px; text-align: center; font-family: var(--font-mono, monospace);" required>
       </div>
       <button type="submit" class="btn btn-primary btn-full" style="margin-top: 10px;">Verify & Continue ↗</button>
+      <div style="text-align: center; margin-top: 12px;">
+        <span style="font-size: 11.5px; color: var(--muted);">Didn't receive email? Check spam folder or click <b>Resend Code</b> above.</span>
+      </div>
     `;
     footerHtml = `
       <p style="margin-top: 16px; font-size: 13.5px; color: var(--muted);">
@@ -3850,6 +3868,9 @@ async function handleAuthSubmit(e, type) {
         display_name: nameEl.value,
       });
       sessionStorage.setItem('verify_email', emailEl.value);
+      if (res.data && res.data.verification_preview) {
+        sessionStorage.setItem('verify_code_preview', res.data.verification_preview);
+      }
       api.toast(`Verification code: ${res.data.verification_preview}`, 'info');
       navigate('verify');
     } else if (type === 'verify') {
@@ -3857,6 +3878,8 @@ async function handleAuthSubmit(e, type) {
         email: emailEl.value,
         code: codeEl.value,
       });
+      sessionStorage.removeItem('verify_code_preview');
+      sessionStorage.removeItem('verify_email');
       api.toast(res.message, 'success');
       state.user = res.data;
       navigate('onboarding');
@@ -3866,6 +3889,76 @@ async function handleAuthSubmit(e, type) {
       navigate('login');
     }
   } catch (err) {}
+}
+
+function autoFillVerifyCode(code) {
+  const codeEl = document.getElementById('auth-code');
+  if (codeEl) {
+    codeEl.value = code;
+    codeEl.focus();
+    api.toast('Verification code auto-filled!', 'info');
+  }
+}
+
+let resendCooldownTimer = null;
+async function handleResendCode() {
+  const emailEl = document.getElementById('auth-email');
+  const email = emailEl ? emailEl.value.trim() : (sessionStorage.getItem('verify_email') || '');
+  if (!email) {
+    api.toast('Please enter your email address to resend code.', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('btn-resend-code');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+  }
+
+  try {
+    const res = await api.post('/auth/resend-code', { email });
+    const freshCode = res.data ? res.data.verification_preview : null;
+    if (freshCode) {
+      sessionStorage.setItem('verify_code_preview', freshCode);
+      sessionStorage.setItem('verify_email', email);
+      autoFillVerifyCode(freshCode);
+      const badge = document.getElementById('verify-preview-badge');
+      if (badge) {
+        badge.outerHTML = `
+          <div id="verify-preview-badge" style="background: rgba(36,121,101,0.08); border: 1.5px dashed var(--jade); border-radius: 8px; padding: 12px 14px; text-align: center; margin-bottom: 16px; cursor: pointer;" onclick="autoFillVerifyCode('${freshCode}')" title="Click to auto-fill code">
+            <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: var(--jade); display: block; margin-bottom: 4px; letter-spacing: 0.5px;">Fresh Verification Code Dispatched</span>
+            <div style="font-family: var(--font-mono, monospace); font-size: 28px; font-weight: 800; letter-spacing: 6px; color: var(--text);">${freshCode}</div>
+            <small style="display: block; font-size: 11px; color: var(--muted); margin-top: 4px;">Click here to auto-fill this code into the box below</small>
+          </div>
+        `;
+      }
+    }
+    api.toast(res.message || 'Fresh verification code dispatched!', 'success');
+
+    // 30-second cooldown
+    let cooldown = 30;
+    if (btn) {
+      btn.textContent = `Resend in ${cooldown}s`;
+      clearInterval(resendCooldownTimer);
+      resendCooldownTimer = setInterval(() => {
+        cooldown--;
+        if (cooldown <= 0) {
+          clearInterval(resendCooldownTimer);
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Resend Code';
+          }
+        } else if (btn) {
+          btn.textContent = `Resend in ${cooldown}s`;
+        }
+      }, 1000);
+    }
+  } catch (err) {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Resend Code';
+    }
+  }
 }
 
 async function handleUpdateProfile(e) {
