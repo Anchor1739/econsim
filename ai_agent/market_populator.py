@@ -3,6 +3,9 @@
 EconSim Behind-the-Hood Market Research & Populator Model
 Automatically analyzes macroeconomic trends, searches economic catalysts,
 and populates verified contracts, Study Contexts, metrics, and primary sources in MySQL.
+Factors in all NGX public companies, power disruptions (Band-A tariffs, gas pipeline pressure,
+grid collapses), supply chain frictions (port dwell times, demurrage, customs FX, haulage),
+and margin compression across Nigerian and African bourses.
 """
 
 import os
@@ -12,8 +15,15 @@ import uuid
 import tempfile
 import requests
 import mysql.connector
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
+
+# Ensure safe UTF-8 output on Windows consoles
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
 
 load_dotenv()
 
@@ -44,7 +54,7 @@ CORE_INDUSTRIES = [
     ("healthcare", "Healthcare & Pharma"),
 ]
 
-# Curated high-impact economic catalyst templates
+# Comprehensive macroeconomic, corporate & disruption catalysts
 ECONOMIC_CATALYSTS = [
     {
         "industry": "monetary-policy",
@@ -241,6 +251,187 @@ ECONOMIC_CATALYSTS = [
         ],
         "history": "Indigenous exploration and production firms have acquired multi-billion-dollar divestment assets from international oil majors in the Niger Delta.",
     },
+    # === NEW PUBLIC EQUITIES & DISRUPTION ENGINE CATALYSTS ===
+    {
+        "industry": "energy",
+        "title": "Will Geregu Power (GEREGU) sustain over 700MW daily generation availability despite gas pipeline pressure curtailments and national grid trips?",
+        "slug": "geregu-power-grid-generation",
+        "definition": "Resolves YES if Nigerian Electricity Regulatory Commission (NERC) quarterly reports confirm Geregu Power Plc sustained average daily operational capacity exceeding 700MW across 2 consecutive quarters.",
+        "source": "Nigerian Electricity Regulatory Commission (NERC) & NGX Operational Updates",
+        "days": 90,
+        "metrics": [
+            ["Gas Supply Delivery Pressure (ELPS)", "Pipeline uptime along Escravos-Lagos Pipeline System feeding gas turbines."],
+            ["Band-A Cost-Reflective Tariff Recovery", "DisCos collection efficiency remitting cash to bulk electricity trader (NBET)."],
+            ["National Grid Blackout Frequency", "Transmission Company of Nigeria (TCN) system collapses forcing island-mode shutdowns."],
+            ["Industrial Captive Power Off-Take", "Direct power purchase agreements with manufacturing clusters bypassing distribution bottlenecks."]
+        ],
+        "history": "Geregu Power was the first power generation company listed on the NGX main board, serving as the benchmark for privatized utility economics.",
+    },
+    {
+        "industry": "fmcg",
+        "title": "Will BUA Foods (BUAFOODS) maintain operating profit margin above 28% despite Apapa port raw sugar vessel demurrage and customs FX benchmark adjustments?",
+        "slug": "bua-foods-port-demurrage-margin",
+        "definition": "Resolves YES if audited financial results published on the NGX confirm BUA Foods Plc operating profit margin (EBIT margin) equal to or exceeding 28.0%.",
+        "source": "Nigerian Exchange Group (NGX) Company Results & Shippers Council Port Reports",
+        "days": 100,
+        "metrics": [
+            ["Port Container & Vessel Dwell Time", "Apapa and Tin Can Island berth clearance delays causing shipping demurrage fees."],
+            ["Customs Duty FX Benchmark", "Exchange rate benchmark applied to bulk raw sugar and wheat import duties."],
+            ["Interstate Bulk Haulage Diesel Cost", "Freight expense to transport flour and pasta to northern commercial hubs."],
+            ["Backward Integration Sugar Estates", "Lafiagi Integrated Sugar Project yield replacing imported raw sugar."]
+        ],
+        "history": "BUA Foods is Nigeria's largest listed food producer by market capitalization, with integrated sugar, flour, and pasta milling complexes.",
+    },
+    {
+        "industry": "capital-markets",
+        "title": "Will Zenith Bank (ZENITHBANK) conclude its capital raise exceeding ₦500 Billion while keeping Capital Adequacy Ratio (CAR) above 20%?",
+        "slug": "zenith-bank-500b-recapitalization",
+        "definition": "Resolves YES if CBN banking supervision approvals verify Zenith Bank Plc paid-up capital exceeds ₦500 Billion with audited regulatory Capital Adequacy Ratio (CAR) at or above 20.0%.",
+        "source": "Central Bank of Nigeria (CBN) Banking Supervision & NGX Filings",
+        "days": 130,
+        "metrics": [
+            ["Rights Issue & Public Offer Uptake", "Subscription volume by Nigerian institutional PFAs and international funds."],
+            ["Cash Reserve Ratio (CRR) Sterilization", "Impact of CBN mandatory cash debits on interest-earning liquid assets."],
+            ["Net Interest Margin (NIM) Compression", "Rising deposit acquisition costs competing with 1-year Treasury bills."],
+            ["Non-Performing Loan (NPL) Ratio", "Asset quality preservation amidst high corporate borrowing rates."]
+        ],
+        "history": "Zenith Bank is one of West Africa's tier-1 systemic banking groups, historically maintaining industry-leading returns on equity and capital buffers.",
+    },
+    {
+        "industry": "manufacturing",
+        "title": "Will BUA Cement (BUACEMENT) complete its 70MW captive LNG power plant in Kalambaina to achieve 100% off-grid energy self-sufficiency?",
+        "slug": "bua-cement-captive-lng-power",
+        "definition": "Resolves YES if BUA Cement quarterly operational filings on NGX verify commercial commissioning of the 70MW captive dual-fuel LNG power plant with over 90% fuel cost self-sufficiency.",
+        "source": "NGX Corporate Announcements & BUA Cement Investor Relations",
+        "days": 110,
+        "metrics": [
+            ["Captive Power Generation Uptime", "Insulating clinker kilns from national grid collapse and diesel generator volatility."],
+            ["LNG Virtual Pipeline Haulage", "Specialized cryogenic tanker supply reliability from Niger Delta to Sokoto."],
+            ["Interstate Cement Freight Cost", "Dual-fuel truck fleet conversion lowering transportation expense per bag."],
+            ["Regional Export Revenue (Niger & Mali)", "Cross-border clinker and cement trade generating foreign exchange."]
+        ],
+        "history": "Operating in northern Nigeria requires full captive energy autonomy due to distance from primary natural gas trunk lines.",
+    },
+    {
+        "industry": "energy",
+        "title": "Will Transcorp Power (TRANSPOWER) achieve peak grid power generation exceeding 750MW following Afam gas turbine rehabilitation?",
+        "slug": "transcorp-power-afam-generation",
+        "definition": "Resolves YES if daily grid generation logs published by the National Control Centre (NCC) Osogbo verify Transcorp Power / Afam generating over 750MW into the national grid for 30 consecutive days.",
+        "source": "National Control Centre (NCC) Generation Statistics & NGX Filings",
+        "days": 80,
+        "metrics": [
+            ["Domestic Gas Supply Agreements (GSA)", "Firm gas delivery volumes from Niger Delta fields to Ughelli & Afam turbines."],
+            ["NERC Multi-Year Tariff Order (MYTO)", "Cost-reflective tariff adjustments providing revenue certainty for GenCos."],
+            ["Eligible Customer Direct Sales", "Supplying power directly to heavy industrial estates bypassing weak DisCo networks."],
+            ["Foreign Exchange Maintenance Capex", "Procurement of specialized turbine replacement blades and control systems."]
+        ],
+        "history": "Transcorp Power listed on the NGX in 2024, representing approximately 12% of Nigeria's total installed electricity generation capacity.",
+    },
+    {
+        "industry": "fmcg",
+        "title": "Will Nigerian Breweries (NB) achieve positive operating profit by lifting domestic sorghum sourcing to 75% of raw grain input?",
+        "slug": "nigerian-breweries-sorghum-75pct",
+        "definition": "Resolves YES if Nigerian Breweries Plc full-year financial disclosures confirm positive operating profit (EBIT) alongside verified local grain sourcing of 75.0% or greater.",
+        "source": "NGX Financial Disclosures & MAN Raw Material Sourcing Review",
+        "days": 120,
+        "metrics": [
+            ["Local Sorghum & Malted Barley Substitution", "Reducing foreign currency import bills for brewing grains."],
+            ["Glass Bottle Returnable Packaging Float", "Managing returnable glass inventory to counteract local packaging inflation."],
+            ["Interstate Distribution Haulage Costs", "Fuel cost pass-through across regional warehousing and depot networks."],
+            ["Consumer Price Elasticity in Premium Beers", "Volume retention following price increases in alcoholic and malt beverages."]
+        ],
+        "history": "Pioneering commercial agriculture partnerships have allowed Nigerian brewers to replace expensive imported European malt with local sorghum.",
+    },
+    {
+        "industry": "manufacturing",
+        "title": "Will Lafarge Africa (WAPCO) reach 50% thermal energy substitution with alternative biomass fuels across its Ewekoro and Sagamu kilns?",
+        "slug": "lafarge-africa-alternative-fuel-50",
+        "definition": "Resolves YES if Lafarge Africa Plc annual sustainability and financial disclosures report alternative fuel thermal substitution equal to or exceeding 50.0%.",
+        "source": "Lafarge Africa Published Annual Report & NGX Filings",
+        "days": 90,
+        "metrics": [
+            ["Agricultural Biomass & Industrial Waste Sourcing", "Replacing expensive coal, LPFO, and unstable gas supplies."],
+            ["Kiln Thermal Energy Efficiency", "Reduction in heat consumption per metric ton of clinker produced."],
+            ["Captive Solar Hybrid Integration", "On-site solar generation offsetting peak tariff grid power consumption."],
+            ["Domestic Public Infrastructure Demand", "Supply contracts for concrete pavement highways and deep seaport breakwaters."]
+        ],
+        "history": "Lafarge Africa is a member of the Holcim Group and one of the oldest industrial building solutions providers in Nigeria.",
+    },
+    {
+        "industry": "energy",
+        "title": "Will Aradel Holdings (ARADEL) expand modular refinery output past 11,000 bpd while supplying domestic commercial fuel off-takers?",
+        "slug": "aradel-holdings-refinery-throughput",
+        "definition": "Resolves YES if Aradel Holdings Plc audited operational disclosures verify average refined petroleum output (AGO, DPK, ATK) exceeding 11,000 barrels per day.",
+        "source": "Nigerian Upstream Petroleum Regulatory Commission (NUPRC) & NGX Announcements",
+        "days": 85,
+        "metrics": [
+            ["Ogbele Modular Refinery Utilization", "Refining throughput across crude distillation units (CDU)."],
+            ["Crude Oil Evacuation Barging vs Trunkline", "Alternative evacuation avoiding Trans-Niger Pipeline security downtime."],
+            ["Domestic Industrial Diesel Direct Sales", "Bypassing import parity delays by supplying manufacturing and telco towers directly."],
+            ["Domestic Gas Commercialization (GSA)", "Gas supply contracts to rural electrification and commercial power plants."]
+        ],
+        "history": "Aradel Holdings operates the Ogbele marginal field and pioneer modular refinery in the Niger Delta, listing on the NGX in 2024.",
+    },
+    {
+        "industry": "healthcare",
+        "title": "Will Fidson Healthcare (FIDSON) achieve 20% operating revenue growth after clearing Active Pharmaceutical Ingredient (API) customs bottlenecks?",
+        "slug": "fidson-healthcare-api-revenue-20",
+        "definition": "Resolves YES if Fidson Healthcare Plc audited financial statements show year-on-year revenue growth equal to or exceeding 20.0%.",
+        "source": "NGX Financial Statements & National Agency for Food and Drug Administration and Control (NAFDAC)",
+        "days": 100,
+        "metrics": [
+            ["Port Clearance Lead Time on Imported APIs", "Customs inspection and NAFDAC laboratory clearance velocity at Lagos ports."],
+            ["Domestic Formulation Capacity Utilization", "Output of sterile injectables, oral liquids, and essential antibiotics."],
+            ["Currency Devaluation Pass-Through", "Price elasticity of prescription pharmaceuticals versus consumer OTC medicines."],
+            ["Local Excipient & Packaging Sourcing", "Sourcing blister pack aluminum and packaging cartons from domestic suppliers."]
+        ],
+        "history": "Fidson is one of Nigeria's premier pharmaceutical manufacturers, maintaining WHO-compliant formulation plants in Ogun State.",
+    },
+    {
+        "industry": "telecoms",
+        "title": "Will Airtel Africa (AIRTELAFRI) reduce base station diesel opex by 35% through solar-hybrid battery conversions across 14 African markets?",
+        "slug": "airtel-africa-solar-tower-35",
+        "definition": "Resolves YES if Airtel Africa Plc annual report confirms network diesel operating expense contraction equal to or greater than 35.0% on a constant currency basis.",
+        "source": "Airtel Africa Plc Published Annual Financials & London Stock Exchange Filings",
+        "days": 110,
+        "metrics": [
+            ["Solar-Battery Hybrid Deployment Rate", "De-risking remote off-grid cell sites from road haulage diesel supplies."],
+            ["Pan-African Foreign Currency Translation", "Mitigating devaluation impacts across Nigeria, Kenya, Zambia, and Francophone West Africa."],
+            ["SmartCash PSB & Mobile Money Penetration", "Growing high-margin fintech transactional fee revenue."],
+            ["Towerco Lease Renegotiations", "Shifting USD-pegged tower leases to local currency rate cards."]
+        ],
+        "history": "Airtel Africa is dually listed on the Nigerian Exchange and London Stock Exchange, providing mobile voice and data services across Africa.",
+    },
+    {
+        "industry": "agriculture",
+        "title": "Will Okomu Oil Palm (OKOMUOIL) achieve operating EBITDA margin above 55% supported by domestic crude palm oil deficit pricing?",
+        "slug": "okomu-oil-cpo-ebitda-55",
+        "definition": "Resolves YES if audited full-year financial statements of Okomu Oil Palm Company Plc show operating EBITDA margin equal to or exceeding 55.0%.",
+        "source": "NGX Audited Financials & Nigerian Palm Oil Development Association",
+        "days": 95,
+        "metrics": [
+            ["Crude Palm Oil (CPO) Farmgate Realized Price", "Premium domestic pricing insulating margins from global benchmark drops."],
+            ["Fresh Fruit Bunch (FFB) Milling Efficiency", "Oil extraction rate (OER) per metric ton of harvested fruit."],
+            ["Interstate Road Freight & Diesel Haulage", "Transport cost inflation moving refined oil from Edo State to consumer hubs."],
+            ["Industrial Offtake Contracts", "Forward volume off-take commitments from food manufacturing conglomerates."]
+        ],
+        "history": "Okomu Oil Palm operates over 33,000 hectares of oil palm and rubber plantations in Edo State, benefiting from high domestic agro-industrial demand.",
+    },
+    {
+        "industry": "capital-markets",
+        "title": "Will Safaricom (NSE: SCOM) expand M-Pesa regional transaction velocity by 25% despite East African currency depreciations?",
+        "slug": "safaricom-mpesa-regional-growth-25",
+        "definition": "Resolves YES if Safaricom Plc financial year results published on the Nairobi Securities Exchange (NSE) confirm M-Pesa transaction value growth equal to or exceeding 25.0%.",
+        "source": "Nairobi Securities Exchange (NSE) Disclosures & Central Bank of Kenya",
+        "days": 105,
+        "metrics": [
+            ["Ethiopia M-Pesa Rollout Velocity", "Subscriber acquisition and agent banking liquidity in newly deregulated Ethiopian market."],
+            ["Cross-Border Remittance Corridor Growth", "Diaspora and intra-African trade remittance flows via mobile money."],
+            ["Network Power & Fuel Resilience", "Captive solar microgrids powering rural East African telecom towers."],
+            ["Kenya Shilling Exchange Rate Pass-Through", "Mitigating imported network equipment costs amidst FX rate volatility."]
+        ],
+        "history": "Safaricom is East Africa's most profitable enterprise, leading global mobile money innovation with M-Pesa on the Nairobi Securities Exchange.",
+    },
 ]
 
 
@@ -272,14 +463,14 @@ def get_db():
 
 
 def ensure_industries(cursor, conn):
-    print("[*] Verifying all core industries in database...")
+    print("[*] Verifying all 11 core industries in database...")
     for slug, name in CORE_INDUSTRIES:
         cursor.execute("INSERT IGNORE INTO industries (slug, name) VALUES (%s, %s)", (slug, name))
     conn.commit()
 
 
 def populate_markets(cursor, conn):
-    print("[*] Populating professional macroeconomic catalysts and contracts...")
+    print("[*] Populating comprehensive macroeconomic & listed corporate disruption contracts...")
     count = 0
 
     for cat in ECONOMIC_CATALYSTS:
@@ -294,7 +485,7 @@ def populate_markets(cursor, conn):
         ind_id = ind_row[0] if ind_row else 1
 
         event_id = str(uuid.uuid4())
-        closes_at = datetime.utcnow() + timedelta(days=cat["days"])
+        closes_at = datetime.now(timezone.utc) + timedelta(days=cat["days"])
         resolves_at = closes_at + timedelta(days=1)
 
         # 1. Insert Event
@@ -329,7 +520,7 @@ def populate_markets(cursor, conn):
         cursor.execute(ins_context, (
             context_id,
             event_id,
-            f"Comprehensive Study Context for {cat['title']}. Analysis of primary macroeconomic transmission levers.",
+            f"Comprehensive Study Context for {cat['title']}. Analysis of primary macroeconomic and supply chain transmission levers.",
             metrics_json,
             history_json,
         ))
@@ -343,44 +534,144 @@ def populate_markets(cursor, conn):
         cursor.execute(ins_src, (
             source_id,
             cat["source"],
-            "Regulatory Authority",
-            "https://cbn.gov.ng",
+            "Regulatory Authority / Financial Exchange",
+            "https://ngxgroup.com",
         ))
 
         # Link Context and Source
         cursor.execute("INSERT INTO study_context_sources (context_id, source_id) VALUES (%s, %s)", (context_id, source_id))
 
         count += 1
-        print(f"  ✓ Added market: {cat['title']}")
+        print(f"  [+] Added market: {cat['title']}")
 
     conn.commit()
-    print(f"[+] Successfully populated {count} new economic contracts.")
+    print(f"[+] Successfully populated {count} fresh economic contracts.")
+
+
+def synthesize_ai_disruption_catalysts(cursor, conn):
+    """
+    Autonomous NVIDIA NIM Research Agent:
+    Dynamically scans power disruptions, port logjams, and corporate margin compression
+    to ensure active contracts exist across all African and Nigerian sectors.
+    """
+    if not NVIDIA_API_KEY:
+        print("[*] No NVIDIA_API_KEY provided; dynamic AI synthesis skipped. Static catalog active.")
+        return
+
+    print("[*] Running Autonomous NVIDIA NIM Disruption Scanner...")
+    headers = {
+        "Authorization": f"Bearer {NVIDIA_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    # Prompt AI to evaluate latest corporate & supply chain shifts
+    prompt = (
+        "You are an Elite African Equities Strategist & Industrial Economist. "
+        "Formulate 1 high-stakes verifiable economic or corporate forecasting contract for a public company on the Nigerian Exchange (NGX) "
+        "or African regional bourses (e.g. BUA Foods, Geregu Power, Transcorp, Zenith Bank, Oando, Lafarge, Safaricom). "
+        "Focus on critical real-economy disruptions: Band-A electricity tariffs, port demurrage at Apapa, gas pipeline pressure, or CBN recapitalization. "
+        "Respond strictly with valid JSON with fields: 'industry' (slug matching monetary-policy, capital-markets, energy, manufacturing, fmcg, telecoms, or agriculture), "
+        "'title', 'slug', 'definition', 'source', 'days' (integer 60-120), 'metrics' (array of 4 [name, description] pairs), 'history'."
+    )
+
+    try:
+        resp = requests.post(
+            f"{NVIDIA_API_URL}/chat/completions",
+            headers=headers,
+            json={
+                "model": NVIDIA_MODEL,
+                "messages": [
+                    {"role": "system", "content": "You are a professional financial market research engine. Output valid JSON only."},
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.2,
+                "max_tokens": 1024,
+            },
+            timeout=20,
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            raw_content = data["choices"][0]["message"]["content"]
+            clean_json = raw_content.replace("```json", "").replace("```", "").strip()
+            cat = json.loads(clean_json)
+
+            # Validate slug and insert if new
+            cursor.execute("SELECT id FROM market_events WHERE slug = %s", (cat["slug"],))
+            if not cursor.fetchone():
+                cursor.execute("SELECT id FROM industries WHERE slug = %s LIMIT 1", (cat.get("industry", "capital-markets"),))
+                ind_row = cursor.fetchone()
+                ind_id = ind_row[0] if ind_row else 2
+
+                event_id = str(uuid.uuid4())
+                closes_at = datetime.now(timezone.utc) + timedelta(days=int(cat.get("days", 90)))
+                resolves_at = closes_at + timedelta(days=1)
+
+                ins_event = """
+                    INSERT INTO market_events 
+                        (id, slug, industry_id, title, outcome_definition, resolution_source, resolves_at, closes_at, state, created_at)
+                    VALUES 
+                        (%s, %s, %s, %s, %s, %s, %s, %s, 'open', NOW(3))
+                """
+                cursor.execute(ins_event, (
+                    event_id,
+                    cat["slug"],
+                    ind_id,
+                    cat["title"],
+                    cat["definition"],
+                    cat["source"],
+                    resolves_at,
+                    closes_at,
+                ))
+
+                context_id = str(uuid.uuid4())
+                metrics_json = json.dumps(cat.get("metrics", []))
+                history_json = json.dumps([{"period": "Empirical Precedent", "action": cat.get("history", "")}])
+
+                ins_context = """
+                    INSERT INTO study_context_versions
+                        (id, event_id, version, summary, metrics, historical_cases, ai_generated, published_at)
+                    VALUES
+                        (%s, %s, 1, %s, %s, %s, 1, NOW(3))
+                """
+                cursor.execute(ins_context, (
+                    context_id,
+                    event_id,
+                    f"Autonomous Research Study Context for {cat['title']}.",
+                    metrics_json,
+                    history_json,
+                ))
+
+                source_id = str(uuid.uuid4())
+                cursor.execute(
+                    "INSERT INTO external_sources (id, name, publisher, origin_url, published_at, retrieved_at) VALUES (%s, %s, %s, %s, NOW(3), NOW(3))",
+                    (source_id, cat["source"], "Autonomous Disruption Radar", "https://ngxgroup.com")
+                )
+                cursor.execute("INSERT INTO study_context_sources (context_id, source_id) VALUES (%s, %s)", (context_id, source_id))
+                conn.commit()
+                print(f"[+] Autonomous AI Scanner synthesized new catalyst: {cat['title']}")
+    except Exception as e:
+        print(f"[!] Autonomous AI Scanner note: {e}")
 
 
 def main():
     print("========================================================")
-    print(" EconSim Automated Market Populator Model")
+    print(" EconSim Macro & Listed Equities Disruption Populator")
     print("========================================================")
     conn = get_db()
     cursor = conn.cursor()
 
-    # Fast skip: If at least 7 active contracts already exist and --force is not passed, skip early to conserve Action minutes
-    cursor.execute("SELECT COUNT(*) FROM market_events WHERE state = 'open'")
-    open_count = cursor.fetchone()[0]
-    if open_count >= 7 and "--force" not in sys.argv:
-        print(f"[*] Sufficient active contracts ({open_count} open). Skipping market search/generation. Fast exit (0 sec).")
-        cursor.close()
-        conn.close()
-        sys.exit(0)
-
     ensure_industries(cursor, conn)
     populate_markets(cursor, conn)
+    synthesize_ai_disruption_catalysts(cursor, conn)
+
+    cursor.execute("SELECT COUNT(*) FROM market_events WHERE state = 'open'")
+    total_open = cursor.fetchone()[0]
+    print(f"[+] Active open market contracts verified in database: {total_open}")
 
     cursor.close()
     conn.close()
-    print("[+] Market populator execution completed.")
+    print("[+] Market populator execution completed successfully.")
 
 
 if __name__ == "__main__":
     main()
-

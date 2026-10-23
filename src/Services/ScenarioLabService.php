@@ -375,48 +375,204 @@ class ScenarioLabService
         $fxPressure = ($fxRate > 1800 || $projectedInflation > 38) ? 'Critical Alert' : (($fxRate > 1550) ? 'Elevated Strain' : 'Managed Corridor');
 
         // 10. Public Listed Equities Transmission Impacts (NGX & African Bourses)
-        $listedTransmission = [
+        $allListedCompanies = [
             'NESTLE' => [
                 'ticker' => 'NESTLE.NG',
                 'company' => 'Nestle Nigeria Plc',
                 'sector' => 'Consumer Goods & FMCG',
+                'industry' => 'fmcg',
                 'impact' => $fxRate > 1600 ? 'High FX Finance Cost Strain' : 'Resilient Cash Flow',
                 'status' => $fxRate > 1650 ? 'Negative Net Profit Margin' : 'Stabilizing Operating Earnings',
                 'risk_factor' => 'Imported raw material dependency (sorghum/packaging substitution in progress)',
+            ],
+            'BUAFOODS' => [
+                'ticker' => 'BUAFOODS.NG',
+                'company' => 'BUA Foods Plc',
+                'sector' => 'Food & Agriculture Products',
+                'industry' => 'fmcg',
+                'impact' => ($fuelPrice > 1050 || $fxRate > 1650) ? 'Port Demurrage & Freight Headwind' : 'Leading Volume Growth',
+                'status' => 'Robust Operating Profit Margin (>28%)',
+                'risk_factor' => 'Apapa berth dwell times, raw sugar import FX, and interstate haulage diesel costs',
+            ],
+            'NB' => [
+                'ticker' => 'NB.NG',
+                'company' => 'Nigerian Breweries Plc',
+                'sector' => 'Consumer Goods & Beverages',
+                'industry' => 'fmcg',
+                'impact' => $fxRate > 1600 ? 'Imported Malt & Packaging Margin Squeeze' : 'Cash Flow Stabilization',
+                'status' => 'Local Sorghum Sourcing Expanding to 75%',
+                'risk_factor' => 'Consumer purchasing power contraction, packaging bottle inflation, and interstate freight',
+            ],
+            'UNILEVER' => [
+                'ticker' => 'UNILEVER.NG',
+                'company' => 'Unilever Nigeria Plc',
+                'sector' => 'Home & Personal Care',
+                'industry' => 'fmcg',
+                'impact' => $inflation > 32 ? 'Category Downsizing & Shrinkflation' : 'Portfolio Rationalization Gain',
+                'status' => 'Exited Low-Margin Home Care to Defend Operating ROIC',
+                'risk_factor' => 'Chemical raw material port clearance turnaround times and currency pass-through',
             ],
             'MTNN' => [
                 'ticker' => 'MTNN.NG',
                 'company' => 'MTN Nigeria Communications',
                 'sector' => 'Telecommunications & Digital',
+                'industry' => 'telecoms',
                 'impact' => ($fuelPrice > 1000 || $fxRate > 1600) ? 'Operating Margin Headwind' : 'Expanding Data EBITDA',
                 'status' => $fxRate > 1700 ? 'Shareholder Equity Retrenchment' : 'Data Traffic Volume Expansion',
                 'risk_factor' => 'Tower company dollar-indexed lease contracts and cell site diesel generators',
             ],
+            'AIRTELAFRI' => [
+                'ticker' => 'AIRTELAFRI.NG',
+                'company' => 'Airtel Africa Plc',
+                'sector' => 'Telecommunications & Mobile Money',
+                'industry' => 'telecoms',
+                'impact' => $fuelPrice > 1050 ? 'Base Station Diesel Escalation' : 'SmartCash Mobile Money Velocity',
+                'status' => 'Transitioning 14 African Markets to Solar Hybrid Towers',
+                'risk_factor' => 'Sub-Saharan currency devaluations and cross-border equipment capex',
+            ],
             'DANGCEM' => [
                 'ticker' => 'DANGCEM.NG',
                 'company' => 'Dangote Cement Plc',
-                'sector' => 'Industrial Goods',
+                'sector' => 'Industrial Goods & Cement',
+                'industry' => 'manufacturing',
                 'impact' => $fuelPrice > 1000 ? 'Haulage Freight Escalation' : 'High Domestic Pricing Power',
                 'status' => $fuelPrice > 1150 ? 'Compressed Inter-state Net Margins' : 'Robust Regional Clinker Export Flows',
                 'risk_factor' => 'Gas pipeline supply pressure to kilns & dual-fuel CNG fleet transition',
+            ],
+            'BUACEMENT' => [
+                'ticker' => 'BUACEMENT.NG',
+                'company' => 'BUA Cement Plc',
+                'sector' => 'Industrial Goods & Cement',
+                'industry' => 'manufacturing',
+                'impact' => $fuelPrice > 1050 ? 'Captive LNG Power Margin Insulation' : 'Regional Market Expansion',
+                'status' => 'Commissioning 70MW Off-Grid Power in Kalambaina',
+                'risk_factor' => 'Cryogenic LNG tanker logistics from Niger Delta to northern kilns',
+            ],
+            'WAPCO' => [
+                'ticker' => 'WAPCO.NG',
+                'company' => 'Lafarge Africa Plc',
+                'sector' => 'Industrial Goods & Building Materials',
+                'industry' => 'manufacturing',
+                'impact' => $projectedInflation > 32 ? 'Alternative Biomass Fuel Buffer' : 'Green Building Market Share',
+                'status' => '50% Kiln Thermal Energy Sourced from Biomass',
+                'risk_factor' => 'National grid collapse exposure at Sagamu & Ewekoro plants',
             ],
             'GTCO' => [
                 'ticker' => 'GTCO.NG',
                 'company' => 'Guaranty Trust Holding Co',
                 'sector' => 'Banking & Financial Services',
+                'industry' => 'capital-markets',
                 'impact' => $mpr > 24 ? 'Net Interest Margin Expansion' : 'Moderate Credit Growth',
                 'status' => 'CBN ₦500B Recapitalization Well Positioned',
                 'risk_factor' => 'Corporate borrower debt servicing defaults and high cash reserve debits (CRR)',
+            ],
+            'ZENITHBANK' => [
+                'ticker' => 'ZENITHBANK.NG',
+                'company' => 'Zenith Bank Plc',
+                'sector' => 'Banking & Financial Services',
+                'industry' => 'capital-markets',
+                'impact' => $mpr > 25 ? 'High Sovereign Paper & Treasury Yield Capture' : 'Credit Portfolio Expansion',
+                'status' => 'Rights Offer Concluding to Surpass ₦500B Capital Floor',
+                'risk_factor' => 'Mandatory cash sterilization (CRR) dampening domestic loan origination',
+            ],
+            'ACCESSCORP' => [
+                'ticker' => 'ACCESSCORP.NG',
+                'company' => 'Access Holdings Plc',
+                'sector' => 'Banking & Financial Services',
+                'industry' => 'capital-markets',
+                'impact' => $fxRate > 1650 ? 'Pan-African FX Translation Uplift' : 'Interbank Trade Finance Volume',
+                'status' => 'Global Rights Offer Underway across London & Lagos',
+                'risk_factor' => 'Integration costs across sub-Saharan banking acquisitions',
             ],
             'SEPLAT' => [
                 'ticker' => 'SEPLAT.NG',
                 'company' => 'Seplat Energy Plc',
                 'sector' => 'Oil & Gas Upstream',
+                'industry' => 'energy',
                 'impact' => $fxRate > 1500 ? 'Hard-Currency Dollar Earning Advantage' : 'Stable Production Free Cash Flow',
-                'status' => 'Mobil Asset Integration Accelerating Production',
+                'status' => 'Mobil Asset Integration Accelerating Production Past 65k boepd',
                 'risk_factor' => 'Trans-Niger Pipeline security and domestic gas commercial offtake tariffs',
             ],
+            'GEREGU' => [
+                'ticker' => 'GEREGU.NG',
+                'company' => 'Geregu Power Plc',
+                'sector' => 'Electric Utilities & Generation',
+                'industry' => 'energy',
+                'impact' => $fuelPrice > 1000 ? 'Band-A Cost-Reflective Tariff Advantage' : 'Grid Dispatch Reliability',
+                'status' => 'Targeting 735MW Generation Uptime Despite Gas Pressure Drops',
+                'risk_factor' => 'Escravos-Lagos Pipeline gas supply curtailments and NBET payment cycles',
+            ],
+            'TRANSPOWER' => [
+                'ticker' => 'TRANSPOWER.NG',
+                'company' => 'Transcorp Power Plc',
+                'sector' => 'Electric Utilities & Generation',
+                'industry' => 'energy',
+                'impact' => $mpr > 24 ? 'Industrial Direct Power Purchase Expansion' : 'Base Load Dispatch Growth',
+                'status' => 'Afam Gas Turbine Rehabilitation Adding 240MW to Grid',
+                'risk_factor' => 'TCN transmission infrastructure collapse forcing generator trippings',
+            ],
+            'ARADEL' => [
+                'ticker' => 'ARADEL.NG',
+                'company' => 'Aradel Holdings Plc',
+                'sector' => 'Integrated Oil, Gas & Refining',
+                'industry' => 'energy',
+                'impact' => $fuelPrice > 1000 ? 'Modular Refinery Diesel Margin Surge' : 'Crude Evacuation Barging',
+                'status' => 'Ogbele Refinery Supplying 11,000 bpd to Local Commercial Market',
+                'risk_factor' => 'Upstream crude feed allocation and pipeline vandalization',
+            ],
+            'PRESCO' => [
+                'ticker' => 'PRESCO.NG',
+                'company' => 'Presco Plc',
+                'sector' => 'Agriculture & Agro-Allied',
+                'industry' => 'agriculture',
+                'impact' => $fxRate > 1600 ? 'Domestic Crude Palm Oil Deficit Pricing Power' : 'Steady Plantation Yield',
+                'status' => 'Revenue Crossing ₦130B Supported by Import Tariffs',
+                'risk_factor' => 'Port customs tariffs on imported olein and plantation diesel haulage',
+            ],
+            'OKOMUOIL' => [
+                'ticker' => 'OKOMUOIL.NG',
+                'company' => 'Okomu Oil Palm Plc',
+                'sector' => 'Agriculture & Plantation Commodities',
+                'industry' => 'agriculture',
+                'impact' => $fxRate > 1650 ? 'Hard-Currency Rubber Export Inflow' : 'Domestic Industrial CPO Sales',
+                'status' => 'EBITDA Margins Sustained Above 55%',
+                'risk_factor' => 'Fertilizer replacement costs and interstate road distribution security',
+            ],
+            'FIDSON' => [
+                'ticker' => 'FIDSON.NG',
+                'company' => 'Fidson Healthcare Plc',
+                'sector' => 'Healthcare & Pharmaceuticals',
+                'industry' => 'healthcare',
+                'impact' => $fxRate > 1650 ? 'Imported Active Pharmaceutical Ingredient (API) Cost Strain' : 'Local Formulation Demand',
+                'status' => 'Expanding Sterile Injectables & Infusions Manufacturing',
+                'risk_factor' => 'Port customs clearance dwell times for pharmaceutical active raw materials',
+            ],
+            'SAFARICOM' => [
+                'ticker' => 'SAFARICOM.NR',
+                'company' => 'Safaricom Plc (NSE Kenya)',
+                'sector' => 'Pan-African Telecoms & Mobile Money',
+                'industry' => 'capital-markets',
+                'impact' => $fxRate > 1600 ? 'Regional Mobile Money Velocity' : 'EAC Cross-Border Trade Flow',
+                'status' => 'M-Pesa Transaction Volumes Expanding Across East Africa',
+                'risk_factor' => 'Foreign exchange pass-through on imported network radio hardware',
+            ],
         ];
+
+        // Prioritize companies matching the selected industry at top of radar
+        $priorityKeys = [];
+        $otherKeys = [];
+        foreach ($allListedCompanies as $k => $c) {
+            if ($c['industry'] === $industrySlug || ($industrySlug === 'monetary' && $c['industry'] === 'capital-markets')) {
+                $priorityKeys[] = $k;
+            } else {
+                $otherKeys[] = $k;
+            }
+        }
+        $sortedKeys = array_merge($priorityKeys, $otherKeys);
+        $listedTransmission = [];
+        foreach ($sortedKeys as $k) {
+            $listedTransmission[$k] = $allListedCompanies[$k];
+        }
 
         return [
             'industry' => $industrySlug,

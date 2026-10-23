@@ -3240,7 +3240,7 @@ function renderCorporateRadarList(radar) {
   const entries = Object.values(radar);
   return entries.map(c => `
     <div style="background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; flex-wrap: wrap; gap: 4px;">
         <div>
           <b style="font-size: 13.5px; color: var(--text);">${c.company}</b>
           <span class="market-tag" style="margin-left: 6px; font-size: 10.5px; font-weight: 700;">${c.ticker}</span>
@@ -3251,8 +3251,13 @@ function renderCorporateRadarList(radar) {
         <span style="color: var(--muted);">Sensitivity Stance:</span>
         <b style="color: var(--text);">${c.impact}</b>
       </div>
+      ${c.status ? `
+      <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px;">
+        <span style="color: var(--muted);">Operational Catalyst:</span>
+        <b style="color: var(--navy); font-size: 11.5px;">${c.status}</b>
+      </div>` : ''}
       <div style="font-size: 11.5px; color: var(--muted); line-height: 1.45; border-top: 1px dashed var(--line); padding-top: 6px; margin-top: 6px;">
-        <b style="color: var(--navy);">Supply Chain / Balance Sheet Factor:</b> ${c.risk_factor || c.risk || ''}
+        <b style="color: var(--navy);">Supply Chain / Power / Capital Factor:</b> ${c.risk_factor || c.risk || ''}
       </div>
     </div>
   `).join('');
