@@ -37,7 +37,8 @@ class Database
         $sslCa = Env::get('DB_SSL_CA');
         $sslCaContent = Env::get('DB_SSL_CA_CONTENT');
 
-        if (!empty($sslCaContent) && empty($sslCa)) {
+        // Only treat as certificate content if it actually contains PEM certificate header
+        if (!empty($sslCaContent) && str_contains((string)$sslCaContent, 'BEGIN CERTIFICATE') && empty($sslCa)) {
             $tempCaPath = sys_get_temp_dir() . '/aiven-mysql-ca.pem';
             if (!file_exists($tempCaPath) || file_get_contents($tempCaPath) !== $sslCaContent) {
                 file_put_contents($tempCaPath, $sslCaContent);
@@ -47,10 +48,11 @@ class Database
 
         if (!empty($sslCa) && file_exists($sslCa)) {
             $options[PDO::MYSQL_ATTR_SSL_CA] = $sslCa;
-            $verify = Env::get('DB_SSL_VERIFY', true);
-            if (defined('PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT')) {
-                $options[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = (bool)$verify;
-            }
+        }
+
+        $verify = Env::get('DB_SSL_VERIFY', false);
+        if (defined('PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT')) {
+            $options[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = (bool)$verify;
         }
 
         try {

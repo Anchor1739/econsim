@@ -30,9 +30,13 @@ try {
     echo "Reading schema DDL from {$schemaFile}...\n";
     $sql = file_get_contents($schemaFile);
 
+    // Strip single-line and multi-line SQL comments before splitting by semicolon
+    $cleanSql = preg_replace('/--.*$/m', '', $sql);
+    $cleanSql = preg_replace('#/\*.*?\*/#s', '', (string)$cleanSql);
+
     // Remove CREATE DATABASE and USE statements if connected directly to target database
     $statements = array_filter(
-        array_map('trim', explode(';', $sql)),
+        array_map('trim', explode(';', (string)$cleanSql)),
         fn($stmt) => !empty($stmt) &&
                      !str_starts_with(strtoupper($stmt), 'CREATE DATABASE') &&
                      !str_starts_with(strtoupper($stmt), 'USE ')
@@ -52,9 +56,11 @@ try {
     if (file_exists($seedFile)) {
         echo "\nExecuting default seed data from {$seedFile}...\n";
         $seedSql = file_get_contents($seedFile);
+        $cleanSeed = preg_replace('/--.*$/m', '', $seedSql);
+        $cleanSeed = preg_replace('#/\*.*?\*/#s', '', (string)$cleanSeed);
         $seedStatements = array_filter(
-            array_map('trim', explode(';', $seedSql)),
-            fn($s) => !empty($s) && !str_starts_with($s, '--')
+            array_map('trim', explode(';', (string)$cleanSeed)),
+            fn($s) => !empty($s)
         );
         $seedCount = 0;
         foreach ($seedStatements as $stmt) {
