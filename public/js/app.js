@@ -20,7 +20,7 @@ let state = {
     completed_boardroom: 0,
   },
   features: {},
-  leaderboardTab: 'Overall',
+  leaderboardTab: 'All',
   notifications: JSON.parse(localStorage.getItem('econsim-notifications') || 'null') || [
     {
       id: 'notif_init_1',
@@ -1400,6 +1400,28 @@ function renderWalletPage() {
 // -------------------------------------------------------------
 // Leaderboard View
 // -------------------------------------------------------------
+function renderLeaderboardTabsHtml() {
+  const tabs = [
+    { id: 'All', label: 'All' },
+    { id: 'Predictor', label: 'Predictor' },
+    { id: 'Boardroom', label: 'Boardroom' }
+  ];
+  const activeTab = (state.leaderboardTab || 'All').toLowerCase();
+
+  return tabs.map(t => {
+    const isActive = activeTab === t.id.toLowerCase();
+    return `
+      <button type="button" 
+              class="btn ${isActive ? 'btn-primary' : 'btn-secondary'}" 
+              id="tab-btn-${t.id.toLowerCase()}"
+              style="padding: 7px 18px; font-size: 13px; font-weight: 600; border-radius: 20px; cursor: pointer; transition: all 0.2s ease; ${isActive ? 'box-shadow: 0 2px 8px rgba(36,121,101,0.25); border-color: var(--jade);' : ''}" 
+              onclick="loadLeaderboardData('${t.id}')">
+        ${t.id === 'All' ? '🌐 All' : (t.id === 'Predictor' ? '📈 Predictor' : '🏛️ Boardroom')}
+      </button>
+    `;
+  }).join('');
+}
+
 function renderLeaderboardPage() {
   return `
     <div class="page-head">
@@ -1411,12 +1433,8 @@ function renderLeaderboardPage() {
       <button class="btn btn-secondary" onclick="loadLeaderboardData(state.leaderboardTab)">Refresh ↺</button>
     </div>
 
-    <div style="display: flex; gap: 8px; margin-bottom: 20px;">
-      ${['Overall', 'Predictor', 'Boardroom'].map(tab => `
-        <button class="btn ${state.leaderboardTab === tab ? 'btn-primary' : 'btn-secondary'}" 
-                style="padding: 6px 14px; font-size: 12.5px; border-radius: 20px;" 
-                onclick="loadLeaderboardData('${tab}')">${tab}</button>
-      `).join('')}
+    <div id="leaderboard-tabs-bar" style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
+      ${renderLeaderboardTabsHtml()}
     </div>
 
     <div class="panel">
@@ -3005,14 +3023,32 @@ async function handleWithdrawSubmit(e) {
   } catch (err) {}
 }
 
-async function loadLeaderboardData(tab = 'Overall') {
+async function loadLeaderboardData(tab = 'All') {
   state.leaderboardTab = tab;
+
+  // Real-time active highlight update for tab toggle buttons
+  const tabsBar = document.getElementById('leaderboard-tabs-bar');
+  if (tabsBar) {
+    tabsBar.innerHTML = renderLeaderboardTabsHtml();
+  }
+
   const tbody = document.getElementById('leaderboard-table-body');
   if (tbody) tbody.innerHTML = renderLeaderboardSkeleton(6);
 
   try {
-    const res = await api.get(`/leaderboard?tab=${tab}`);
+    const res = await api.get(`/leaderboard?tab=${encodeURIComponent(tab)}`);
     if (!tbody || !res?.data) return;
+
+    if (res.data.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="4" style="text-align: center; padding: 28px; color: var(--muted); font-size: 13px;">
+            No strategist activity recorded yet in this category.
+          </td>
+        </tr>
+      `;
+      return;
+    }
 
     tbody.innerHTML = res.data.map(u => {
       const isYou = state.user && state.user.display_name === u.name;
@@ -3026,7 +3062,9 @@ async function loadLeaderboardData(tab = 'Overall') {
         </tr>
       `;
     }).join('');
-  } catch (e) {}
+  } catch (e) {
+    console.error('Failed to load leaderboard data:', e);
+  }
 }
 
 // -------------------------------------------------------------

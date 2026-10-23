@@ -170,11 +170,17 @@ class ProfileService
         }
     }
 
-    public static function getLeaderboard(string $tab = 'Overall'): array
+    public static function getLeaderboard(string $tab = 'All'): array
     {
         $pdo = Database::getConnection();
 
-        $sql = match ($tab) {
+        $normalizedTab = match (strtolower(trim($tab))) {
+            'predictor' => 'Predictor',
+            'boardroom' => 'Boardroom',
+            default => 'All',
+        };
+
+        $sql = match ($normalizedTab) {
             'Predictor' => "
                 SELECT u.id, u.display_name,
                        COALESCE(SUM(CASE WHEN x.source_key LIKE 'xp_forecast_%' OR x.reason LIKE '%forecast%' THEN x.xp ELSE 0 END), 0) AS score

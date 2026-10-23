@@ -46,7 +46,7 @@ class ProfileController
 
     public function getLeaderboard(): void
     {
-        $tab = $_GET['tab'] ?? 'Overall';
+        $tab = $_GET['tab'] ?? 'All';
         try {
             $data = ProfileService::getLeaderboard($tab);
             Response::success($data);
