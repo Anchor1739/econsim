@@ -9,6 +9,7 @@
   --jade-hover: #1e6554;
   --bg: #f5f7fa;
   --card-bg: #ffffff;
+  --surface-card: #ffffff;
   --line: #e2e8f0;
   --text: #17243a;
   --muted: #64748b;
@@ -29,6 +30,7 @@
   --jade-hover: #14b8a6;
   --bg: #09121f;
   --card-bg: #0f1e33;
+  --surface-card: #0f1e33;
   --line: #1c314f;
   --text: #f1f5f9;
   --muted: #94a3b8;
@@ -512,7 +514,8 @@ h1, h2, h3, h4, .brand, .stat {
 }
 
 .btn-secondary:hover {
-  background: #e2e8f0;
+  background: var(--line);
+  color: var(--text);
 }
 
 .btn-full { width: 100%; }
@@ -1769,7 +1772,7 @@ body:not(.theme-dark) .skeleton-shimmer {
 }
 
 .econsim-modal {
-  background: var(--surface-card, #ffffff);
+  background: var(--surface-card, var(--card-bg, #ffffff));
   border: 1.5px solid var(--line);
   border-radius: 14px;
   width: 100%;
@@ -1777,10 +1780,16 @@ body:not(.theme-dark) .skeleton-shimmer {
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35);
   animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   overflow: hidden;
   box-sizing: border-box;
+}
+
+.theme-dark .econsim-modal {
+  background: var(--card-bg, #0f1e33);
+  border-color: var(--line, #1c314f);
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.65), 0 0 0 1px var(--line);
 }
 
 .econsim-modal-header {
@@ -1824,6 +1833,12 @@ body:not(.theme-dark) .skeleton-shimmer {
   font-size: 13.5px;
   line-height: 1.65;
   color: var(--text);
+  background: var(--surface-card, var(--card-bg, #ffffff));
+}
+
+.theme-dark .econsim-modal-body {
+  background: var(--card-bg, #0f1e33);
+  color: var(--text, #f1f5f9);
 }
 
 .econsim-modal-footer {
