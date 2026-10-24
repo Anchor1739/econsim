@@ -978,14 +978,350 @@ const PAGE_TOURS = {
   }
 };
 
+// -------------------------------------------------------------
+// Driver.js Element-Specific Interactive Walkthroughs
+// -------------------------------------------------------------
+const PAGE_DRIVER_STEPS = {
+  dashboard: [
+    {
+      element: '#dash-metrics-cards',
+      popover: {
+        title: '📊 Capital & Literacy Telemetry',
+        description: 'Track your available simulation capital (VNGN), real capital, accumulated Financial Literacy XP, and active forecast commitments in real time.',
+        side: 'bottom',
+        align: 'center'
+      }
+    },
+    {
+      element: '#dash-markets-panel',
+      popover: {
+        title: '📈 Macroeconomic Catalyst Radar',
+        description: 'Explore live macroeconomic contracts (CBN interest rate decisions, inflation releases, and corporate earnings). Trade YES/NO contracts against verified benchmarks.',
+        side: 'top',
+        align: 'start'
+      }
+    },
+    {
+      element: '#dash-boardroom-panel',
+      popover: {
+        title: '🏛️ The Executive Boardroom',
+        description: 'Enter timed business case dilemmas. Step into the shoes of a corporate executive, formulate capital strategies, and receive authoritative performance scores.',
+        side: 'left',
+        align: 'start'
+      }
+    },
+    {
+      element: '#dash-learning-desk',
+      popover: {
+        title: '✧ Quick Learning Desk',
+        description: 'Direct shortcuts to consult your AI Mentor on financial mechanics, test policy shocks in Scenario Lab, or inspect your global ranking.',
+        side: 'top',
+        align: 'start'
+      }
+    },
+    {
+      element: '.top-actions',
+      popover: {
+        title: '🔄 Terminal Controls & Account',
+        description: 'Toggle between Virtual Demo (educational) and Real Capital mode, review notifications, access your Ledger Wallet, and configure strategist settings.',
+        side: 'bottom',
+        align: 'end'
+      }
+    }
+  ],
+
+  lab: [
+    {
+      element: '#lab-industry-pills-bar',
+      popover: {
+        title: '1. Select Industry Sector',
+        description: 'Select the economic sector you want to stress-test: Monetary, Energy, FMCG, Manufacturing, Telecoms, Agriculture, or Banking.',
+        side: 'bottom',
+        align: 'start'
+      }
+    },
+    {
+      element: '#lab-scenario-presets-bar',
+      popover: {
+        title: '2. Crisis & Policy Scenarios',
+        description: 'Select a dilemma preset—such as Currency Floating Shock, Aggressive MPR Tightening, or Fuel Subsidy Deregulation—to anchor the simulation.',
+        side: 'bottom',
+        align: 'start'
+      }
+    },
+    {
+      element: '#lab-levers-panel',
+      popover: {
+        title: '3. Calibrate Levers (Controls)',
+        description: 'Move the dials of the economy: MPR Interest Rate, USD/NGN FX Rate, Fuel Pump Prices, and Bank Reserve Ratio. Look for the ⚡ Scenario Driver badge to spot key shock factors.',
+        side: 'right',
+        align: 'start'
+      }
+    },
+    {
+      element: '#lab-live-telemetry-hud',
+      popover: {
+        title: '4. Real-Time Telemetry HUD',
+        description: 'Watch projected 12M Inflation, Credit Impulse, Logistics Strain, and Listed Solvency respond dynamically as you slide policy levers.',
+        side: 'bottom',
+        align: 'start'
+      }
+    },
+    {
+      element: '#lab-gauges-panel',
+      popover: {
+        title: '5. Transmission Gauges',
+        description: 'Deep equilibrium gauges for Credit Impulse, CapEx Sentiment, Consumer Purchasing Power, and Supply Chains. Click any (?) button for plain-English economic definitions.',
+        side: 'left',
+        align: 'start'
+      }
+    },
+    {
+      element: '#lab-corporate-radar-panel',
+      popover: {
+        title: '6. Public Corporate Radar (20 Tickers)',
+        description: 'Live sensitivity analysis across 20 African blue-chips on the Nigerian Exchange (Dangote Cement, MTN, Nestle, GTCO, Seplat). Search by ticker or industry.',
+        side: 'top',
+        align: 'start'
+      }
+    },
+    {
+      element: '#lab-briefing-panel',
+      popover: {
+        title: '7. Executive Masterclass Briefing',
+        description: 'Click "Generate Executive Masterclass Briefing" to synthesize a complete C-suite memorandum with balance sheet transmission mechanics and leadership tactics.',
+        side: 'top',
+        align: 'start'
+      }
+    }
+  ],
+
+  predictor: [
+    {
+      element: '#predictor-filter-bar',
+      popover: {
+        title: '1. Filter Catalysts by Sector',
+        description: 'Filter macroeconomic probability contracts by Monetary Policy, Equities, Energy, Agriculture, FX, Fintech, or FMCG.',
+        side: 'bottom',
+        align: 'start'
+      }
+    },
+    {
+      element: '#markets-container',
+      popover: {
+        title: '2. Probability Contracts',
+        description: 'Trade YES / NO contracts on verified African macroeconomic outcomes. Prices range between ₦1 and ₦99 based on market consensus probabilities.',
+        side: 'top',
+        align: 'start'
+      }
+    },
+    {
+      element: '.market-card',
+      popover: {
+        title: '3. Contract Card & Research Dossier',
+        description: 'Click any contract to open its research dossier, evaluate official benchmark data sources, and allocate demo or live capital.',
+        side: 'bottom',
+        align: 'start'
+      }
+    }
+  ],
+
+  boardroom: [
+    {
+      element: '#boardroom-lobby-container',
+      popover: {
+        title: '🏛️ Strategy Dilemmas Lobby',
+        description: 'Review active and upcoming boardroom business cases. Parameters are sealed until the timer starts to maintain competitive integrity.',
+        side: 'bottom',
+        align: 'start'
+      }
+    },
+    {
+      element: '.boardroom-challenge-card',
+      popover: {
+        title: '✍️ Submit Strategic Decisions',
+        description: 'Enter the session, analyze financial constraints, formulate your capital allocation memo, and receive authoritative performance scores.',
+        side: 'top',
+        align: 'start'
+      }
+    }
+  ],
+
+  wallet: [
+    {
+      element: '#wallet-metrics-summary',
+      popover: {
+        title: '💳 Double-Entry Segregated Capital',
+        description: 'Strict ledger separation between Virtual Demo Capital (VNGN) and Live Capital (NGN) with zero cross-contamination.',
+        side: 'bottom',
+        align: 'start'
+      }
+    },
+    {
+      element: '#wallet-actions-panel',
+      popover: {
+        title: '⚡ Capital Operations',
+        description: 'Claim your ₦500,000 educational virtual grant anytime, or deposit/withdraw funds in live mode.',
+        side: 'bottom',
+        align: 'start'
+      }
+    },
+    {
+      element: '#wallet-transactions-table',
+      popover: {
+        title: '📜 Immutable Ledger Journal',
+        description: 'Audited log of every entry, escrow hold, settlement, and payout with precise timestamps and transaction IDs.',
+        side: 'top',
+        align: 'start'
+      }
+    }
+  ],
+
+  leaderboard: [
+    {
+      element: '#leaderboard-tabs-bar',
+      popover: {
+        title: '🏆 Filter by Discipline',
+        description: 'Toggle between Overall Strategist rankings, Macro Predictor accuracy, and Executive Boardroom scores.',
+        side: 'bottom',
+        align: 'start'
+      }
+    },
+    {
+      element: '#leaderboard-table-body',
+      popover: {
+        title: '📈 Institutional Standings',
+        description: 'Track your XP level, accuracy rates, and competitive rank among emerging market analysts and executives.',
+        side: 'top',
+        align: 'start'
+      }
+    }
+  ],
+
+  mentor: [
+    {
+      element: '#mentor-quick-prompts',
+      popover: {
+        title: '✧ Macro Reasoning Starters',
+        description: 'Select executive prompts covering CBN monetary transmission, cash runway formulas, FX devaluation pass-through, and risk matrices.',
+        side: 'bottom',
+        align: 'start'
+      }
+    },
+    {
+      element: '#mentor-chat-thread',
+      popover: {
+        title: '📐 First-Principles Analysis',
+        description: 'Your AI Mentor responds with rigorous macroeconomic formulas, real-world Nigerian context, and C-suite strategic trade-offs.',
+        side: 'top',
+        align: 'start'
+      }
+    },
+    {
+      element: '#mentor-input',
+      popover: {
+        title: '✍️ Ask Any Strategic Question',
+        description: 'Type any financial or economic scenario here for deep econometric reasoning and strategic guidance.',
+        side: 'top',
+        align: 'start'
+      }
+    }
+  ]
+};
+
+let activeDriverInstance = null;
 let currentTourStep = 0;
 let currentTourPage = 'dashboard';
 
-function startPageTour(page = null) {
+function startInteractiveDriverTour(page = null) {
+  const p = page || state.page || 'dashboard';
+  currentTourPage = p;
+
+  const driverConstructor = window.driver?.js?.driver || window.driver?.driver;
+  if (!driverConstructor) {
+    startPageTourModal(p);
+    return;
+  }
+
+  // Destroy previous tour instance if any
+  if (activeDriverInstance) {
+    try { activeDriverInstance.destroy(); } catch (_) {}
+    activeDriverInstance = null;
+  }
+
+  const rawSteps = PAGE_DRIVER_STEPS[p] || PAGE_DRIVER_STEPS.dashboard;
+  // Filter steps to elements that currently exist in DOM (or modal steps without element)
+  const validSteps = rawSteps.filter(s => {
+    if (!s.element) return true;
+    return !!document.querySelector(s.element);
+  });
+
+  if (validSteps.length === 0) {
+    startPageTourModal(p);
+    return;
+  }
+
+  const isDark = state.theme !== 'light';
+
+  // Format steps for Driver.js
+  const formattedSteps = validSteps.map((step, idx) => {
+    return {
+      element: step.element,
+      popover: {
+        title: step.popover.title,
+        description: `
+          <div>${step.popover.description}</div>
+          <div style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--line); display: flex; justify-content: space-between; align-items: center;">
+            <a href="javascript:void(0)" onclick="openTourOverviewModal('${p}')" style="color: #38bdf8; font-size: 11px; text-decoration: underline; font-weight: 600;">📖 Terminal Overview Guide</a>
+            <span style="font-size: 10.5px; color: var(--muted);">${idx + 1} of ${validSteps.length}</span>
+          </div>
+        `,
+        side: step.popover.side || 'bottom',
+        align: step.popover.align || 'start'
+      }
+    };
+  });
+
+  activeDriverInstance = driverConstructor({
+    showProgress: true,
+    animate: true,
+    allowClose: true,
+    popoverClass: 'econsim-tour-popover',
+    overlayColor: isDark ? 'rgba(5, 12, 22, 0.82)' : 'rgba(15, 23, 42, 0.5)',
+    nextBtnText: 'Next →',
+    prevBtnText: '← Back',
+    doneBtnText: 'Finish Tour ✓',
+    steps: formattedSteps,
+    onDestroyStarted: () => {
+      markTourSeen(p);
+      if (activeDriverInstance) {
+        activeDriverInstance.destroy();
+        activeDriverInstance = null;
+      }
+    }
+  });
+
+  activeDriverInstance.drive();
+}
+
+function openTourOverviewModal(page = null) {
+  if (activeDriverInstance) {
+    try { activeDriverInstance.destroy(); } catch (_) {}
+    activeDriverInstance = null;
+  }
+  startPageTourModal(page || currentTourPage);
+}
+
+function startPageTourModal(page = null) {
   const p = page || state.page || 'dashboard';
   currentTourPage = p;
   currentTourStep = 0;
   renderTourModal();
+}
+
+function startPageTour(page = null) {
+  const p = page || state.page || 'dashboard';
+  startInteractiveDriverTour(p);
 }
 
 function renderTourModal() {
@@ -1020,12 +1356,14 @@ function renderTourModal() {
             </label>
           </div>
         </div>
-        <div class="econsim-modal-footer" style="justify-content: space-between;">
+        <div class="econsim-modal-footer" style="justify-content: space-between; flex-wrap: wrap; gap: 8px;">
           <button class="btn btn-secondary btn-sm" onclick="prevTourStep()" ${currentTourStep === 0 ? 'disabled style="opacity: 0.4;"' : ''}>
             ← Back
           </button>
-          <div style="display: flex; gap: 8px;">
-            <button class="btn btn-secondary btn-sm" onclick="closeTourModal()">Close</button>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <button class="btn btn-secondary btn-sm" onclick="closeTourModal(); startInteractiveDriverTour('${currentTourPage}');" title="Highlight actual elements on this page" style="display: inline-flex; align-items: center; gap: 4px;">
+              <span>🎯</span> Interactive UI Tour
+            </button>
             <button class="btn btn-primary btn-sm" onclick="nextTourStep()">
               ${currentTourStep < total - 1 ? 'Next →' : 'Finish Tour ✓'}
             </button>
@@ -1306,9 +1644,6 @@ function renderAppShell(innerHtml) {
               </div>
             </div>
 
-            <div class="wallet-badge" onclick="navigate('wallet')" style="padding: 4px 10px; font-size: 12px; cursor: pointer;">
-              ${formatMoney(activeBal.available || 0)}
-            </div>
             <button class="mobile-hamburger-btn" onclick="toggleMobileDrawer()" aria-label="Open Navigation">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
             </button>
@@ -1411,7 +1746,7 @@ function renderAppShell(innerHtml) {
             <div style="display: flex; align-items: center; gap: 12px;">
               <div class="avatar-btn" style="width: 38px; height: 38px; font-size: 15px;">${userInitial}</div>
               <div>
-                <b style="color: white; font-size: 13.5px; display: block;">${state.user?.display_name || 'Strategist'}</b>
+                <b style="color: var(--text); font-size: 13.5px; display: block;">${state.user?.display_name || 'Strategist'}</b>
                 <small style="color: var(--muted); font-size: 11px;">${state.user?.email || ''}</small>
               </div>
             </div>
@@ -1419,6 +1754,26 @@ function renderAppShell(innerHtml) {
           </div>
 
           <div class="mobile-drawer-content">
+            <!-- Dedicated Capital & Balance Card -->
+            <div class="mobile-drawer-balance-card" onclick="navigate('wallet'); closeMobileDrawer();" title="Manage Ledger Capital">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); font-weight: 700;">Account Balance</span>
+                <span class="mode-status-pill ${isReal ? 'real' : 'demo'}" style="font-size: 9.5px; padding: 2px 7px;">
+                  <span class="mode-dot"></span> ${isReal ? 'Live Capital' : 'Virtual Demo'}
+                </span>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                <div style="font-size: 21px; font-weight: 800; color: var(--jade); font-family: monospace;">
+                  ${formatMoney(activeBal.available || 0)} <small style="font-size: 11px; color: var(--muted); font-weight: 500;">${currLabel}</small>
+                </div>
+                <span style="font-size: 12px; color: #38bdf8; font-weight: 600;">Ledger ↗</span>
+              </div>
+              <div style="font-size: 11px; color: var(--muted); margin-top: 6px; display: flex; justify-content: space-between; border-top: 1px dashed var(--line); padding-top: 6px;">
+                <span>Total Ledger Reserves:</span>
+                <b>${formatMoney(activeBal.total || 0)} ${currLabel}</b>
+              </div>
+            </div>
+
             <div class="level-card" style="margin-bottom: 18px;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                 <b>${userLevel.name}</b>
@@ -1493,7 +1848,7 @@ function renderDashboard() {
 
     ${renderPushPromptBanner()}
 
-    <div class="metrics-row">
+    <div class="metrics-row" id="dash-metrics-cards">
       <div class="metric-card">
         <span>Available Virtual Capital</span>
         <strong>${formatMoney(state.wallet.available)}</strong>
@@ -1517,7 +1872,7 @@ function renderDashboard() {
     </div>
 
     <div class="two-col">
-      <div class="panel">
+      <div class="panel" id="dash-markets-panel">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
           <h2>Macroeconomic Catalysts</h2>
           <button class="btn btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="navigate('predictor')">View All ↗</button>
@@ -1528,7 +1883,7 @@ function renderDashboard() {
       </div>
 
       <div>
-        <div class="panel" style="background: linear-gradient(145deg, #102640, #0b1a2d); color: #fff; border: none;">
+        <div class="panel" id="dash-boardroom-panel" style="background: linear-gradient(145deg, #102640, #0b1a2d); color: #fff; border: none;">
           <div class="eyebrow" style="color: #38bdf8;">STRATEGY ARENA</div>
           <h2 style="color: #fff; margin: 8px 0;">The Boardroom</h2>
           <p style="color: #cbd5e1; font-size: 13.5px; margin-bottom: 18px;">
@@ -1537,7 +1892,7 @@ function renderDashboard() {
           <button class="btn btn-primary" onclick="navigate('boardroom')">Enter Strategy Lobby ↗</button>
         </div>
 
-        <div class="panel">
+        <div class="panel" id="dash-learning-desk">
           <h2>Quick Learning Desk</h2>
           <div style="display: flex; flex-direction: column; gap: 8px;">
             <button class="btn btn-secondary btn-full" style="justify-content: flex-start;" onclick="navigate('mentor')">
@@ -1585,7 +1940,7 @@ function renderPredictor() {
       <button class="btn btn-secondary" onclick="loadPredictorData()">Refresh Markets ↺</button>
     </div>
 
-    <div style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
+    <div id="predictor-filter-bar" style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
       ${industries.map(f => `
         <button class="btn ${state.marketFilter.toLowerCase() === f.toLowerCase() ? 'btn-primary' : 'btn-secondary'}" 
                 style="padding: 6px 14px; font-size: 12px; border-radius: 20px;" 
@@ -1825,7 +2180,7 @@ function renderWalletPage() {
       </div>
     </div>
 
-    <div class="metrics-row">
+    <div class="metrics-row" id="wallet-metrics-summary">
       <div class="metric-card">
         <span>Available Balance</span>
         <strong style="color: var(--jade);">${formatMoney(activeBal.available || 0)}</strong>
@@ -1850,7 +2205,7 @@ function renderWalletPage() {
 
     ${isReal ? `
       <!-- Real Mode Actions: Funding & Settlements -->
-      <div class="two-col" style="margin-bottom: 24px;">
+      <div class="two-col" id="wallet-actions-panel" style="margin-bottom: 24px;">
         
         <!-- Card 1: Live Gateway Deposits (real_funding) -->
         <div class="panel">
@@ -1942,7 +2297,7 @@ function renderWalletPage() {
       </div>
     ` : `
       <!-- Virtual Demo Mode Actions -->
-      <div class="two-col" style="margin-bottom: 24px;">
+      <div class="two-col" id="wallet-actions-panel" style="margin-bottom: 24px;">
         <div class="panel">
           <div class="eyebrow" style="color: var(--jade);">SIMULATION CAPITAL</div>
           <h2 style="margin: 8px 0 12px;">Educational Virtual Balance</h2>
@@ -2080,7 +2435,7 @@ function renderMentorPage() {
         </form>
       </div>
 
-      <div class="panel">
+      <div class="panel" id="mentor-quick-prompts">
         <div class="eyebrow">CURRICULUM DEEP DIVES</div>
         <h2 style="margin: 6px 0 14px;">Macroeconomic & Corporate Explorations</h2>
         <div style="display: flex; flex-direction: column; gap: 8px;">
@@ -2192,7 +2547,7 @@ function renderScenarioLab() {
     </div>
 
     <!-- Industry Selector Pills -->
-    <div class="lab-industry-pills" style="margin-bottom: 14px;">
+    <div class="lab-industry-pills" id="lab-industry-pills-bar" style="margin-bottom: 14px;">
       ${indList.map(ind => `
         <button type="button" class="lab-industry-pill ${lab.selectedIndustry === ind.slug ? 'active' : ''}" onclick="selectLabIndustry('${ind.slug}')">
           <span>${ind.icon || '📊'}</span>
@@ -2202,7 +2557,7 @@ function renderScenarioLab() {
     </div>
 
     <!-- Crisis & Policy Scenarios Compact Selector Ribbon -->
-    <div style="background: var(--card-bg); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; margin-bottom: 20px;">
+    <div id="lab-scenario-presets-bar" style="background: var(--card-bg); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; margin-bottom: 20px;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
         <div style="display: flex; align-items: center; gap: 8px;">
           <span class="eyebrow" style="color: var(--navy); margin: 0;">CRISIS & POLICY SCENARIO PRESETS</span>
@@ -2244,7 +2599,7 @@ function renderScenarioLab() {
       <div style="display: flex; flex-direction: column; gap: 20px;">
         
         <!-- Macroeconomic Levers (Anchored to Selected Scenario) -->
-        <div class="panel">
+        <div class="panel" id="lab-levers-panel">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
             <div>
               <div class="eyebrow" style="color: var(--jade);">CALIBRATE LEVERS</div>
@@ -2301,7 +2656,7 @@ function renderScenarioLab() {
           `}
 
           <!-- Synchronized Live Telemetry HUD Strip (Changes in real-time as sliders drag) -->
-          <div class="lab-live-hud-strip">
+          <div class="lab-live-hud-strip" id="lab-live-telemetry-hud">
             <div class="lab-hud-metric">
               <span class="lab-hud-metric-label">12M Inflation <button type="button" class="term-help-btn" onclick="showTermExplanation('projected_inflation')" title="What is 12M Inflation?">?</button></span>
               <span class="lab-hud-metric-value" id="hud-val-inf" style="color: ${hasScenario ? infColor : 'var(--muted)'};">${hasScenario ? `${res.projected_inflation}%` : '--'}</span>
@@ -2350,7 +2705,7 @@ function renderScenarioLab() {
       <div class="lab-sticky-right" style="display: flex; flex-direction: column; gap: 20px;">
         
         <!-- Live Gauges Panel -->
-        <div class="panel">
+        <div class="panel" id="lab-gauges-panel">
           <div class="eyebrow" style="color: var(--jade);">LIVE EQUILIBRIUM PROJECTIONS</div>
           <h2 style="font-size: 16px; margin: 4px 0 16px;">Transmission Gauges & Stress Indices</h2>
 
@@ -2474,7 +2829,7 @@ function renderScenarioLab() {
         </div>
 
         <!-- Public Listed Equities Transmission Radar (NGX & African Bourses) -->
-        <div class="panel">
+        <div class="panel" id="lab-corporate-radar-panel">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
             <div>
               <div class="eyebrow" style="color: var(--jade);">PUBLIC CORPORATE RADAR</div>
@@ -3494,7 +3849,7 @@ async function loadChallengeReportData(challengeId) {
 
     const sc = r.scores;
     el.innerHTML = `
-      <div class="metrics-row">
+      <div class="metrics-row" id="wallet-metrics-summary">
         <div class="metric-card">
           <span>Financial Mechanics</span>
           <strong style="color: var(--jade);">${sc.financial_mechanics} / 40</strong>

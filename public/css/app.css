@@ -863,14 +863,15 @@ h1, h2, h3, h4, .brand, .stat {
     top: 0;
     right: 0;
     bottom: 0;
-    width: 82%;
+    width: 84%;
     max-width: 340px;
-    background: #08111e;
-    border-left: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--card-bg, #08111e);
+    color: var(--text, #f1f5f9);
+    border-left: 1px solid var(--line, rgba(255, 255, 255, 0.08));
     z-index: 110;
     transform: translateX(100%);
     transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: -8px 0 32px rgba(0, 0, 0, 0.6);
+    box-shadow: -8px 0 32px rgba(0, 0, 0, 0.5);
     overflow-y: auto;
   }
 
@@ -882,18 +883,18 @@ h1, h2, h3, h4, .brand, .stat {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 20px 18px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(255, 255, 255, 0.02);
+    padding: 18px 16px;
+    border-bottom: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+    background: var(--surface-card, rgba(255, 255, 255, 0.02));
   }
 
   .drawer-close-btn {
     width: 32px;
     height: 32px;
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--line, rgba(255, 255, 255, 0.06));
     border: none;
-    color: #cbd5e1;
+    color: var(--text, #cbd5e1);
     font-size: 16px;
     font-weight: 700;
     display: flex;
@@ -1962,4 +1963,150 @@ body:not(.theme-dark) .skeleton-shimmer {
   from { opacity: 0; transform: translateY(18px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* =============================================================
+   Mobile Drawer Capital Balance Card
+   ============================================================= */
+.mobile-drawer-balance-card {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  background: var(--surface-card, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.mobile-drawer-balance-card:hover,
+.mobile-drawer-balance-card:active {
+  border-color: var(--jade);
+  background: rgba(36, 121, 101, 0.08);
+  transform: translateY(-1px);
+}
+
+/* =============================================================
+   Driver.js Product Walkthrough Custom Theming
+   ============================================================= */
+.driver-popover.econsim-tour-popover {
+  background-color: var(--card-bg, #0f1e33) !important;
+  color: var(--text, #f1f5f9) !important;
+  border: 1px solid var(--line, #1e3a5f) !important;
+  border-radius: 12px !important;
+  padding: 18px 20px !important;
+  min-width: 280px !important;
+  max-width: 380px !important;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.5) !important;
+  font-family: inherit !important;
+  z-index: 1000000010 !important;
+}
+
+.driver-popover.econsim-tour-popover * {
+  font-family: inherit !important;
+}
+
+.driver-popover.econsim-tour-popover .driver-popover-title {
+  color: var(--text, #f1f5f9) !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  margin-bottom: 6px !important;
+  padding-right: 22px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.driver-popover.econsim-tour-popover .driver-popover-description {
+  color: var(--muted, #94a3b8) !important;
+  font-size: 13px !important;
+  line-height: 1.6 !important;
+  margin-top: 6px !important;
+}
+
+.driver-popover.econsim-tour-popover .driver-popover-close-btn {
+  color: var(--muted, #94a3b8) !important;
+  font-size: 18px !important;
+  top: 10px !important;
+  right: 12px !important;
+}
+
+.driver-popover.econsim-tour-popover .driver-popover-close-btn:hover {
+  color: var(--text, #f1f5f9) !important;
+}
+
+.driver-popover.econsim-tour-popover .driver-popover-footer {
+  margin-top: 16px !important;
+  padding-top: 12px !important;
+  border-top: 1px solid var(--line, rgba(255, 255, 255, 0.08)) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+.driver-popover.econsim-tour-popover .driver-popover-progress-text {
+  font-size: 11.5px !important;
+  font-weight: 700 !important;
+  color: var(--muted, #94a3b8) !important;
+  letter-spacing: 0.3px !important;
+}
+
+.driver-popover.econsim-tour-popover .driver-popover-footer button {
+  padding: 6px 14px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  border-radius: 6px !important;
+  text-shadow: none !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.driver-popover.econsim-tour-popover .driver-popover-prev-btn {
+  background: var(--surface-card, rgba(255, 255, 255, 0.06)) !important;
+  color: var(--text, #f1f5f9) !important;
+  border: 1px solid var(--line, #1e3a5f) !important;
+}
+
+.driver-popover.econsim-tour-popover .driver-popover-prev-btn:hover {
+  background: var(--line, #1e3a5f) !important;
+}
+
+.driver-popover.econsim-tour-popover .driver-popover-next-btn {
+  background: var(--jade, #10b981) !important;
+  color: #08111e !important;
+  border: 1px solid var(--jade, #10b981) !important;
+  font-weight: 700 !important;
+}
+
+.driver-popover.econsim-tour-popover .driver-popover-next-btn:hover {
+  filter: brightness(1.1) !important;
+}
+
+/* Arrow styling aligned to theme */
+.driver-popover.econsim-tour-popover .driver-popover-arrow-side-top {
+  border-bottom-color: var(--card-bg, #0f1e33) !important;
+}
+.driver-popover.econsim-tour-popover .driver-popover-arrow-side-bottom {
+  border-top-color: var(--card-bg, #0f1e33) !important;
+}
+.driver-popover.econsim-tour-popover .driver-popover-arrow-side-left {
+  border-right-color: var(--card-bg, #0f1e33) !important;
+}
+.driver-popover.econsim-tour-popover .driver-popover-arrow-side-right {
+  border-left-color: var(--card-bg, #0f1e33) !important;
+}
+
+@media (max-width: 600px) {
+  .driver-popover.econsim-tour-popover {
+    max-width: calc(100vw - 32px) !important;
+    min-width: 260px !important;
+    padding: 14px 16px !important;
+  }
+  .driver-popover.econsim-tour-popover .driver-popover-title {
+    font-size: 14px !important;
+  }
+  .driver-popover.econsim-tour-popover .driver-popover-description {
+    font-size: 12.5px !important;
+  }
+}
+
 
