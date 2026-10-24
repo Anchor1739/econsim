@@ -71,5 +71,15 @@ class MarketController
             Response::error($e->getMessage(), 500);
         }
     }
+
+    public function runCron(): void
+    {
+        try {
+            $updates = PredictorService::runRealtimeMaintenance();
+            Response::success($updates, 'Real-time market maintenance and odds verification executed.');
+        } catch (Throwable $e) {
+            Response::error($e->getMessage(), 500);
+        }
+    }
 }
 

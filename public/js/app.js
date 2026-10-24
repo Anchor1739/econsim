@@ -3000,7 +3000,13 @@ async function loadDashboardData() {
 
 async function loadPredictorData() {
   const el = document.getElementById('markets-container');
-  if (el) el.innerHTML = renderMarketSkeletonGrid(4);
+  // Stale-While-Revalidate: render cached markets immediately for instant UI response
+  if (state.markets && state.markets.length > 0) {
+    renderMarketsFiltered();
+  } else if (el) {
+    el.innerHTML = renderMarketSkeletonGrid(4);
+  }
+
   try {
     const res = await api.get('/markets');
     if (res?.data) {
