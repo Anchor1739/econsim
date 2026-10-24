@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Services\AuthService;
+use App\Services\BoardroomService;
 use App\Services\PredictorService;
 use App\Utils\Response;
 use Throwable;
@@ -75,8 +76,17 @@ class MarketController
     public function runCron(): void
     {
         try {
-            $updates = PredictorService::runRealtimeMaintenance();
-            Response::success($updates, 'Real-time market maintenance and odds verification executed.');
+            $predictor = PredictorService::runRealtimeMaintenance();
+            $boardroom = BoardroomService::processQueuedEvaluations(5);
+
+            $payload = [
+                'server_time' => date('Y-m-d H:i:s T'),
+                'render_status' => 'warm_active',
+                'predictor' => $predictor,
+                'boardroom' => $boardroom,
+            ];
+
+            Response::success($payload, 'Platform background worker execution completed successfully.');
         } catch (Throwable $e) {
             Response::error($e->getMessage(), 500);
         }

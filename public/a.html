@@ -674,6 +674,21 @@
               <option value="google/gemma-2-27b-it">Google Gemma 2 27B IT</option>
             </select>
           </div>
+
+          <!-- External Web Cron & Keep-Warm Worker -->
+          <div style="margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--line);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <span style="font-size: 12px; font-weight: 700; color: var(--emerald); text-transform: uppercase; letter-spacing: 0.5px;">⏰ External Web Cron & Keep-Warm Worker</span>
+              <span class="status-pill status-enabled" style="font-size: 10px;">FREE-TIER OPTIMIZED</span>
+            </div>
+            <p style="font-size: 11.5px; color: var(--text-muted); line-height: 1.5; margin-bottom: 8px;">
+              Point <a href="https://cron-job.org" target="_blank" style="color: var(--emerald); font-weight: 600;">cron-job.org</a> to this endpoint every 1-5 minutes to keep Render warm 24/7, evaluate boardroom memos, and sync predictor odds without using GitHub Actions minutes:
+            </p>
+            <div style="display: flex; gap: 6px;">
+              <input class="form-control" id="cron-worker-url" style="font-family: monospace; font-size: 11px; padding: 6px 8px; flex: 1; background: var(--surface);" readonly value="https://developing-market.onrender.com/api/cron/worker">
+              <button type="button" class="btn btn-secondary" style="font-size: 11px; padding: 4px 10px; white-space: nowrap;" onclick="copyCronUrl()">Copy URL 📋</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -759,8 +774,6 @@
               <div class="panel-subtitle">Atomic distribution of forecast payouts</div>
             </div>
             <button class="btn btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="handleRunPredictorCron()" title="Run real-time expiration checks and odds sync">Real-Time Sync ↺</button>
-
-            </div>
           </div>
           <div class="table-responsive">
             <table>
@@ -1153,10 +1166,25 @@
       }
     }
 
+    function copyCronUrl() {
+      const urlInput = document.getElementById('cron-worker-url');
+      if (urlInput) {
+        urlInput.select();
+        navigator.clipboard.writeText(urlInput.value).then(() => {
+          toast('Worker URL copied! Paste this into cron-job.org (recommended every 1-5 mins).', 'success');
+        }).catch(() => {
+          toast('Copied: ' + urlInput.value, 'info');
+        });
+      }
+    }
+
     async function handleRunPredictorCron() {
       try {
-        const res = await apiRequest('/cron/update-predictor', 'GET');
-        toast(`Real-time sync complete! Auto-closed ${res.data?.closed_markets_count || 0} expired markets.`, 'success');
+        const res = await apiRequest('/cron/worker', 'GET');
+        const d = res.data || {};
+        const closed = d.predictor?.closed_markets_count || 0;
+        const evaluated = d.boardroom?.evaluated_memos_count || 0;
+        toast(`Worker cycle complete! Evaluated ${evaluated} boardroom memo(s), auto-closed ${closed} expired market(s).`, 'success');
         loadAllAdminData();
       } catch (err) {
         toast('Sync failed: ' + err.message, 'error');

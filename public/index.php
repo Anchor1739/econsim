@@ -94,6 +94,8 @@ if (str_starts_with($path, '/api/')) {
     $router->get('/api/forecasts/me', [MarketController::class, 'getMyForecasts']);
     $router->get('/api/cron/update-predictor', [MarketController::class, 'runCron']);
     $router->post('/api/cron/update-predictor', [MarketController::class, 'runCron']);
+    $router->get('/api/cron/worker', [MarketController::class, 'runCron']);
+    $router->post('/api/cron/worker', [MarketController::class, 'runCron']);
 
     // Boardroom Strategy Challenge Routes
     $router->get('/api/boardroom/lobby', [BoardroomController::class, 'getLobby']);
