@@ -24,9 +24,15 @@ class Database
         $username = Env::get('DB_USER', 'root');
         $password = Env::get('DB_PASSWORD', '');
 
-        // Fast direct IP resolution for Aiven Cloud MySQL to avoid Windows DNS timeout delays
-        if (str_contains((string)$host, 'mysql-2bedf8b0-anchorgodsown-0077')) {
-            $host = '206.189.97.21';
+        // Dynamic IP resolution for Aiven Cloud MySQL
+        $dbHostIp = Env::get('DB_HOST_IP');
+        if (!empty($dbHostIp)) {
+            $host = $dbHostIp;
+        } elseif (PHP_OS_FAMILY === 'Windows' && !filter_var($host, FILTER_VALIDATE_IP)) {
+            $resolved = @gethostbyname($host);
+            if (!empty($resolved) && $resolved !== $host && filter_var($resolved, FILTER_VALIDATE_IP)) {
+                $host = $resolved;
+            }
         }
 
         $dsn = "mysql:host={$host};port={$port};dbname={$dbname};charset=utf8mb4";

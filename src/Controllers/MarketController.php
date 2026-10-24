@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Services\AuthService;
 use App\Services\BoardroomService;
+use App\Services\KeepAliveService;
 use App\Services\PredictorService;
 use App\Utils\Response;
 use Throwable;
@@ -76,19 +77,45 @@ class MarketController
     public function runCron(): void
     {
         try {
+            $keepAlive = KeepAliveService::pingDatabase();
             $predictor = PredictorService::runRealtimeMaintenance();
             $boardroom = BoardroomService::processQueuedEvaluations(5);
 
             $payload = [
                 'server_time' => date('Y-m-d H:i:s T'),
                 'render_status' => 'warm_active',
+                'aiven_keep_alive' => $keepAlive,
                 'predictor' => $predictor,
                 'boardroom' => $boardroom,
             ];
 
-            Response::success($payload, 'Platform background worker execution completed successfully.');
+            Response::success($payload, 'Platform background worker and Aiven keep-alive query completed successfully.');
         } catch (Throwable $e) {
             Response::error($e->getMessage(), 500);
+        }
+    }
+
+    public function keepAlive(): void
+    {
+        try {
+            $keepAlive = KeepAliveService::pingDatabase();
+            Response::success($keepAlive, 'Aiven database keep-alive ping and user select query executed successfully.');
+        } catch (Throwable $e) {
+            Response::error('Keep-alive execution failed: ' . $e->getMessage(), 500);
+        }
+    }
+
+    public function healthCheck(): void
+    {
+        try {
+            $keepAlive = KeepAliveService::pingDatabase();
+            Response::success([
+                'status' => 'healthy',
+                'database' => 'connected',
+                'keep_alive' => $keepAlive,
+            ], 'System is healthy and database is active.');
+        } catch (Throwable $e) {
+            Response::error('Health check failed: ' . $e->getMessage(), 503);
         }
     }
 }

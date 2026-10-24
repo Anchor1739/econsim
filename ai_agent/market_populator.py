@@ -443,10 +443,16 @@ def get_db():
         tmp.close()
         ssl_ca_path = tmp.name
 
-    # DNS fallback for Windows
-    host = DB_HOST
-    if "mysql-2bedf8b0-anchorgodsown-0077" in host:
-        host = "206.189.97.21"
+    # Dynamic host resolution (supports DB_HOST_IP override or dynamic DNS resolution)
+    host = os.getenv("DB_HOST_IP") or DB_HOST
+    if not os.getenv("DB_HOST_IP") and sys.platform.startswith("win"):
+        try:
+            import socket
+            resolved = socket.gethostbyname(DB_HOST)
+            if resolved:
+                host = resolved
+        except Exception:
+            pass
 
     config = {
         "host": host,
@@ -653,12 +659,37 @@ def synthesize_ai_disruption_catalysts(cursor, conn):
         print(f"[!] Autonomous AI Scanner note: {e}")
 
 
+def execute_keep_alive_query(conn):
+    """Executes a user select query to keep Aiven free-tier database alive and active."""
+    try:
+        cur = conn.cursor(dictionary=True)
+        target_email = os.getenv("KEEP_ALIVE_EMAIL") or os.getenv("ADMIN_EMAIL")
+        if target_email:
+            cur.execute("SELECT id, email, display_name, status, updated_at FROM users WHERE email = %s LIMIT 1", (target_email,))
+            row = cur.fetchone()
+            if row:
+                print(f"[+] Keep-alive user match: {row['email']} (id: {row['id']})")
+        cur.execute("SELECT id, email, status FROM users ORDER BY created_at ASC LIMIT 3")
+        _ = cur.fetchall()
+        cur.execute("SELECT COUNT(*) AS total_users FROM users")
+        total = cur.fetchone()
+        cur.execute("UPDATE platform_features SET updated_at = NOW(3) WHERE code = 'demo_mode' LIMIT 1")
+        conn.commit()
+        cur.close()
+        print(f"[+] Aiven Keep-Alive DB query completed successfully ({total['total_users'] if total else 0} total users).")
+    except Exception as e:
+        print(f"[-] Keep-alive query notice: {e}")
+
+
 def main():
     print("========================================================")
     print(" EconSim Macro & Listed Equities Disruption Populator")
     print("========================================================")
     conn = get_db()
     cursor = conn.cursor()
+
+    # Execute keep-alive query on each invocation
+    execute_keep_alive_query(conn)
 
     ensure_industries(cursor, conn)
     populate_markets(cursor, conn)
