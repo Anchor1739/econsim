@@ -436,7 +436,7 @@ class BoardroomService
                 'submission_id' => $subId,
                 'run_id' => $runId,
                 'status' => 'queued',
-                'message' => 'Executive memo submitted successfully. Queued for AI evaluation.',
+                'message' => 'Executive memo submitted successfully. Queued for executive evaluation.',
                 'xp_awarded' => 100,
             ];
         } catch (\Throwable $e) {

@@ -1680,3 +1680,271 @@ body:not(.theme-dark) .skeleton-shimmer {
   font-size: 12px;
 }
 
+/* -------------------------------------------------------------
+   Mobile Ledger & Table Overflow Containment
+   ------------------------------------------------------------- */
+.table-responsive {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  box-sizing: border-box !important;
+  margin-bottom: 8px;
+}
+
+/* Ensure panels containing tables don't stretch mobile viewport */
+@media (max-width: 768px) {
+  .panel {
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+  
+  .table-responsive table {
+    min-width: 460px;
+  }
+}
+
+/* -------------------------------------------------------------
+   Interactive Glossary & Term Explanation (?) Button
+   ------------------------------------------------------------- */
+.term-help-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(36, 121, 101, 0.12);
+  color: var(--jade);
+  font-size: 10.5px;
+  font-weight: 800;
+  border: 1px solid rgba(36, 121, 101, 0.3);
+  cursor: pointer;
+  margin-left: 6px;
+  vertical-align: middle;
+  transition: all 0.15s ease;
+  padding: 0;
+  line-height: 1;
+}
+
+.term-help-btn:hover {
+  background: var(--jade);
+  color: #ffffff;
+  transform: scale(1.15);
+  box-shadow: 0 2px 6px rgba(36, 121, 101, 0.3);
+}
+
+/* Primary Driver Lever Badge */
+.scenario-driver-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  border-radius: 4px;
+  background: rgba(234, 88, 12, 0.12);
+  color: #ea580c;
+  border: 1px solid rgba(234, 88, 12, 0.3);
+  margin-left: 6px;
+}
+
+/* -------------------------------------------------------------
+   Universal Modal Dialog (For Glossary, Walkthroughs & Prompts)
+   ------------------------------------------------------------- */
+.econsim-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 20, 35, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: fadeIn 0.2s ease forwards;
+}
+
+.econsim-modal {
+  background: var(--surface-card, #ffffff);
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  width: 100%;
+  max-width: 580px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.25);
+  animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.econsim-modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg);
+}
+
+.econsim-modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.econsim-modal-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  line-height: 1;
+}
+
+.econsim-modal-close:hover {
+  background: var(--line);
+  color: var(--text);
+}
+
+.econsim-modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--text);
+}
+
+.econsim-modal-footer {
+  padding: 14px 20px;
+  border-top: 1px solid var(--line);
+  background: var(--bg);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* -------------------------------------------------------------
+   Onboarding Walkthrough Spotlight & Tour Styles
+   ------------------------------------------------------------- */
+.tour-step-counter {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--jade);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tour-card-body {
+  margin-top: 10px;
+}
+
+.tour-feature-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.tour-feature-item {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.tour-feature-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.tour-feature-title {
+  font-weight: 700;
+  color: var(--navy);
+  margin-bottom: 2px;
+}
+
+.tour-feature-desc {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.tour-dots {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.tour-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--line);
+  transition: all 0.2s ease;
+}
+
+.tour-dot.active {
+  background: var(--jade);
+  width: 18px;
+  border-radius: 4px;
+}
+
+/* -------------------------------------------------------------
+   Web Push Permission Banner Prompt
+   ------------------------------------------------------------- */
+.push-prompt-banner {
+  background: linear-gradient(90deg, rgba(36, 121, 101, 0.12), rgba(20, 40, 65, 0.08));
+  border: 1.5px solid rgba(36, 121, 101, 0.35);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  box-shadow: 0 4px 14px rgba(36, 121, 101, 0.08);
+  animation: fadeIn 0.3s ease;
+}
+
+.push-prompt-text {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.45;
+  flex: 1;
+  min-width: 250px;
+}
+
+.push-prompt-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
