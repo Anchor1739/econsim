@@ -1,4 +1,91 @@
 // EconSim Main Application Controller
+function getStoredNotifications() {
+  const now = Date.now();
+  try {
+    const raw = localStorage.getItem('econsim-notifications');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map((n, i) => {
+          if (!n.timestamp) {
+            n.timestamp = now - (i + 1) * 8 * 60 * 1000;
+          }
+          return n;
+        });
+      }
+    }
+  } catch (e) {}
+
+  return [
+    {
+      id: 'notif_init_1',
+      title: 'Executive Boardroom Dilemma Active',
+      message: 'The Runway Crisis challenge is available. Step into the arena and formulate your capital strategy.',
+      target_page: 'boardroom',
+      target_id: 'ch_1',
+      category: 'boardroom',
+      timestamp: now - 3 * 60 * 1000,
+      read: false,
+    },
+    {
+      id: 'notif_init_2',
+      title: 'Macroeconomic Catalyst Contract Open',
+      message: 'CBN MPR Interest Rate Communique contract is live. Evaluate consensus odds and forecast.',
+      target_page: 'predictor',
+      target_id: 'mkt_1',
+      category: 'market',
+      timestamp: now - 18 * 60 * 1000,
+      read: false,
+    },
+    {
+      id: 'notif_init_3',
+      title: 'Virtual Demonstration Capital Credited',
+      message: '₦500,000 educational virtual capital is active on your double-entry ledger.',
+      target_page: 'wallet',
+      target_id: null,
+      category: 'wallet',
+      timestamp: now - 50 * 60 * 1000,
+      read: true,
+    },
+  ];
+}
+
+function formatNotifTime(timestamp) {
+  if (!timestamp) return 'Just now';
+  const now = Date.now();
+  const diffMs = now - Number(timestamp);
+  if (isNaN(diffMs) || diffMs < 0) return 'Just now';
+
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return 'Just now';
+
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return `${diffHour}h ago`;
+
+  const diffDays = Math.floor(diffHour / 24);
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays}d ago`;
+
+  return new Date(timestamp).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });
+}
+
+function formatNotifExactTime(timestamp) {
+  if (!timestamp) return '';
+  try {
+    return new Date(timestamp).toLocaleString('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+      day: 'numeric',
+      month: 'short'
+    });
+  } catch (e) {
+    return '';
+  }
+}
+
 let state = {
   user: null,
   page: 'dashboard',
@@ -21,38 +108,7 @@ let state = {
   },
   features: {},
   leaderboardTab: 'All',
-  notifications: JSON.parse(localStorage.getItem('econsim-notifications') || 'null') || [
-    {
-      id: 'notif_init_1',
-      title: 'Executive Boardroom Challenge Ready',
-      message: 'The Runway Crisis dilemma is active. Step into the arena and formulate your liquidity plan.',
-      target_page: 'boardroom',
-      target_id: 'ch_1',
-      category: 'boardroom',
-      time: '12m ago',
-      read: false,
-    },
-    {
-      id: 'notif_init_2',
-      title: 'Economic Catalyst Contract Alert',
-      message: 'MPC Interest Rate Communique decision contract is approaching resolution. Inspect your position.',
-      target_page: 'predictor',
-      target_id: 'mkt_1',
-      category: 'market',
-      time: '45m ago',
-      read: false,
-    },
-    {
-      id: 'notif_init_3',
-      title: 'Virtual Educational Capital Credited',
-      message: '₦500,000 demonstration capital is available on your virtual ledger account.',
-      target_page: 'wallet',
-      target_id: null,
-      category: 'wallet',
-      time: '2h ago',
-      read: true,
-    },
-  ],
+  notifications: getStoredNotifications(),
   isNotifOpen: false,
   lab: {
     selectedIndustry: 'monetary',
@@ -547,50 +603,72 @@ function dismissPushBanner() {
 }
 
 function sendSystemNotification(title, message, target_page = 'dashboard', target_id = null, category = 'boardroom') {
+  const timestamp = Date.now();
   const newNotif = {
-    id: 'notif_' + Date.now(),
+    id: 'notif_' + timestamp + '_' + Math.random().toString(36).substring(2, 6),
     title,
     message,
     target_page,
     target_id,
     category,
-    time: 'Just now',
+    timestamp,
     read: false,
   };
 
   if (!state.notifications) state.notifications = [];
   state.notifications.unshift(newNotif);
+  if (state.notifications.length > 50) {
+    state.notifications = state.notifications.slice(0, 50);
+  }
   saveNotificationsToStorage();
   updateNotifBadges();
 
   // In-App Toast
   api.toast(`🔔 ${title}: ${message}`, 'info');
 
-  // Native Web Push Notification (via Service Worker or Native Notification fallback)
+  // Native Web Push Notification (via Service Worker or Native Notification API)
   if ('Notification' in window && Notification.permission === 'granted') {
     try {
-      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      const notifUrl = target_page === 'boardroom' && target_id 
+        ? `/?page=live_challenge&challengeId=${target_id}` 
+        : `/?page=${target_page}`;
+
+      const iconSvg = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%23059669"/><text y=".75em" x="20" font-size="70" fill="white">↗</text></svg>';
+
+      if ('serviceWorker' in navigator) {
         navigator.serviceWorker.ready.then(reg => {
           reg.showNotification(title, {
             body: message,
-            icon: '/favicon.ico',
-            badge: '/favicon.ico',
+            icon: iconSvg,
+            badge: iconSvg,
             tag: 'econsim-' + Date.now(),
-            data: { url: target_page === 'boardroom' && target_id ? `/?page=live_challenge&challengeId=${target_id}` : `/?page=${target_page}` }
+            renotify: true,
+            data: { url: notifUrl }
           });
+        }).catch(() => {
+          showNativeNotificationFallback(title, message, notifUrl, newNotif.id);
         });
       } else {
-        const n = new Notification(title, {
-          body: message,
-          icon: '/favicon.ico',
-        });
-        n.onclick = () => {
-          window.focus();
-          handleNotificationClick(newNotif.id);
-        };
+        showNativeNotificationFallback(title, message, notifUrl, newNotif.id);
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn('Native push error:', e);
+    }
   }
+}
+
+function showNativeNotificationFallback(title, message, url, notifId) {
+  try {
+    const iconSvg = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%23059669"/><text y=".75em" x="20" font-size="70" fill="white">↗</text></svg>';
+    const n = new Notification(title, {
+      body: message,
+      icon: iconSvg
+    });
+    n.onclick = () => {
+      window.focus();
+      handleNotificationClick(notifId);
+    };
+  } catch (err) {}
 }
 
 // -------------------------------------------------------------
@@ -1475,10 +1553,13 @@ function renderNotifDropdownContent() {
         <div style="padding: 28px 16px; text-align: center; color: var(--muted); font-size: 12.5px;">
           No notifications yet. You will receive live alerts for boardroom matches and market events.
         </div>
-      ` : notifs.map(n => `
+      ` : notifs.map(n => {
+        const timeStr = formatNotifTime(n.timestamp || n.created_at);
+        const exactTime = formatNotifExactTime(n.timestamp || n.created_at);
+        return `
         <div class="notif-item ${!n.read ? 'unread' : ''}" onclick="handleNotificationClick('${n.id}')">
           <div class="notif-icon-box">
-            ${n.category === 'boardroom' ? '🏦' : (n.category === 'market' ? '📈' : (n.category === 'wallet' ? '💳' : '✦'))}
+            ${n.category === 'boardroom' ? '🏛️' : (n.category === 'market' ? '📈' : (n.category === 'wallet' ? '💳' : '🔔'))}
           </div>
           <div class="notif-content">
             <div class="notif-title">
@@ -1487,12 +1568,13 @@ function renderNotifDropdownContent() {
             </div>
             <div class="notif-desc">${n.message}</div>
             <div class="notif-meta">
-              <span>${n.time}</span>
+              <span title="${exactTime}">⏱ ${timeStr}</span>
               <span style="color: var(--jade); font-weight: 600;">Open &rarr;</span>
             </div>
           </div>
         </div>
-      `).join('')}
+      `;
+      }).join('')}
     </div>
 
     <div class="notif-footer">
@@ -3631,6 +3713,13 @@ async function handlePlaceForecast(e, eventId) {
       mode: currentMode,
     });
     api.toast(res.message || 'Forecast recorded successfully!', 'success');
+    sendSystemNotification(
+      'Forecast Position Placed',
+      `Allocated ₦${amt.toLocaleString()} on ${chosenOutcome.toUpperCase()} in ${currentMode.toUpperCase()} mode.`,
+      'predictor',
+      eventId,
+      'market'
+    );
     await loadWalletData();
     navigate('predictor');
   } catch (err) {}
@@ -3701,6 +3790,13 @@ async function handleCreateChallenge(e) {
       mode,
     });
     api.toast(res.message, 'success');
+    sendSystemNotification(
+      'Boardroom Challenge Created',
+      `Challenge #${res.data?.challenge_id || ''} created with ₦${stake.toLocaleString()} stake. Waiting for challenger.`,
+      'waiting_room',
+      res.data?.challenge_id,
+      'boardroom'
+    );
     navigate('waiting_room', { challengeId: res.data.challenge_id });
   } catch (err) {}
 }
@@ -3709,6 +3805,13 @@ async function handleJoinChallenge(challengeId) {
   try {
     const res = await api.post(`/boardroom/join/${challengeId}`);
     api.toast('Challenge accepted! Scenario revealed.', 'success');
+    sendSystemNotification(
+      'Boardroom Duel Commenced',
+      'You joined a live boardroom challenge. Scenario is now unlocked.',
+      'live_challenge',
+      challengeId,
+      'boardroom'
+    );
     navigate('live_challenge', { challengeId });
   } catch (err) {}
 }
@@ -3750,6 +3853,13 @@ async function loadWaitingRoomData(challengeId) {
 async function handleStartDemoMatch(challengeId) {
   try {
     await api.post(`/boardroom/start-demo/${challengeId}`);
+    sendSystemNotification(
+      'Boardroom Match Live',
+      'The dilemma scenario has unsealed. Review parameters and draft your response memo.',
+      'live_challenge',
+      challengeId,
+      'boardroom'
+    );
     navigate('live_challenge', { challengeId });
   } catch (e) {}
 }
@@ -3822,6 +3932,13 @@ async function handleSubmitMemo(e, challengeId) {
   try {
     const res = await api.post(`/boardroom/submit/${challengeId}`, { answer });
     api.toast(res.message, 'success');
+    sendSystemNotification(
+      'Executive Strategy Memo Submitted',
+      'Your memo has been queued for strategic evaluation by the Adjudication Council.',
+      'challenge_report',
+      challengeId,
+      'boardroom'
+    );
     navigate('challenge_report', { challengeId });
   } catch (err) {}
 }
@@ -3928,6 +4045,26 @@ async function loadWalletData() {
   } catch (e) {}
 }
 
+async function handleClaimGrant() {
+  try {
+    const res = await api.post('/wallet/claim-grant', {});
+    api.toast(res.message || '₦500,000 demo capital credited!', 'success');
+    sendSystemNotification(
+      'Demo Capital Credited',
+      '₦500,000 virtual demonstration funds have been verified and added to your ledger.',
+      'wallet',
+      null,
+      'wallet'
+    );
+    await loadWalletData();
+    if (state.page === 'wallet') {
+      renderWalletPage();
+    }
+  } catch (err) {
+    api.toast(err.message || 'Unable to claim demo grant at this time.', 'info');
+  }
+}
+
 function switchWalletMode(m) {
   const norm = (m || 'demo').toLowerCase();
   if (norm === 'real' && !state.features?.real_mode) {
@@ -3959,6 +4096,13 @@ async function handleDepositSubmit(e) {
   try {
     const res = await api.post('/funding/initialize', { amount: amt });
     if (res?.data?.checkout_url) {
+      sendSystemNotification(
+        'Deposit Checkout Initialized',
+        `A secure deposit of ₦${amt.toLocaleString()} has been generated. Redirecting to payment processor...`,
+        'wallet',
+        null,
+        'wallet'
+      );
       api.toast('Opening secure payment checkout...', 'info');
       setTimeout(() => {
         window.location.href = res.data.checkout_url;
@@ -3996,6 +4140,13 @@ async function handleWithdrawSubmit(e) {
       amount: amt,
     });
     api.toast(res.message || 'Settlement withdrawal queued successfully!', 'success');
+    sendSystemNotification(
+      'Settlement Withdrawal Queued',
+      `Withdrawal request for ₦${amt.toLocaleString()} submitted for compliance audit.`,
+      'wallet',
+      null,
+      'wallet'
+    );
     await loadWalletData();
     navigate('wallet');
   } catch (err) {}
