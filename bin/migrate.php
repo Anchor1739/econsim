@@ -51,12 +51,18 @@ try {
 
     echo "✓ Successfully applied {$count} migration statements.\n";
 
-    // Ensure seen_tours column exists in user_preferences
+    // Ensure seen_tours and fcm_token columns exist in user_preferences
     try {
         $colCheck = $pdo->query("SHOW COLUMNS FROM user_preferences LIKE 'seen_tours'")->fetch();
         if (!$colCheck) {
             $pdo->exec("ALTER TABLE user_preferences ADD COLUMN seen_tours JSON NULL AFTER notifications_enabled");
             echo "✓ Added 'seen_tours' column to user_preferences.\n";
+        }
+
+        $fcmCheck = $pdo->query("SHOW COLUMNS FROM user_preferences LIKE 'fcm_token'")->fetch();
+        if (!$fcmCheck) {
+            $pdo->exec("ALTER TABLE user_preferences ADD COLUMN fcm_token TEXT NULL AFTER seen_tours");
+            echo "✓ Added 'fcm_token' column to user_preferences.\n";
         }
     } catch (\Throwable $e) {}
 

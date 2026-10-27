@@ -711,5 +711,24 @@ SECURITY & DATA PRIVACY DIRECTIVES:
         }
         return [];
     }
+
+    public static function saveFcmToken(string $userId, string $fcmToken): bool
+    {
+        $fcmToken = trim($fcmToken);
+        if (empty($fcmToken)) {
+            return false;
+        }
+
+        $pdo = Database::getConnection();
+        $stmt = $pdo->prepare(
+            "INSERT INTO user_preferences (user_id, fcm_token)
+             VALUES (:uid, :token)
+             ON DUPLICATE KEY UPDATE fcm_token = VALUES(fcm_token)"
+        );
+        return $stmt->execute([
+            ':uid' => $userId,
+            ':token' => $fcmToken,
+        ]);
+    }
 }
 

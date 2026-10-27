@@ -44,6 +44,7 @@ CREATE TABLE user_preferences (
  preferred_mode ENUM('demo','real') NOT NULL DEFAULT 'demo',
  notifications_enabled BOOLEAN NOT NULL DEFAULT TRUE,
  seen_tours JSON NULL,
+ fcm_token TEXT NULL,
  updated_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;

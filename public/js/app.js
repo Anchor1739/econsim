@@ -557,17 +557,26 @@ async function requestPushPermission() {
   try {
     if ('serviceWorker' in navigator) {
       try {
-        await navigator.serviceWorker.register('/sw.js');
-      } catch (e) {}
+        await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+      } catch (e) {
+        try {
+          await navigator.serviceWorker.register('/sw.js');
+        } catch (_) {}
+      }
     }
 
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
-      api.toast('Push alerts enabled! You will receive live alerts for boardroom matches.', 'success');
+      api.toast('Push alerts enabled! You will receive live native notifications.', 'success');
       localStorage.setItem('econsim-push-enabled', 'true');
       
       const banner = document.getElementById('push-prompt-banner');
       if (banner) banner.remove();
+
+      // Retrieve and register Firebase Cloud Messaging token
+      if (typeof window.requestFcmToken === 'function') {
+        window.requestFcmToken().catch(() => {});
+      }
 
       sendSystemNotification(
         'Push Notifications Active',
@@ -652,6 +661,7 @@ function sendSystemNotification(title, message, target_page = 'dashboard', targe
 
       const iconSvg = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%23059669"/><text y=".75em" x="20" font-size="70" fill="white">↗</text></svg>';
 
+      let displayed = false;
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.ready.then(reg => {
           reg.showNotification(title, {
@@ -660,19 +670,26 @@ function sendSystemNotification(title, message, target_page = 'dashboard', targe
             badge: iconSvg,
             tag: 'econsim-' + Date.now(),
             renotify: true,
+            vibrate: [150, 75, 150],
             data: { url: notifUrl }
+          }).then(() => {
+            displayed = true;
+          }).catch(() => {
+            if (!displayed) showNativeNotificationFallback(title, message, notifUrl, newNotif.id);
           });
         }).catch(() => {
-          showNativeNotificationFallback(title, message, notifUrl, newNotif.id);
+          if (!displayed) showNativeNotificationFallback(title, message, notifUrl, newNotif.id);
         });
       } else {
         showNativeNotificationFallback(title, message, notifUrl, newNotif.id);
       }
     } catch (e) {
       console.warn('Native push error:', e);
+      showNativeNotificationFallback(title, message, '/', newNotif.id);
     }
   }
 }
+window.sendSystemNotification = sendSystemNotification;
 
 function showNativeNotificationFallback(title, message, url, notifId) {
   try {

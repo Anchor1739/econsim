@@ -221,5 +221,27 @@ class ProfileController
             Response::error($e->getMessage(), 500);
         }
     }
+
+    public function saveFcmToken(): void
+    {
+        $user = AuthService::getCurrentUser();
+        if (!$user) {
+            Response::error('Unauthenticated', 401);
+        }
+
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+        $token = trim((string)($body['fcm_token'] ?? ''));
+
+        if (empty($token)) {
+            Response::error('FCM Token is required', 400);
+        }
+
+        try {
+            ProfileService::saveFcmToken($user['id'], $token);
+            Response::success(['token_saved' => true], 'Device registered for Firebase push notifications.');
+        } catch (Throwable $e) {
+            Response::error($e->getMessage(), 500);
+        }
+    }
 }
 
