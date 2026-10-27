@@ -17,13 +17,22 @@ class ProfileService
         // User and preferences
         $stmt = $pdo->prepare(
             "SELECT u.id, u.email, u.display_name, u.country_code, u.status, u.created_at,
-                    p.theme, p.preferred_mode, p.notifications_enabled
+                    p.theme, p.preferred_mode, p.notifications_enabled, p.seen_tours
              FROM users u
              LEFT JOIN user_preferences p ON u.id = p.user_id
              WHERE u.id = ?"
         );
         $stmt->execute([$userId]);
         $user = $stmt->fetch();
+
+        if ($user) {
+            if (!empty($user['seen_tours'])) {
+                $decoded = json_decode((string)$user['seen_tours'], true);
+                $user['seen_tours'] = is_array($decoded) ? $decoded : [];
+            } else {
+                $user['seen_tours'] = [];
+            }
+        }
 
         // Total XP
         $xpStmt = $pdo->prepare("SELECT COALESCE(SUM(xp), 0) FROM xp_events WHERE user_id = ?");
@@ -88,6 +97,7 @@ class ProfileService
 
         return [
             'user' => $user,
+            'seen_tours' => $user['seen_tours'] ?? [],
             'xp' => $totalXp,
             'level' => $levelInfo,
             'active_forecasts' => $openForecastCount,
@@ -645,6 +655,61 @@ SECURITY & DATA PRIVACY DIRECTIVES:
             return ['level' => 2, 'name' => 'Junior Analyst', 'next_milestone' => 2000, 'progress_pct' => (int)(($xp - 1000) / 10)];
         }
         return ['level' => 1, 'name' => 'Novice Analyst', 'next_milestone' => 1000, 'progress_pct' => (int)($xp / 10)];
+    }
+
+    public static function markTourSeen(string $userId, string $page): array
+    {
+        $page = trim(strtolower($page));
+        if (empty($page)) {
+            return self::getSeenTours($userId);
+        }
+
+        $pdo = Database::getConnection();
+
+        // Fetch current seen_tours map
+        $stmt = $pdo->prepare("SELECT seen_tours FROM user_preferences WHERE user_id = ?");
+        $stmt->execute([$userId]);
+        $raw = $stmt->fetchColumn();
+
+        $current = [];
+        if ($raw) {
+            $decoded = json_decode((string)$raw, true);
+            if (is_array($decoded)) {
+                $current = $decoded;
+            }
+        }
+
+        // Mark this page as seen
+        $current[$page] = true;
+        $json = json_encode($current);
+
+        // Upsert into user_preferences
+        $up = $pdo->prepare(
+            "INSERT INTO user_preferences (user_id, seen_tours)
+             VALUES (:uid, :tours)
+             ON DUPLICATE KEY UPDATE seen_tours = VALUES(seen_tours)"
+        );
+        $up->execute([
+            ':uid' => $userId,
+            ':tours' => $json,
+        ]);
+
+        return $current;
+    }
+
+    public static function getSeenTours(string $userId): array
+    {
+        $pdo = Database::getConnection();
+        $stmt = $pdo->prepare("SELECT seen_tours FROM user_preferences WHERE user_id = ?");
+        $stmt->execute([$userId]);
+        $raw = $stmt->fetchColumn();
+        if ($raw) {
+            $decoded = json_decode((string)$raw, true);
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+        }
+        return [];
     }
 }
 

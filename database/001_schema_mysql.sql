@@ -43,6 +43,7 @@ CREATE TABLE user_preferences (
  user_id CHAR(36) PRIMARY KEY, theme ENUM('light','dark','system') NOT NULL DEFAULT 'system',
  preferred_mode ENUM('demo','real') NOT NULL DEFAULT 'demo',
  notifications_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+ seen_tours JSON NULL,
  updated_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;

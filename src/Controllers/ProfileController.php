@@ -179,5 +179,47 @@ class ProfileController
             Response::error($e->getMessage(), 500);
         }
     }
+
+    public function markTourSeen(): void
+    {
+        $user = AuthService::getCurrentUser();
+        if (!$user) {
+            Response::error('Unauthenticated', 401);
+        }
+
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+        $page = trim((string)($body['page'] ?? ''));
+
+        if (empty($page)) {
+            Response::error('Page parameter is required', 400);
+        }
+
+        try {
+            $seenTours = ProfileService::markTourSeen($user['id'], $page);
+            Response::success([
+                'page' => $page,
+                'seen_tours' => $seenTours,
+            ], 'Tour state successfully saved to database.');
+        } catch (Throwable $e) {
+            Response::error($e->getMessage(), 500);
+        }
+    }
+
+    public function getSeenTours(): void
+    {
+        $user = AuthService::getCurrentUser();
+        if (!$user) {
+            Response::error('Unauthenticated', 401);
+        }
+
+        try {
+            $seenTours = ProfileService::getSeenTours($user['id']);
+            Response::success([
+                'seen_tours' => $seenTours,
+            ]);
+        } catch (Throwable $e) {
+            Response::error($e->getMessage(), 500);
+        }
+    }
 }
 

@@ -110,6 +110,7 @@ let state = {
   leaderboardTab: 'All',
   notifications: getStoredNotifications(),
   isNotifOpen: false,
+  seenTours: {},
   lab: {
     selectedIndustry: 'monetary',
     industries: [],
@@ -272,6 +273,22 @@ async function initApp() {
       if (res.data.theme) {
         applyTheme(res.data.theme);
       }
+
+      // Synchronize database seen_tours and local storage cache
+      state.seenTours = {};
+      if (res.data.seen_tours && typeof res.data.seen_tours === 'object') {
+        Object.assign(state.seenTours, res.data.seen_tours);
+      }
+      // Merge any existing local storage flags into state & sync back
+      ['dashboard', 'scenario_lab', 'lab', 'predictor', 'boardroom', 'wallet', 'leaderboard', 'mentor', 'profile'].forEach(pg => {
+        if (localStorage.getItem('econsim-tour-seen-' + pg)) {
+          state.seenTours[pg] = true;
+        }
+        if (state.seenTours[pg]) {
+          localStorage.setItem('econsim-tour-seen-' + pg, 'true');
+        }
+      });
+
       navigate(targetPage || 'dashboard', { marketId: targetMarketId, challengeId: targetChallengeId });
       return;
     }
@@ -1399,6 +1416,7 @@ function startPageTourModal(page = null) {
 
 function startPageTour(page = null) {
   const p = page || state.page || 'dashboard';
+  markTourSeen(p);
   startInteractiveDriverTour(p);
 }
 
@@ -1487,23 +1505,43 @@ function closeTourModal(e) {
 
 function toggleTourAutoShow(checked) {
   if (checked) {
-    localStorage.setItem('econsim-tour-seen-' + currentTourPage, 'true');
+    markTourSeen(currentTourPage);
   } else {
+    delete state.seenTours[currentTourPage];
     localStorage.removeItem('econsim-tour-seen-' + currentTourPage);
   }
 }
 
 function markTourSeen(page) {
+  if (!page) return;
+  state.seenTours[page] = true;
   localStorage.setItem('econsim-tour-seen-' + page, 'true');
+
+  // Persist to database for authenticated user so tour state syncs across all devices & sessions
+  if (state.user) {
+    api.post('/profile/tour-seen', { page }).catch(() => {});
+  }
 }
 
 function checkAutoTourForPage(page) {
-  if (!page || ['login', 'signup', 'verify', 'forgot', 'reset'].includes(page)) return;
-  if (!localStorage.getItem('econsim-tour-seen-' + page)) {
-    setTimeout(() => {
-      startPageTour(page);
-    }, 700);
+  if (!page || ['login', 'signup', 'verify', 'forgot', 'reset', 'welcome', 'onboarding'].includes(page)) return;
+
+  // Check if user has already opened or seen this page's tour in DB state or localStorage
+  const hasSeenState = !!state.seenTours[page];
+  const hasSeenStorage = !!localStorage.getItem('econsim-tour-seen-' + page);
+
+  if (hasSeenState || hasSeenStorage) {
+    // User has already opened/seen this page before - no need to pop up automatically!
+    return;
   }
+
+  // First time opening this page: record in DB and trigger the tour once
+  setTimeout(() => {
+    if (state.page === page && !state.seenTours[page] && !localStorage.getItem('econsim-tour-seen-' + page)) {
+      markTourSeen(page);
+      startPageTour(page);
+    }
+  }, 700);
 }
 
 function triggerSampleBoardroomNotif(e) {
@@ -1877,6 +1915,10 @@ function renderAppShell(innerHtml) {
             <button class="nav-item ${state.page === 'leaderboard' ? 'active' : ''}" onclick="navigate('leaderboard'); closeMobileDrawer();">
               <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34c3.48-1.07 6-4.28 6-8.66V3H4v3c0 4.38 2.52 7.59 6 8.66z"/></svg></span>
               <span class="text">Leaderboard</span>
+            </button>
+            <button class="nav-item" onclick="closeMobileDrawer(); startPageTour();" title="Launch guided tour walkthrough for this page">
+              <span class="nav-icon" style="font-size: 16px;">💡</span>
+              <span class="text">Page Guided Tour</span>
             </button>
 
             <div class="sidebar-label" style="margin-top: 18px;">ACCOUNT</div>
@@ -5017,6 +5059,12 @@ async function handleAuthSubmit(e, type) {
       });
       api.toast('Signed in successfully!', 'success');
       state.user = res.data;
+      if (res.data?.seen_tours && typeof res.data.seen_tours === 'object') {
+        state.seenTours = Object.assign({}, res.data.seen_tours);
+        Object.keys(state.seenTours).forEach(pg => {
+          if (state.seenTours[pg]) localStorage.setItem('econsim-tour-seen-' + pg, 'true');
+        });
+      }
       navigate('dashboard');
     } else if (type === 'signup') {
       const res = await api.post('/auth/register', {

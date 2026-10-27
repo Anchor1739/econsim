@@ -112,6 +112,8 @@ if (str_starts_with($path, '/api/')) {
     // Profile, Settings, Leaderboard, Lab, Mentor
     $router->get('/api/profile', [ProfileController::class, 'getProfile']);
     $router->patch('/api/profile', [ProfileController::class, 'updateProfile']);
+    $router->get('/api/profile/tour-seen', [ProfileController::class, 'getSeenTours']);
+    $router->post('/api/profile/tour-seen', [ProfileController::class, 'markTourSeen']);
     $router->get('/api/leaderboard', [ProfileController::class, 'getLeaderboard']);
     $router->post('/api/mentor/ask', [ProfileController::class, 'askMentor']);
     $router->get('/api/lab/meta', [ProfileController::class, 'getScenarioLabMeta']);

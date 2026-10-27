@@ -245,11 +245,26 @@ class AuthService
 
         $session = self::createSession($user['id']);
 
+        // Attach user preferences including seen_tours
+        $prefStmt = $pdo->prepare("SELECT seen_tours, theme, preferred_mode, notifications_enabled FROM user_preferences WHERE user_id = ? LIMIT 1");
+        $prefStmt->execute([$user['id']]);
+        $prefs = $prefStmt->fetch();
+        $seenTours = [];
+        if ($prefs && !empty($prefs['seen_tours'])) {
+            $decoded = json_decode((string)$prefs['seen_tours'], true);
+            if (is_array($decoded)) {
+                $seenTours = $decoded;
+            }
+        }
+
         return [
             'user_id' => $user['id'],
             'email' => $user['email'],
             'display_name' => $user['display_name'],
             'status' => $user['status'],
+            'seen_tours' => $seenTours,
+            'theme' => $prefs['theme'] ?? 'system',
+            'preferred_mode' => $prefs['preferred_mode'] ?? 'demo',
             'session' => $session,
         ];
     }
@@ -306,7 +321,7 @@ class AuthService
 
         $stmt = $pdo->prepare(
             "SELECT u.id, u.email, u.display_name, u.country_code, u.status, u.email_verified_at,
-                    p.theme, p.preferred_mode, p.notifications_enabled
+                    p.theme, p.preferred_mode, p.notifications_enabled, p.seen_tours
              FROM auth_sessions s
              JOIN users u ON s.user_id = u.id
              LEFT JOIN user_preferences p ON u.id = p.user_id
@@ -318,6 +333,13 @@ class AuthService
 
         if (!$user) {
             return null;
+        }
+
+        if (!empty($user['seen_tours'])) {
+            $decoded = json_decode((string)$user['seen_tours'], true);
+            $user['seen_tours'] = is_array($decoded) ? $decoded : [];
+        } else {
+            $user['seen_tours'] = [];
         }
 
         // Fetch user industries

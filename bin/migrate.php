@@ -51,6 +51,15 @@ try {
 
     echo "✓ Successfully applied {$count} migration statements.\n";
 
+    // Ensure seen_tours column exists in user_preferences
+    try {
+        $colCheck = $pdo->query("SHOW COLUMNS FROM user_preferences LIKE 'seen_tours'")->fetch();
+        if (!$colCheck) {
+            $pdo->exec("ALTER TABLE user_preferences ADD COLUMN seen_tours JSON NULL AFTER notifications_enabled");
+            echo "✓ Added 'seen_tours' column to user_preferences.\n";
+        }
+    } catch (\Throwable $e) {}
+
     // Auto-run seed
     $seedFile = dirname(__DIR__) . '/database/seed_demo_data.sql';
     if (file_exists($seedFile)) {

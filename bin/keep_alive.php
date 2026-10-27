@@ -42,3 +42,4 @@ try {
     echo "[-] Keep-alive execution failed: " . $e->getMessage() . "\n";
     exit(1);
 }
+
