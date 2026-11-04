@@ -32,6 +32,23 @@ class Database
             $resolved = @gethostbyname($host);
             if (!empty($resolved) && $resolved !== $host && filter_var($resolved, FILTER_VALIDATE_IP)) {
                 $host = $resolved;
+            } else {
+                // Windows DNS fallback via Google DNS over HTTPS for Aiven cloud domains
+                try {
+                    $ctx = stream_context_create(['http' => ['timeout' => 2]]);
+                    $doh = @file_get_contents("https://dns.google/resolve?name=" . urlencode($host) . "&type=A", false, $ctx);
+                    if ($doh) {
+                        $json = json_decode($doh, true);
+                        if (!empty($json['Answer'])) {
+                            foreach ($json['Answer'] as $ans) {
+                                if (($ans['type'] ?? 0) === 1 && !empty($ans['data']) && filter_var($ans['data'], FILTER_VALIDATE_IP)) {
+                                    $host = $ans['data'];
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                } catch (\Throwable $e) {}
             }
         }
 

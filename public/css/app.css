@@ -9,8 +9,10 @@
   --jade-hover: #1e6554;
   --bg: #f5f7fa;
   --card-bg: #ffffff;
+  --surface: #ffffff;
   --surface-card: #ffffff;
   --line: #e2e8f0;
+  --border: #e2e8f0;
   --text: #17243a;
   --muted: #64748b;
   --gold: #d97706;
@@ -23,6 +25,7 @@
 }
 
 .theme-dark {
+  color-scheme: dark;
   --navy: #e2e8f0;
   --navy-dark: #060d17;
   --jade: #2dd4bf;
@@ -30,8 +33,10 @@
   --jade-hover: #14b8a6;
   --bg: #09121f;
   --card-bg: #0f1e33;
+  --surface: #0f1e33;
   --surface-card: #0f1e33;
   --line: #1c314f;
+  --border: #1c314f;
   --text: #f1f5f9;
   --muted: #94a3b8;
   --gold: #fbbf24;
@@ -2108,5 +2113,85 @@ body:not(.theme-dark) .skeleton-shimmer {
     font-size: 12.5px !important;
   }
 }
+
+/* Responsive Theses Grid */
+.theses-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 600px) {
+  .theses-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .auth-form-wrap {
+    padding: 24px 16px !important;
+  }
+}
+
+/* Mobile & Tablet Page Head Responsiveness */
+@media (max-width: 768px) {
+  .page-head {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+  }
+  .page-head h1 {
+    font-size: 22px !important;
+  }
+}
+
+/* Toast & Mobile Notification Dropdown Fixes */
+@media (max-width: 860px) {
+  #toast {
+    bottom: 76px !important;
+    left: 16px !important;
+    right: 16px !important;
+    max-width: calc(100vw - 32px) !important;
+    word-break: break-word !important;
+  }
+  #notif-dropdown-mobile {
+    position: fixed !important;
+    top: 60px !important;
+    left: 12px !important;
+    right: 12px !important;
+    width: auto !important;
+    max-width: 380px !important;
+    margin-left: auto !important;
+  }
+}
+
+/* Mobile Topbar & Metric Compactness (< 420px) */
+@media (max-width: 420px) {
+  .mobile-topbar {
+    padding: 0 10px !important;
+  }
+  .mobile-topbar-actions {
+    gap: 6px !important;
+  }
+  .mobile-topbar-brand .brand-text {
+    font-size: 15px !important;
+  }
+  .mobile-mode-pill {
+    padding: 3px 7px !important;
+    font-size: 10px !important;
+  }
+  .mobile-hamburger-btn {
+    width: 34px !important;
+    height: 34px !important;
+  }
+  .metrics-row {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+  .metric-card strong {
+    font-size: 20px !important;
+    word-break: break-word !important;
+  }
+}
+
 
 

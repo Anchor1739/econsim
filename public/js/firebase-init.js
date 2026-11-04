@@ -54,11 +54,11 @@ export async function initFirebaseMessaging() {
   }
 
   try {
-    // Register the dedicated Firebase Messaging Service Worker
-    swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+    // Register the unified Service Worker (handles PWA installation, caching, and push notifications)
+    swRegistration = await navigator.serviceWorker.register('/sw.js', {
       scope: '/'
     });
-    console.log('[Firebase FCM] Service Worker registered successfully:', swRegistration.scope);
+    console.log('[Firebase FCM / SW] Service Worker registered successfully:', swRegistration.scope);
 
     messaging = getMessaging(app);
 
@@ -190,3 +190,4 @@ if (document.readyState === 'loading') {
 } else {
   initFirebaseMessaging().catch(() => {});
 }
+

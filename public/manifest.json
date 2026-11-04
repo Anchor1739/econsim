@@ -1,0 +1,53 @@
+{
+  "name": "EconSim — Financial Intelligence & Strategy Terminal",
+  "short_name": "EconSim",
+  "description": "Executive economic simulation, live boardroom strategy duels, and macroeconomic prediction contracts.",
+  "start_url": "/",
+  "id": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#030816",
+  "theme_color": "#030816",
+  "categories": ["finance", "productivity", "business", "education"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Predictor Markets",
+      "short_name": "Predictor",
+      "url": "/?page=predictor",
+      "description": "Macroeconomic consensus contracts"
+    },
+    {
+      "name": "Boardroom Arena",
+      "short_name": "Boardroom",
+      "url": "/?page=boardroom",
+      "description": "Live executive strategy dilemma challenges"
+    },
+    {
+      "name": "Scenario Lab",
+      "short_name": "Lab",
+      "url": "/?page=lab",
+      "description": "Econometric stress engine and policy levers"
+    }
+  ]
+}
+

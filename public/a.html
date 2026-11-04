@@ -3,12 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#070b12">
   <title>EconSim Operations Console // Institutional Terminal</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
+      color-scheme: dark;
       --bg: #070b12;
       --surface: #0d1424;
       --surface-elevated: #131d33;
@@ -706,10 +708,12 @@
       }
 
       .table-responsive {
-        margin: 0 -12px;
-        padding: 0 12px;
-        width: calc(100% + 24px);
-        max-width: calc(100% + 24px);
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
       }
     }
 
@@ -932,7 +936,105 @@
         </div>
       </div>
 
-      <!-- Real Funding Stream Audit Ledger -->
+            <!-- Boardroom Strategy Grading & Adjudication Desk -->
+      <div class="panel" style="margin-bottom: 32px;" id="boardroom-grading-desk-panel">
+        <div class="panel-header" style="align-items: flex-start;">
+          <div>
+            <div class="panel-title">
+              <span>🏛️</span> Boardroom Strategy Grading &amp; Review Desk
+            </div>
+            <div class="panel-subtitle">Dual Mode: Autonomous AI Adjudication vs Human-in-the-Loop Strategic Review</div>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <span class="status-pill" id="boardroom-mode-pill" style="font-size: 11px;">[MODE: AUTONOMOUS AI]</span>
+            <button class="btn btn-secondary" id="btn-toggle-grading-mode" style="font-size: 11px; padding: 5px 11px;" onclick="handleToggleGradingMode()">
+              Switch Mode ⇄
+            </button>
+            <button class="btn btn-secondary" style="font-size: 11px; padding: 5px 11px;" onclick="loadBoardroomDeskData()" title="Refresh pending submissions">
+              Refresh Desk ↺
+            </button>
+          </div>
+        </div>
+
+        <!-- Mode Explanation Banner -->
+        <div id="boardroom-mode-banner" style="background: rgba(5, 150, 105, 0.08); border: 1px solid rgba(5, 150, 105, 0.25); border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; font-size: 12.5px; line-height: 1.5; color: var(--text);">
+          <div style="font-weight: 700; color: #34d399; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+            <span>🤖</span> Current Mode: Autonomous AI Grading Active
+          </div>
+          <div>Submitted executive strategy memos are graded immediately by the NVIDIA NIM / Heuristic Engine and settled automatically. Switch to <b>Admin Review &amp; Approval</b> to hold submissions in a review queue so you can inspect proposed scores, correct the AI, and train the rubric.</div>
+        </div>
+
+        <!-- Desk Mini Stats -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px;">
+          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px;">
+            <div style="color: var(--text-muted); font-size: 11px; text-transform: uppercase; font-weight: 600;">Pending Review</div>
+            <div id="bd-stat-pending" style="font-size: 22px; font-weight: 800; font-family: var(--font-mono); color: #fbbf24;">0</div>
+            <div style="font-size: 11px; color: var(--text-muted);">Awaiting executive sign-off</div>
+          </div>
+          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px;">
+            <div style="color: var(--text-muted); font-size: 11px; text-transform: uppercase; font-weight: 600;">AI Evaluated Memos</div>
+            <div id="bd-stat-evaluated" style="font-size: 22px; font-weight: 800; font-family: var(--font-mono); color: #34d399;">0</div>
+            <div style="font-size: 11px; color: var(--text-muted);">Total settled matches</div>
+          </div>
+          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px;">
+            <div style="color: var(--text-muted); font-size: 11px; text-transform: uppercase; font-weight: 600;">Admin Corrected &amp; Trained</div>
+            <div id="bd-stat-corrected" style="font-size: 22px; font-weight: 800; font-family: var(--font-mono); color: var(--accent);">0</div>
+            <div style="font-size: 11px; color: var(--text-muted);">Rubric correction logs</div>
+          </div>
+        </div>
+
+        <!-- Pending Submissions Queue -->
+        <div style="margin-bottom: 24px;">
+          <div style="font-size: 13.5px; font-weight: 700; color: white; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+            <span>Pending Submissions Queue</span>
+            <span id="bd-queue-badge" style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">0 QUEUED</span>
+          </div>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Strategist</th>
+                  <th>Scenario &amp; Industry</th>
+                  <th>Memo Excerpt</th>
+                  <th>Proposed AI Grade</th>
+                  <th style="text-align: right;">Review Action</th>
+                </tr>
+              </thead>
+              <tbody id="boardroom-pending-table">
+                <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 24px;">No submissions currently pending admin review.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Recent Corrections & Training Log -->
+        <div>
+          <div style="font-size: 13.5px; font-weight: 700; color: white; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+            <span>AI Feedback &amp; Rubric Corrections Log</span>
+            <span style="font-size: 11px; color: var(--text-muted);">Last 25 Decisions</span>
+          </div>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Scenario</th>
+                  <th>Strategist</th>
+                  <th>Action</th>
+                  <th>Original AI Score</th>
+                  <th>Final Grade</th>
+                  <th>Correction Notes</th>
+                  <th style="text-align: right;">Date</th>
+                </tr>
+              </thead>
+              <tbody id="boardroom-corrections-table">
+                <tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 24px;">No corrections recorded yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+<!-- Real Funding Stream Audit Ledger -->
       <div class="panel" style="margin-bottom: 32px;">
         <div class="panel-header">
           <div>
@@ -1037,8 +1139,8 @@
   </div>
 
   <!-- AI Evaluation Adjudication Modal -->
-  <div id="ai-modal" style="display: none; position: fixed; inset: 0; background: rgba(5, 8, 15, 0.9); backdrop-filter: blur(8px); z-index: 100; align-items: center; justify-content: center; padding: 20px;">
-    <div style="max-width: 580px; width: 100%; background: var(--surface-card); border: 1px solid var(--border); border-radius: 14px; padding: 28px; box-shadow: 0 20px 40px rgba(0,0,0,0.6);">
+  <div id="ai-modal" onclick="if(event.target === this) closeAiModal()" style="display: none; position: fixed; inset: 0; background: rgba(5, 8, 15, 0.9); backdrop-filter: blur(8px); z-index: 100; align-items: center; justify-content: center; padding: 16px;">
+    <div style="max-width: 580px; width: 100%; max-height: 90vh; overflow-y: auto; background: var(--surface-card); border: 1px solid var(--border); border-radius: 14px; padding: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.6);">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
         <h3 style="color: white; font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
           <span>🤖</span> AI Adjudication Dossier
@@ -1076,7 +1178,102 @@
     </div>
   </div>
 
-  <div class="toast-container" id="toast-container"></div>
+    <!-- Boardroom Submission Adjudication Modal -->
+  <div id="boardroom-modal" onclick="if(event.target === this) closeBoardroomModal()" style="display: none; position: fixed; inset: 0; background: rgba(5, 8, 15, 0.92); backdrop-filter: blur(10px); z-index: 110; align-items: center; justify-content: center; padding: 16px;">
+    <div style="max-width: 820px; width: 100%; max-height: 92vh; overflow-y: auto; background: var(--surface-card); border: 1px solid var(--border); border-radius: 14px; padding: 24px; box-shadow: 0 24px 48px rgba(0,0,0,0.7);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
+        <h3 style="color: white; font-size: 17px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+          <span>👨‍⚖️</span> Boardroom Memo Adjudication &amp; AI Training
+        </h3>
+        <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="closeBoardroomModal()">✕ Close</button>
+      </div>
+
+      <!-- Hidden inputs for submission identifiers -->
+      <input type="hidden" id="adj-run-id">
+      <input type="hidden" id="adj-challenge-id">
+      <input type="hidden" id="adj-submission-id">
+
+      <!-- Scenario Header Card -->
+      <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+          <span id="adj-modal-industry" style="font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase;">INDUSTRY</span>
+          <span id="adj-modal-user" style="font-size: 12px; color: var(--text-muted);">Participant</span>
+        </div>
+        <h4 id="adj-modal-scenario-title" style="color: white; font-size: 15px; font-weight: 700; margin-bottom: 6px;">Scenario Title</h4>
+        <div id="adj-modal-scenario-body" style="font-size: 12.5px; color: var(--text-muted); line-height: 1.5; max-height: 100px; overflow-y: auto; background: rgba(0,0,0,0.2); padding: 8px 10px; border-radius: 6px;"></div>
+      </div>
+
+      <!-- Strategist's Memo -->
+      <div style="margin-bottom: 18px;">
+        <label style="display: block; font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">Submitted Executive Memo</label>
+        <div id="adj-modal-memo" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; font-size: 13px; line-height: 1.6; color: var(--text); max-height: 180px; overflow-y: auto; white-space: pre-wrap; font-family: inherit;"></div>
+      </div>
+
+      <!-- AI Proposed Assessment -->
+      <div style="background: rgba(56, 189, 248, 0.05); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 8px; padding: 14px 16px; margin-bottom: 18px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <span style="font-size: 12px; font-weight: 700; color: var(--accent); text-transform: uppercase;">🤖 Proposed AI Score</span>
+          <span id="adj-ai-proposed-total" style="font-size: 15px; font-weight: 800; font-family: var(--font-mono); color: var(--accent);">0.0 / 100</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-bottom: 10px; font-size: 11.5px; text-align: center;">
+          <div style="background: var(--surface); padding: 6px; border-radius: 4px;">Fin Mech: <b id="adj-ai-fm" style="color:white;">0</b>/40</div>
+          <div style="background: var(--surface); padding: 6px; border-radius: 4px;">Risk Mgt: <b id="adj-ai-rm" style="color:white;">0</b>/30</div>
+          <div style="background: var(--surface); padding: 6px; border-radius: 4px;">Hist Precedent: <b id="adj-ai-ha" style="color:white;">0</b>/20</div>
+          <div style="background: var(--surface); padding: 6px; border-radius: 4px;">Communication: <b id="adj-ai-cm" style="color:white;">0</b>/10</div>
+        </div>
+        <div id="adj-ai-explanation" style="font-size: 12px; color: var(--text-muted); font-style: italic;"></div>
+      </div>
+
+      <!-- Admin Adjudication Form -->
+      <div style="border-top: 1px solid var(--border); padding-top: 16px; margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+          <label style="font-size: 13px; font-weight: 700; color: white; text-transform: uppercase;">Admin Grading &amp; Score Override</label>
+          <div style="font-size: 16px; font-weight: 800; font-family: var(--font-mono); color: #34d399;">
+            Final Score: <span id="adj-calc-total">0.0</span> / 100
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 14px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label>Financial Mechanics (0-40)</label>
+            <input type="number" id="adj-score-fm" class="form-control" min="0" max="40" step="0.5" oninput="recalcAdjTotal()">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label>Downside Risk (0-30)</label>
+            <input type="number" id="adj-score-rm" class="form-control" min="0" max="30" step="0.5" oninput="recalcAdjTotal()">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label>Hist Precedent (0-20)</label>
+            <input type="number" id="adj-score-ha" class="form-control" min="0" max="20" step="0.5" oninput="recalcAdjTotal()">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label>Communication (0-10)</label>
+            <input type="number" id="adj-score-cm" class="form-control" min="0" max="10" step="0.5" oninput="recalcAdjTotal()">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Feedback / Explanation to Participant</label>
+          <textarea id="adj-input-explanation" class="form-control" rows="2" placeholder="Executive rationale for this score..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>AI Learning &amp; Correction Notes (Saved for Prompt Training)</label>
+          <textarea id="adj-input-notes" class="form-control" rows="2" placeholder="Explain why the AI grade was modified (e.g. awarded points for superficial keywords without working capital calculations)..."></textarea>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div style="display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap;">
+        <button class="btn btn-secondary" onclick="closeBoardroomModal()">Cancel</button>
+        <button class="btn btn-danger" onclick="submitAdjudication('reject_zero')">Reject (0/100 Nonsense) ❌</button>
+        <button class="btn btn-secondary" style="border-color: rgba(56, 189, 248, 0.5); color: var(--accent);" onclick="submitAdjudication('approve_ai')">Approve AI Grade ✓</button>
+        <button class="btn btn-primary" onclick="submitAdjudication('correct_ai')">Publish Corrected Grade 📝</button>
+      </div>
+    </div>
+  </div>
+
+<div class="toast-container" id="toast-container"></div>
 
   <script>
     const API_BASE = '/api';
@@ -1201,6 +1398,7 @@
         renderAiModel(ai?.data);
         renderMarkets(markets?.data);
         renderFundingStream(funding?.data);
+        loadBoardroomDeskData();
       } catch (err) {
         console.error(err);
       }
@@ -1483,6 +1681,232 @@
     }
 
     // Initialize (checks sessionStorage or shows auth gate)
+    
+    let currentGradingMode = 'ai';
+    let currentPendingDeskItems = [];
+
+    async function loadBoardroomDeskData() {
+      try {
+        const res = await apiRequest('/a/boardroom/grading-desk');
+        const data = res?.data || {};
+        currentGradingMode = data.grading_mode || 'ai';
+        currentPendingDeskItems = data.pending_submissions || [];
+
+        renderBoardroomModeUI(currentGradingMode);
+        renderBoardroomStats(data.stats);
+        renderBoardroomPendingTable(data.pending_submissions);
+        renderBoardroomCorrectionsTable(data.recent_corrections);
+      } catch (err) {
+        console.error('Failed to load Boardroom desk data:', err);
+      }
+    }
+
+    function renderBoardroomModeUI(mode) {
+      const pill = document.getElementById('boardroom-mode-pill');
+      const banner = document.getElementById('boardroom-mode-banner');
+      const btn = document.getElementById('btn-toggle-grading-mode');
+      
+      const isAdmin = mode === 'admin_review';
+      if (pill) {
+        pill.innerText = isAdmin ? '[MODE: ADMIN REVIEW & APPROVAL]' : '[MODE: AUTONOMOUS AI]';
+        pill.style.borderColor = isAdmin ? 'rgba(245, 158, 11, 0.4)' : 'rgba(5, 150, 105, 0.4)';
+        pill.style.color = isAdmin ? '#fbbf24' : '#34d399';
+      }
+      if (banner) {
+        if (isAdmin) {
+          banner.style.background = 'rgba(245, 158, 11, 0.08)';
+          banner.style.borderColor = 'rgba(245, 158, 11, 0.25)';
+          banner.innerHTML = `
+            <div style="font-weight: 700; color: #fbbf24; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+              <span>👨‍⚖️</span> Current Mode: Human Admin Review &amp; Approval Active
+            </div>
+            <div>Submitted executive strategy memos are held in the <b>Pending Review Queue</b> below. The AI proposes an initial grade, which you can approve as-is, adjust with custom scores and correction feedback to teach the system, or reject for zero points.</div>
+          `;
+        } else {
+          banner.style.background = 'rgba(5, 150, 105, 0.08)';
+          banner.style.borderColor = 'rgba(5, 150, 105, 0.25)';
+          banner.innerHTML = `
+            <div style="font-weight: 700; color: #34d399; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+              <span>🤖</span> Current Mode: Autonomous AI Grading Active
+            </div>
+            <div>Submitted memos are graded immediately by the NVIDIA NIM / Heuristic Engine and settled automatically. Switch to <b>Admin Review &amp; Approval</b> to supervise and correct match adjudications before payout.</div>
+          `;
+        }
+      }
+      if (btn) {
+        btn.innerText = isAdmin ? 'Switch to Autonomous AI 🤖' : 'Switch to Admin Review 👨‍⚖️';
+      }
+    }
+
+    function renderBoardroomStats(stats) {
+      if (!stats) return;
+      document.getElementById('bd-stat-pending').innerText = (stats.pending_count || 0).toLocaleString();
+      document.getElementById('bd-stat-evaluated').innerText = (stats.total_evaluated || 0).toLocaleString();
+      document.getElementById('bd-stat-corrected').innerText = (stats.total_reviewed_or_corrected || 0).toLocaleString();
+      document.getElementById('bd-queue-badge').innerText = `${stats.pending_count || 0} QUEUED`;
+    }
+
+    function renderBoardroomPendingTable(items) {
+      const tbody = document.getElementById('boardroom-pending-table');
+      if (!tbody) return;
+      if (!items || !items.length) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 24px;">No submissions currently pending admin review. (Submissions appear here when Admin Review Mode is active).</td></tr>';
+        return;
+      }
+      tbody.innerHTML = items.map((item, idx) => {
+        const scores = item.proposed_ai_scores;
+        const total = scores ? scores.total : 'N/A';
+        const snippet = (item.answer_text || '').replace(/\s+/g, ' ').slice(0, 120) + '...';
+        return `
+          <tr>
+            <td>
+              <b>${item.user?.name || 'Executive'}</b><br>
+              <small style="color: var(--text-muted); font-size: 11px;">${item.user?.email || ''}</small>
+            </td>
+            <td>
+              <b>${item.scenario_title || 'Boardroom Dilemma'}</b><br>
+              <span style="font-size: 11px; color: var(--accent);">${item.industry || 'Macroeconomics'}</span>
+            </td>
+            <td>
+              <div style="font-size: 12px; color: var(--text-muted); max-width: 320px; line-height: 1.4;">${snippet}</div>
+            </td>
+            <td>
+              <b style="color: var(--accent); font-family: var(--font-mono); font-size: 13.5px;">${total} / 100</b><br>
+              <small style="color: var(--text-muted); font-size: 10.5px;">FM:${scores?.financial_mechanics ?? 0} RM:${scores?.risk_management ?? 0} HA:${scores?.historical_alignment ?? 0} CM:${scores?.communication ?? 0}</small>
+            </td>
+            <td style="text-align: right; white-space: nowrap;">
+              <button class="btn btn-primary" style="padding: 4px 10px; font-size: 11px;" onclick="openBoardroomAdjudicationModal(${idx})">Review &amp; Grade 👨‍⚖️</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderBoardroomCorrectionsTable(corrections) {
+      const tbody = document.getElementById('boardroom-corrections-table');
+      if (!tbody) return;
+      if (!corrections || !corrections.length) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 24px;">No corrections recorded yet.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = corrections.map(c => {
+        const origTotal = c.original_ai_scores ? (Number(c.original_ai_scores.financial_mechanics || 0) + Number(c.original_ai_scores.risk_management || 0) + Number(c.original_ai_scores.historical_alignment || 0) + Number(c.original_ai_scores.communication || 0)).toFixed(1) : '-';
+        const finalTotal = c.admin_scores ? (Number(c.admin_scores.financial_mechanics || 0) + Number(c.admin_scores.risk_management || 0) + Number(c.admin_scores.historical_alignment || 0) + Number(c.admin_scores.communication || 0)).toFixed(1) : '-';
+        
+        let actionBadge = `<span style="background: rgba(5, 150, 105, 0.15); color: #34d399; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">APPROVED AI</span>`;
+        if (c.action_taken === 'corrected') {
+          actionBadge = `<span style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">CORRECTED</span>`;
+        } else if (c.action_taken === 'rejected_zero') {
+          actionBadge = `<span style="background: rgba(239, 68, 68, 0.15); color: #f87171; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">REJECTED 0/100</span>`;
+        }
+
+        return `
+          <tr>
+            <td><b>${c.scenario_title || 'Boardroom Match'}</b></td>
+            <td>${c.participant_name || 'Strategist'}</td>
+            <td>${actionBadge}</td>
+            <td style="font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);">${origTotal}</td>
+            <td style="font-family: var(--font-mono); font-size: 12px; font-weight: bold; color: #34d399;">${finalTotal}</td>
+            <td style="font-size: 11.5px; color: var(--text-muted); max-width: 250px;">${c.correction_notes || c.admin_explanation || '-'}</td>
+            <td style="text-align: right; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">${(c.created_at || '').slice(0, 16)}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    async function handleToggleGradingMode() {
+      const newMode = currentGradingMode === 'ai' ? 'admin_review' : 'ai';
+      try {
+        await apiRequest('/a/boardroom/grading-mode', 'POST', { mode: newMode });
+        toast(`Boardroom grading mode switched to: ${newMode === 'admin_review' ? 'Admin Review & Approval' : 'Autonomous AI'}`, 'success');
+        loadBoardroomDeskData();
+      } catch (err) {
+        toast('Failed to change grading mode: ' + err.message, 'error');
+      }
+    }
+
+    function openBoardroomAdjudicationModal(index) {
+      const item = currentPendingDeskItems[index];
+      if (!item) return;
+
+      document.getElementById('adj-run-id').value = item.run_id;
+      document.getElementById('adj-challenge-id').value = item.challenge_id;
+      document.getElementById('adj-submission-id').value = item.submission_id;
+
+      document.getElementById('adj-modal-industry').innerText = item.industry || 'MACROECONOMICS';
+      document.getElementById('adj-modal-user').innerText = `${item.user?.name} (${item.user?.email})`;
+      document.getElementById('adj-modal-scenario-title').innerText = item.scenario_title || 'Executive Strategic Dilemma';
+      document.getElementById('adj-modal-scenario-body').innerText = item.scenario_body || '';
+      document.getElementById('adj-modal-memo').innerText = item.answer_text || '';
+
+      const scores = item.proposed_ai_scores || { financial_mechanics: 0, risk_management: 0, historical_alignment: 0, communication: 0, total: 0 };
+      document.getElementById('adj-ai-proposed-total').innerText = `${scores.total || 0} / 100`;
+      document.getElementById('adj-ai-fm').innerText = scores.financial_mechanics || 0;
+      document.getElementById('adj-ai-rm').innerText = scores.risk_management || 0;
+      document.getElementById('adj-ai-ha').innerText = scores.historical_alignment || 0;
+      document.getElementById('adj-ai-cm').innerText = scores.communication || 0;
+      document.getElementById('adj-ai-explanation').innerText = scores.explanation ? `AI Feedback: "${scores.explanation}"` : '';
+
+      // Initialize inputs with AI's proposed values
+      document.getElementById('adj-score-fm').value = scores.financial_mechanics || 0;
+      document.getElementById('adj-score-rm').value = scores.risk_management || 0;
+      document.getElementById('adj-score-ha').value = scores.historical_alignment || 0;
+      document.getElementById('adj-score-cm').value = scores.communication || 0;
+      document.getElementById('adj-input-explanation').value = scores.explanation || '';
+      document.getElementById('adj-input-notes').value = '';
+
+      recalcAdjTotal();
+      document.getElementById('boardroom-modal').style.display = 'flex';
+    }
+
+    function closeBoardroomModal() {
+      document.getElementById('boardroom-modal').style.display = 'none';
+    }
+
+    function recalcAdjTotal() {
+      const fm = parseFloat(document.getElementById('adj-score-fm').value) || 0;
+      const rm = parseFloat(document.getElementById('adj-score-rm').value) || 0;
+      const ha = parseFloat(document.getElementById('adj-score-ha').value) || 0;
+      const cm = parseFloat(document.getElementById('adj-score-cm').value) || 0;
+      const total = (fm + rm + ha + cm).toFixed(1);
+      document.getElementById('adj-calc-total').innerText = total;
+    }
+
+    async function submitAdjudication(action) {
+      const runId = document.getElementById('adj-run-id').value;
+      const challengeId = document.getElementById('adj-challenge-id').value;
+      const submissionId = document.getElementById('adj-submission-id').value;
+      const explanation = document.getElementById('adj-input-explanation').value.trim();
+      const notes = document.getElementById('adj-input-notes').value.trim();
+
+      const payload = {
+        run_id: runId,
+        challenge_id: challengeId,
+        submission_id: submissionId,
+        action: action,
+        explanation: explanation,
+        correction_notes: notes,
+      };
+
+      if (action === 'correct_ai') {
+        payload.scores = {
+          financial_mechanics: parseFloat(document.getElementById('adj-score-fm').value) || 0,
+          risk_management: parseFloat(document.getElementById('adj-score-rm').value) || 0,
+          historical_alignment: parseFloat(document.getElementById('adj-score-ha').value) || 0,
+          communication: parseFloat(document.getElementById('adj-score-cm').value) || 0,
+        };
+      }
+
+      try {
+        const res = await apiRequest('/a/boardroom/adjudicate', 'POST', payload);
+        toast(res.message || 'Adjudication published and challenge settled!', 'success');
+        closeBoardroomModal();
+        loadBoardroomDeskData();
+      } catch (err) {
+        toast('Adjudication failed: ' + err.message, 'error');
+      }
+    }
+
     checkInitialAuth();
   </script>
 </body>

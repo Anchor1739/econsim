@@ -146,7 +146,7 @@ CREATE TABLE boardroom_submissions (
 CREATE TABLE evaluation_runs (
  id CHAR(36) PRIMARY KEY,challenge_id CHAR(36) NOT NULL,model_id VARCHAR(200) NOT NULL,
  rubric_version VARCHAR(80) NOT NULL,rubric_snapshot JSON NOT NULL,
- evaluation_state ENUM('queued','complete','failed','under_review') NOT NULL,
+ evaluation_state ENUM('queued','complete','failed','under_review','pending_review') NOT NULL,
  created_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3),completed_at DATETIME(3),reviewed_by CHAR(36),
  FOREIGN KEY(challenge_id) REFERENCES boardroom_challenges(id),
  FOREIGN KEY(reviewed_by) REFERENCES users(id)
@@ -254,6 +254,25 @@ CREATE TABLE mentor_messages (
 CREATE TABLE platform_features (
  code VARCHAR(100) PRIMARY KEY,enabled BOOLEAN NOT NULL DEFAULT FALSE,
  updated_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
+) ENGINE=InnoDB;
+CREATE TABLE platform_settings (
+ `key` VARCHAR(100) PRIMARY KEY,
+ `value` TEXT NOT NULL,
+ `updated_at` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
+) ENGINE=InnoDB;
+CREATE TABLE ai_grading_corrections (
+ id CHAR(36) PRIMARY KEY,
+ run_id CHAR(36) NOT NULL,
+ challenge_id CHAR(36) NOT NULL,
+ submission_id CHAR(36) NOT NULL,
+ admin_id CHAR(36),
+ original_ai_scores JSON NOT NULL,
+ admin_scores JSON NOT NULL,
+ ai_explanation TEXT,
+ admin_explanation TEXT,
+ correction_notes TEXT,
+ action_taken ENUM('approved_ai', 'corrected', 'admin_override', 'rejected_zero') NOT NULL,
+ created_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB;
 INSERT INTO platform_features(code,enabled) VALUES
  ('demo_mode',TRUE),('real_mode',FALSE),('real_funding',FALSE),('real_payouts',FALSE),

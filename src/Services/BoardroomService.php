@@ -337,7 +337,7 @@ class BoardroomService
             'state' => $c['state'],
             'industry' => $c['industry_name'],
             'host_name' => $c['host_name'],
-            'opponent_name' => $c['opponent_name'] ?? 'Demo Opponent',
+            'opponent_name' => $c['opponent_name'] ?? 'Institutional AI Benchmark',
             'commitment' => (int)($c['commitment_minor'] / 100),
             'start_at' => $c['start_at'],
             'deadline_at' => $c['deadline_at'],
@@ -587,17 +587,145 @@ class BoardroomService
             ':ev' => json_encode($scores['evidence']),
         ]);
 
-        $upRun = $pdo->prepare("UPDATE evaluation_runs SET evaluation_state = 'complete', completed_at = NOW(3) WHERE id = ?");
-        $upRun->execute([$row['run_id']]);
+        // Check if admin review mode is enabled
+        $gradingMode = 'ai';
+        try {
+            $modeSetting = $pdo->query("SELECT value FROM platform_settings WHERE `key` = 'boardroom_grading_mode' LIMIT 1")->fetchColumn();
+            if ($modeSetting) $gradingMode = trim($modeSetting);
+        } catch (\Throwable $e) {}
 
-        $upC = $pdo->prepare("UPDATE boardroom_challenges SET state = 'settled' WHERE id = ?");
-        $upC->execute([$row['challenge_id']]);
+        if ($gradingMode === 'admin_review') {
+            // Hold run in pending_review so admin can inspect, correct, and train AI
+            $upRun = $pdo->prepare("UPDATE evaluation_runs SET evaluation_state = 'pending_review', model_id = :model WHERE id = :rid");
+            $upRun->execute([':model' => $scores['model_used'] ?? 'NVIDIA NIM', ':rid' => $row['run_id']]);
+
+            $upC = $pdo->prepare("UPDATE boardroom_challenges SET state = 'evaluating' WHERE id = ?");
+            $upC->execute([$row['challenge_id']]);
+            return true;
+        }
+
+        // Autonomous AI mode: complete immediately and settle challenge
+        $upRun = $pdo->prepare("UPDATE evaluation_runs SET evaluation_state = 'complete', model_id = :model, completed_at = NOW(3) WHERE id = :rid");
+        $upRun->execute([':model' => $scores['model_used'] ?? 'NVIDIA NIM', ':rid' => $row['run_id']]);
+
+        // Settle challenge and distribute escrowed pot
+        self::settleChallengeWithScores($row['challenge_id']);
 
         return true;
     }
 
+    public static function checkNonsenseOrIrrelevant(string $answer, string $title = '', string $body = ''): ?array
+    {
+        $clean = trim($answer);
+        $len = mb_strlen($clean);
+        $words = preg_split('/\s+/', $clean);
+        $wordCount = count($words);
+        $lower = strtolower($clean);
+
+        // 1. Minimum length & word threshold: less than 15 words cannot form an executive strategy
+        if ($len < 30 || $wordCount < 10) {
+            return [
+                'financial_mechanics' => 0.0,
+                'risk_management' => 0.0,
+                'historical_alignment' => 0.0,
+                'communication' => 0.0,
+                'is_invalid' => true,
+                'explanation' => 'Evaluation Score: 0/100. Submission rejected: The response contains fewer than 10 words and fails to provide substantive strategic or financial reasoning for this executive dilemma.',
+                'evidence' => [
+                    'Failed minimum response length threshold (minimum 10 words required)',
+                    'No quantitative or working capital calculations provided',
+                    'Zero points awarded across all criteria'
+                ],
+                'model_used' => 'Executive Strategic Standards Guard',
+            ];
+        }
+
+        // 2. Character repetition / keyboard smash (e.g. "aaaaaa", "asdfasdf", "zzzzzz")
+        if (preg_match('/(.)\1{4,}/i', $clean) || preg_match('/^(asdf|qwerty|zxcv|1234|test)+/i', $clean)) {
+            return [
+                'financial_mechanics' => 0.0,
+                'risk_management' => 0.0,
+                'historical_alignment' => 0.0,
+                'communication' => 0.0,
+                'is_invalid' => true,
+                'explanation' => 'Evaluation Score: 0/100. Submission rejected: Coherent analysis was not detected. The text contains repeated characters, keyboard mashing, or artificial fill patterns.',
+                'evidence' => [
+                    'Incoherent text pattern detected',
+                    'Fails executive communication integrity standards',
+                    'Zero points awarded across all criteria'
+                ],
+                'model_used' => 'Executive Strategic Standards Guard',
+            ];
+        }
+
+        // 3. Repeated word flood (e.g. "money money money money money")
+        $wordCounts = array_count_values(array_map('strtolower', $words));
+        if (!empty($wordCounts)) {
+            $maxOccur = max($wordCounts);
+            if ($maxOccur / $wordCount > 0.40 && $wordCount > 15) {
+                return [
+                    'financial_mechanics' => 0.0,
+                    'risk_management' => 0.0,
+                    'historical_alignment' => 0.0,
+                    'communication' => 0.0,
+                    'is_invalid' => true,
+                    'explanation' => 'Evaluation Score: 0/100. Submission rejected: Repetitive word looping detected without substantive analytical structure.',
+                    'evidence' => [
+                        'Repetitive word density exceeds acceptable threshold',
+                        'No differentiated corporate strategy provided',
+                        'Zero points awarded across all criteria'
+                    ],
+                    'model_used' => 'Executive Strategic Standards Guard',
+                ];
+            }
+        }
+
+        // 4. Domain relevance check: must contain at least 2 relevant business / economic terms
+        $businessTerms = [
+            'runway', 'burn', 'cash', 'liquidity', 'margin', 'revenue', 'cost', 'opex', 'capex',
+            'debt', 'equity', 'bridge', 'loan', 'safe', 'invest', 'investor', 'stake', 'capital',
+            'customer', 'client', 'merchant', 'offtaker', 'supplier', 'vendor', 'contract',
+            'discount', 'price', 'pricing', 'tariff', 'power', 'diesel', 'fuel', 'transport', 'haulage',
+            'port', 'demurrage', 'customs', 'fx', 'dollar', 'naira', 'devaluation', 'hedg', 'reserve',
+            'inventory', 'working capital', 'receivable', 'payable', 'bank', 'interest', 'mpr', 'crr',
+            'mitigat', 'risk', 'contingency', 'buffer', 'milestone', 'strategy', 'plan', 'action', 'cut'
+        ];
+
+        $matchedTerms = 0;
+        foreach ($businessTerms as $term) {
+            if (str_contains($lower, $term)) {
+                $matchedTerms++;
+            }
+        }
+
+        if ($matchedTerms < 2) {
+            return [
+                'financial_mechanics' => 0.0,
+                'risk_management' => 0.0,
+                'historical_alignment' => 0.0,
+                'communication' => 0.0,
+                'is_invalid' => true,
+                'explanation' => 'Evaluation Score: 0/100. Submission rejected: Off-topic or non-economic content. The response does not address the financial dilemma, corporate mechanics, or operational variables presented in this boardroom scenario.',
+                'evidence' => [
+                    'Response lacks relevant financial or strategic business terminology',
+                    'Failed to engage with the quantitative dilemma constraints',
+                    'Zero points awarded across all criteria'
+                ],
+                'model_used' => 'Executive Strategic Standards Guard',
+            ];
+        }
+
+        return null; // Valid submission to be graded
+    }
+
     public static function evaluateWithNvidiaNim(string $title, string $body, string $answer): array
     {
+        // 1. First run strict zero-tolerance nonsense / relevance filter
+        $invalidResult = self::checkNonsenseOrIrrelevant($answer, $title, $body);
+        if ($invalidResult !== null) {
+            return $invalidResult;
+        }
+
         $apiKey = (string)Env::get('NVIDIA_API_KEY', '');
         if (!empty($apiKey)) {
             $pdo = Database::getConnection();
@@ -607,7 +735,7 @@ class BoardroomService
                 if ($s) $model = trim($s);
             } catch (\Throwable $e) {}
 
-            $prompt = "You are the Lead Strategic Adjudicator for the EconSim executive financial terminal.
+            $prompt = "You are the Senior Lead Strategic Adjudicator for the EconSim executive financial terminal.
 Evaluate the following participant strategy memo against the strategic boardroom dilemma.
 
 ### Scenario: {$title}
@@ -617,20 +745,23 @@ Evaluate the following participant strategy memo against the strategic boardroom
 ### Participant Strategy Memo:
 {$answer}
 
-Evaluate against this 4-part executive rubric:
-1. Financial Mechanics (0-40 points): Cash runway, unit economics, working capital, debt servicing, capital allocation.
-2. Downside Risk Management (0-30 points): Counterparty risk, liquidity buffers, operational contingencies, regulatory hedging.
-3. Historical Precedent Alignment (0-20 points): Real-world emerging market dynamics, Nigerian macro precedents (FX float, fuel subsidy deregulation, inflation pass-through).
-4. Executive Communication (0-10 points): Clarity, structured actionable recommendations, board-level tone.
+CRITICAL ADJUDICATION RULES:
+1. Strict Grading Standard: Do NOT award free participation points. Scores must be earned from 0 upwards based on concrete strategic merit.
+2. Zero-Tolerance for Nonsense or Off-Topic: If the response is spam, trivial, a joke, generic filler, or fails to directly address the specific financial dilemma, YOU MUST ASSIGN 0.0 TO ALL CRITERIA (Total: 0/100).
+3. Evaluate against this 4-part executive rubric:
+   - Financial Mechanics (0-40 points): Precise cash calculations, unit economics, working capital, debt servicing, runway numbers.
+   - Downside Risk Management (0-30 points): Specific vulnerability identification, downside hedging, operational contingencies, cash buffers.
+   - Historical Precedent Alignment (0-20 points): Nigerian / emerging market macroeconomic reality (FX volatility, fuel deregulation, inflation pass-through, CRR impacts).
+   - Executive Communication (0-10 points): Clarity, structured actionable recommendations, board-level executive tone.
 
 Respond ONLY with valid JSON in this exact structure:
 {
-  \"financial_mechanics\": 32.5,
-  \"risk_management\": 24.0,
-  \"historical_alignment\": 16.5,
-  \"communication\": 8.5,
-  \"explanation\": \"Executive evaluation summary explaining strengths, vulnerabilities, and leadership recommendations.\",
-  \"evidence\": [\"Key strength point\", \"Key risk mitigation point\", \"Recommended strategic improvement\"]
+  \"financial_mechanics\": 28.5,
+  \"risk_management\": 21.0,
+  \"historical_alignment\": 14.5,
+  \"communication\": 7.5,
+  \"explanation\": \"Concise board-level assessment detailing strengths, quantitative trade-offs, and operational vulnerabilities.\",
+  \"evidence\": [\"Key financial mechanics point\", \"Key risk mitigation finding\", \"Recommended strategic milestone\"]
 }";
 
             $url = (string)Env::get('NVIDIA_NIM_BASE_URL', 'https://integrate.api.nvidia.com/v1') . '/chat/completions';
@@ -640,10 +771,10 @@ Respond ONLY with valid JSON in this exact structure:
                 CURLOPT_POSTFIELDS => json_encode([
                     'model' => $model,
                     'messages' => [
-                        ['role' => 'system', 'content' => 'You are an elite corporate strategy evaluator. Output valid JSON only.'],
+                        ['role' => 'system', 'content' => 'You are an elite, rigorous corporate strategy adjudicator. Output valid JSON only.'],
                         ['role' => 'user', 'content' => $prompt]
                     ],
-                    'temperature' => 0.15,
+                    'temperature' => 0.1,
                     'max_tokens' => 1024,
                 ]),
                 CURLOPT_RETURNTRANSFER => true,
@@ -661,83 +792,155 @@ Respond ONLY with valid JSON in this exact structure:
             if ($status >= 200 && $status < 300 && !empty($resRaw)) {
                 $decoded = json_decode($resRaw, true);
                 $content = $decoded['choices'][0]['message']['content'] ?? '';
-                if (preg_match('/\{.*\}/s', $content, $m)) {
+                if (preg_match('/\{[\s\S]*\}/', $content, $m)) {
                     $parsed = json_decode($m[0], true);
                     if ($parsed && isset($parsed['financial_mechanics'])) {
                         return [
-                            'financial_mechanics' => max(0, min(40, (float)$parsed['financial_mechanics'])),
-                            'risk_management' => max(0, min(30, (float)($parsed['risk_management'] ?? 20))),
-                            'historical_alignment' => max(0, min(20, (float)($parsed['historical_alignment'] ?? 14))),
-                            'communication' => max(0, min(10, (float)($parsed['communication'] ?? 7))),
+                            'financial_mechanics' => max(0.0, min(40.0, (float)$parsed['financial_mechanics'])),
+                            'risk_management' => max(0.0, min(30.0, (float)($parsed['risk_management'] ?? 0.0))),
+                            'historical_alignment' => max(0.0, min(20.0, (float)($parsed['historical_alignment'] ?? 0.0))),
+                            'communication' => max(0.0, min(10.0, (float)($parsed['communication'] ?? 0.0))),
                             'explanation' => (string)($parsed['explanation'] ?? 'Executive evaluation completed.'),
                             'evidence' => is_array($parsed['evidence'] ?? null) ? $parsed['evidence'] : ['Evaluated via Executive Strategy Rubric.'],
+                            'model_used' => $model,
                         ];
                     }
                 }
             }
         }
 
-        // Fallback to deterministic heuristic rubric
-        return self::evaluateHeuristically($answer);
+        // Fallback to strict deterministic heuristic rubric
+        return self::evaluateHeuristically($answer, $title, $body);
     }
 
-    public static function evaluateHeuristically(string $answer): array
+    public static function evaluateHeuristically(string $answer, string $title = '', string $body = ''): array
     {
+        // 1. Strict zero-tolerance check
+        $invalid = self::checkNonsenseOrIrrelevant($answer, $title, $body);
+        if ($invalid !== null) {
+            return $invalid;
+        }
+
         $text = strtolower($answer);
         $words = str_word_count($answer);
 
-        // Financial mechanics (0 - 40)
-        $finScore = 20.0;
-        foreach (['runway', 'burn', 'cash flow', 'liquidity', 'margin', 'revenue', 'capex', 'opex'] as $k) {
-            if (str_contains($text, $k)) { $finScore += 2.5; break; }
+        // All scores start strictly at ZERO and must be earned from actual substance!
+        $finScore = 0.0;
+        $riskScore = 0.0;
+        $histScore = 0.0;
+        $commScore = 0.0;
+
+        // 1. Financial Mechanics (0 - 40)
+        // A. Specific numerical analysis or currency metrics (up to +12)
+        if (preg_match('/(₦|\$|%|\b\d+(\.\d+)?\s*(m|b|million|billion|k|bps|percent)\b)/i', $answer)) {
+            $finScore += 7.0;
         }
-        if (preg_match('/\d+/', $text)) {
-            $finScore += 6.0;
+        if (preg_match_all('/\d+/', $answer) >= 3) {
+            $finScore += 5.0;
         }
-        foreach (['cost reduction', 'receivables', 'working capital', 'inventory', 'debt'] as $k) {
-            if (str_contains($text, $k)) { $finScore += 4.0; break; }
+        // B. Cash flow, runway, burn rate, liquidity analysis (up to +12)
+        $cashHits = 0;
+        foreach (['runway', 'burn', 'cash flow', 'liquidity', 'working capital', 'payables', 'receivables', 'deficit'] as $k) {
+            if (str_contains($text, $k)) $cashHits++;
+        }
+        $finScore += min(12.0, $cashHits * 3.5);
+        // C. Cost restructuring, CapEx/OpEx, pricing or unit margin (up to +10)
+        $costHits = 0;
+        foreach (['opex', 'capex', 'margin', 'revenue', 'cost reduction', 'overhead', 'renegotiat', 'pricing', 'surcharge'] as $k) {
+            if (str_contains($text, $k)) $costHits++;
+        }
+        $finScore += min(10.0, $costHits * 3.0);
+        // D. Capital structuring / bridge financing (up to +6)
+        foreach (['debt', 'equity', 'bridge', 'safe', 'warrant', 'interest rate', 'factoring', 'overdraft'] as $k) {
+            if (str_contains($text, $k)) { $finScore += 6.0; break; }
         }
         $finScore = min(40.0, $finScore);
 
-        // Risk management (0 - 30)
-        $riskScore = 15.0;
-        foreach (['concentration', 'delay', 'default', 'contingency', 'counterparty', 'covenant'] as $k) {
-            if (str_contains($text, $k)) { $riskScore += 7.0; break; }
+        // 2. Downside Risk Management (0 - 30)
+        // A. Identification of key risks (up to +12)
+        $riskHits = 0;
+        foreach (['counterparty', 'default', 'churn', 'delay', 'outage', 'bottleneck', 'concentration', 'volatilit'] as $k) {
+            if (str_contains($text, $k)) $riskHits++;
         }
-        foreach (['mitigat', 'downside', 'reserve', 'hedge', 'buffer'] as $k) {
-            if (str_contains($text, $k)) { $riskScore += 6.0; break; }
+        $riskScore += min(12.0, $riskHits * 4.0);
+        // B. Mitigation triggers, buffers, substitutes, hedges (up to +12)
+        $mitHits = 0;
+        foreach (['mitigat', 'contingency', 'buffer', 'hedge', 'reserve', 'substitute', 'covenant', 'trigger', 'force majeure'] as $k) {
+            if (str_contains($text, $k)) $mitHits++;
+        }
+        $riskScore += min(12.0, $mitHits * 4.0);
+        // C. Governance / worst-case preservation (+6)
+        if (str_contains($text, 'worst-case') || str_contains($text, 'scenario') || str_contains($text, 'governance') || str_contains($text, 'compliance')) {
+            $riskScore += 6.0;
         }
         $riskScore = min(30.0, $riskScore);
 
-        // Historical alignment (0 - 20)
-        $histScore = 12.0;
-        foreach (['trade-off', 'priorit', 'milestone', 'governance', 'policy', 'precedent'] as $k) {
-            if (str_contains($text, $k)) { $histScore += 5.0; break; }
+        // 3. Historical Precedent Alignment (0 - 20)
+        // A. Nigerian / African macroeconomic realities (+10)
+        $macroHits = 0;
+        foreach (['fx', 'dollar', 'naira', 'devaluation', 'inflation', 'subsidy', 'tariff', 'band-a', 'cbn', 'mpr', 'deregulat', 'import'] as $k) {
+            if (str_contains($text, $k)) $macroHits++;
+        }
+        $histScore += min(10.0, $macroHits * 3.5);
+        // B. Strategic trade-offs & phased priorities (+10)
+        if (str_contains($text, 'trade-off') || str_contains($text, 'priorit') || str_contains($text, 'first') || str_contains($text, 'phase') || str_contains($text, 'milestone')) {
+            $histScore += 10.0;
         }
         $histScore = min(20.0, $histScore);
 
-        // Communication (0 - 10)
-        $commScore = 6.0;
-        if ($words >= 70) {
-            $commScore += 2.0;
+        // 4. Executive Communication (0 - 10)
+        if ($words >= 50) $commScore += 2.0;
+        if ($words >= 90) $commScore += 2.5;
+        if ($words >= 140) $commScore += 1.5;
+        if (str_contains($answer, "\n") || str_contains($text, '1.') || str_contains($text, '- ') || str_contains($text, '•')) {
+            $commScore += 2.5;
         }
-        if (str_contains($answer, "\n") || str_contains($text, '1.') || str_contains($text, 'first')) {
-            $commScore += 2.0;
+        if (str_contains($text, 'recommend') || str_contains($text, 'executive') || str_contains($text, 'board') || str_contains($text, 'direct')) {
+            $commScore += 1.5;
         }
         $commScore = min(10.0, $commScore);
+
+        $total = round($finScore + $riskScore + $histScore + $commScore, 1);
 
         return [
             'financial_mechanics' => round($finScore, 1),
             'risk_management' => round($riskScore, 1),
             'historical_alignment' => round($histScore, 1),
             'communication' => round($commScore, 1),
-            'explanation' => 'Disciplined executive analysis. Strategy memo exhibits concrete appreciation of working capital liquidity and downside mitigations under Nigerian macroeconomic volatility.',
+            'explanation' => $total >= 60.0
+                ? "Thorough executive analysis. Memo demonstrates sound understanding of cash constraints, downside risks, and actionable operational sequencing."
+                : ($total >= 30.0
+                    ? "Developing strategic proposal. Identified primary dilemma tensions, but requires deeper quantitative grounding and more robust downside hedging."
+                    : "Partial submission. High-level thoughts offered, but lacks detailed financial calculations and actionable risk mitigation mechanisms."),
             'evidence' => [
-                'Demonstrated working capital and cash runway awareness under cost inflation',
-                'Identified operational downside risks and structured contingency buffers',
-                'Structured response with phased, actionable corporate implementation milestones',
+                'Quantitative working capital and cash impact evaluation',
+                'Identification of operational downside vulnerabilities and counterparty risks',
+                'Strategic execution milestones structured under emerging market macro constraints'
             ],
+            'model_used' => 'EconSim Strategic Adjudication Engine v2',
         ];
+    }
+
+    public static function settleChallengeWithScores(string $challengeId): void
+    {
+        $pdo = Database::getConnection();
+        $scores = $pdo->prepare("
+            SELECT s.user_id, (sc.financial_mechanics + sc.risk_management + sc.historical_alignment + sc.communication) as total_score
+            FROM boardroom_submissions s
+            JOIN evaluation_scores sc ON s.id = sc.submission_id
+            WHERE s.challenge_id = ?
+            ORDER BY total_score DESC
+        ");
+        $scores->execute([$challengeId]);
+        $rows = $scores->fetchAll();
+
+        if (empty($rows)) {
+            $pdo->prepare("UPDATE boardroom_challenges SET state = 'settled' WHERE id = ?")->execute([$challengeId]);
+            return;
+        }
+
+        $winnerId = $rows[0]['user_id'];
+        self::settleChallenge($challengeId, $winnerId, "Scored {$rows[0]['total_score']}/100");
     }
 }
 

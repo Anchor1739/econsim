@@ -185,9 +185,13 @@ function applyTheme(t) {
   localStorage.setItem('econsim-theme', t);
   if (t === 'dark') {
     document.body.classList.add('theme-dark');
+    document.documentElement.classList.add('theme-dark');
   } else {
     document.body.classList.remove('theme-dark');
+    document.documentElement.classList.remove('theme-dark');
   }
+  const metaTheme = document.querySelector('meta[name="theme-color"]');
+  if (metaTheme) metaTheme.setAttribute('content', t === 'dark' ? '#09121f' : '#f5f7fa');
 }
 
 function renderMarkdown(md) {
@@ -211,8 +215,211 @@ function renderMarkdown(md) {
   return `<p style="margin-bottom: 12px; line-height: 1.75;">${html}</p>`;
 }
 
+
+// ==========================================
+// PWA Installation & Device Detection Engine
+// ==========================================
+let deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  window.deferredInstallPrompt = e;
+  updatePwaInstallButtons();
+});
+
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  window.deferredInstallPrompt = null;
+  if (typeof api !== 'undefined' && api.toast) {
+    api.toast('EconSim App installed successfully! Launch it anytime from your home screen.', 'success');
+  }
+  updatePwaInstallButtons();
+});
+
+function detectUserDevice() {
+  const ua = navigator.userAgent || navigator.vendor || window.opera || '';
+  const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isAndroid = /Android/i.test(ua);
+  const isMobile = isIOS || isAndroid || /Mobi|Tablet/i.test(ua);
+  const isMac = /Macintosh|Mac OS X/i.test(ua) && !isIOS;
+  const isWindows = /Windows/i.test(ua);
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+  let os = 'desktop';
+  if (isIOS) os = 'ios';
+  else if (isAndroid) os = 'android';
+
+  return {
+    os,
+    isIOS,
+    isAndroid,
+    isMobile,
+    isDesktop: !isMobile,
+    isMac,
+    isWindows,
+    isStandalone
+  };
+}
+
+function updatePwaInstallButtons() {
+  const dev = detectUserDevice();
+  const installBtns = document.querySelectorAll('.pwa-install-trigger');
+  installBtns.forEach(btn => {
+    if (dev.isStandalone) {
+      btn.style.display = 'none';
+    } else {
+      btn.style.display = 'inline-flex';
+    }
+  });
+}
+
+function triggerPwaInstall() {
+  const dev = detectUserDevice();
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    deferredInstallPrompt.userChoice.then((choiceResult) => {
+      if (choiceResult.outcome === 'accepted') {
+        if (typeof api !== 'undefined' && api.toast) api.toast('Installing EconSim Institutional App...', 'success');
+      }
+      deferredInstallPrompt = null;
+    });
+    return;
+  }
+  openPwaInstallModal(dev.os);
+}
+
+function openPwaInstallModal(defaultTab = null) {
+  const dev = detectUserDevice();
+  const activeTab = defaultTab || dev.os;
+  
+  let existing = document.getElementById('pwa-install-modal');
+  if (existing) existing.remove();
+
+  const modalHtml = `
+    <div id="pwa-install-modal" onclick="if(event.target === this) closePwaInstallModal()" style="position: fixed; inset: 0; background: rgba(5, 8, 15, 0.88); backdrop-filter: blur(8px); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 16px;">
+      <div style="background: var(--card-bg, #0f1e33); border: 1px solid var(--line, #1c314f); border-radius: 16px; max-width: 520px; width: 100%; max-height: calc(100vh - 32px); display: flex; flex-direction: column; box-shadow: 0 24px 48px rgba(0,0,0,0.6); overflow: hidden; animation: fadeIn 0.2s ease;">
+        <div style="padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 38px; height: 38px; border-radius: 8px; background: linear-gradient(135deg, var(--jade), #10b981); display: flex; align-items: center; justify-content: center; font-size: 20px;">📲</div>
+            <div>
+              <h3 style="font-size: 16px; font-weight: 800; color: var(--text); margin: 0;">Install EconSim App</h3>
+              <p style="font-size: 12px; color: var(--muted); margin: 2px 0 0;">Native performance · Zero app store download</p>
+            </div>
+          </div>
+          <button type="button" class="btn-link" onclick="closePwaInstallModal()" style="font-size: 20px; color: var(--muted); cursor: pointer; padding: 4px;">✕</button>
+        </div>
+
+        <!-- OS Selector Tabs -->
+        <div style="display: flex; border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.15);">
+          <button type="button" id="tab-btn-android" onclick="switchPwaTab('android')" style="flex: 1; padding: 12px 8px; font-size: 13px; font-weight: 600; border: none; background: ${activeTab === 'android' ? 'var(--surface)' : 'transparent'}; color: ${activeTab === 'android' ? 'var(--jade)' : 'var(--muted)'}; border-bottom: 2px solid ${activeTab === 'android' ? 'var(--jade)' : 'transparent'}; cursor: pointer;">
+            🤖 Android
+          </button>
+          <button type="button" id="tab-btn-ios" onclick="switchPwaTab('ios')" style="flex: 1; padding: 12px 8px; font-size: 13px; font-weight: 600; border: none; background: ${activeTab === 'ios' ? 'var(--surface)' : 'transparent'}; color: ${activeTab === 'ios' ? 'var(--jade)' : 'var(--muted)'}; border-bottom: 2px solid ${activeTab === 'ios' ? 'var(--jade)' : 'transparent'}; cursor: pointer;">
+            🍎 iPhone / iPad
+          </button>
+          <button type="button" id="tab-btn-desktop" onclick="switchPwaTab('desktop')" style="flex: 1; padding: 12px 8px; font-size: 13px; font-weight: 600; border: none; background: ${activeTab === 'desktop' ? 'var(--surface)' : 'transparent'}; color: ${activeTab === 'desktop' ? 'var(--jade)' : 'var(--muted)'}; border-bottom: 2px solid ${activeTab === 'desktop' ? 'var(--jade)' : 'transparent'}; cursor: pointer;">
+            💻 PC / Mac
+          </button>
+        </div>
+
+        <!-- Tab Contents -->
+        <div style="padding: 24px; overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch;">
+          <!-- Android Tab -->
+          <div id="pwa-content-android" style="display: ${activeTab === 'android' ? 'block' : 'none'};">
+            ${deferredInstallPrompt ? `
+              <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 10px; padding: 16px; text-align: center; margin-bottom: 18px;">
+                <p style="font-size: 13px; color: var(--text); margin-bottom: 12px;">One-tap installation is ready for your Android device:</p>
+                <button type="button" class="btn btn-primary btn-full" onclick="triggerNativePwaPrompt()" style="padding: 12px; font-weight: 700; font-size: 14px;">
+                  📲 Tap to Install EconSim App Now
+                </button>
+              </div>
+            ` : ''}
+            <div style="font-size: 13px; line-height: 1.7; color: var(--text);">
+              <b style="color: var(--jade); display: block; margin-bottom: 8px;">How to install on Android Chrome / Samsung Internet:</b>
+              <ol style="margin-left: 20px; display: flex; flex-direction: column; gap: 8px;">
+                <li>Tap the <b>three dots menu (⋮)</b> in the top right corner of Chrome.</li>
+                <li>Tap <b>"Install app"</b> or <b>"Add to Home screen"</b>.</li>
+                <li>Tap <b>"Install"</b> on the confirmation popup.</li>
+                <li>EconSim will appear on your phone home screen like a native app with push notifications!</li>
+              </ol>
+            </div>
+          </div>
+
+          <!-- iOS Tab -->
+          <div id="pwa-content-ios" style="display: ${activeTab === 'ios' ? 'block' : 'none'};">
+            <div style="font-size: 13px; line-height: 1.7; color: var(--text);">
+              <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; font-size: 12.5px;">
+                Apple requires Safari to install Web Apps on iPhone and iPad.
+              </div>
+              <b style="color: var(--jade); display: block; margin-bottom: 8px;">Follow these 3 quick steps in Safari:</b>
+              <ol style="margin-left: 20px; display: flex; flex-direction: column; gap: 10px;">
+                <li>Tap the <b>Share button</b> <span style="display: inline-block; padding: 2px 6px; background: rgba(255,255,255,0.1); border-radius: 4px; font-size: 13px;">⎋</span> at the bottom of Safari.</li>
+                <li>Scroll down and tap <b>"Add to Home Screen"</b> <span style="display: inline-block; padding: 2px 6px; background: rgba(255,255,255,0.1); border-radius: 4px; font-size: 13px;">⊞</span>.</li>
+                <li>Tap <b>"Add"</b> in the top right corner.</li>
+              </ol>
+              <p style="margin-top: 14px; font-size: 12px; color: var(--muted);">Done! EconSim will now run fullscreen with native speed on your iPhone.</p>
+            </div>
+          </div>
+
+          <!-- Desktop Tab -->
+          <div id="pwa-content-desktop" style="display: ${activeTab === 'desktop' ? 'block' : 'none'};">
+            <div style="font-size: 13px; line-height: 1.7; color: var(--text);">
+              <b style="color: var(--jade); display: block; margin-bottom: 8px;">How to install on Chrome, Edge, or Brave:</b>
+              <ol style="margin-left: 20px; display: flex; flex-direction: column; gap: 8px;">
+                <li>Look at the right side of the address bar at the top of your browser.</li>
+                <li>Click the <b>Install App icon</b> <span style="display: inline-block; padding: 2px 6px; background: rgba(255,255,255,0.1); border-radius: 4px; font-size: 13px;">⤓</span> (or computer monitor icon).</li>
+                <li>Click <b>"Install"</b> to run EconSim as a dedicated desktop workstation window.</li>
+              </ol>
+              <div style="margin-top: 12px; font-size: 12px; color: var(--muted);">Alternatively, click browser <b>Menu (⋮)</b> &rarr; <b>"Save and share"</b> &rarr; <b>"Install EconSim..."</b>.</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="padding: 16px 24px; background: rgba(0,0,0,0.2); border-top: 1px solid var(--border); display: flex; justify-content: flex-end;">
+          <button type="button" class="btn btn-secondary" onclick="closePwaInstallModal()">Close</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function switchPwaTab(tabName) {
+  ['android', 'ios', 'desktop'].forEach(t => {
+    const btn = document.getElementById(`tab-btn-${t}`);
+    const content = document.getElementById(`pwa-content-${t}`);
+    if (btn) {
+      const active = t === tabName;
+      btn.style.background = active ? 'var(--surface)' : 'transparent';
+      btn.style.color = active ? 'var(--jade)' : 'var(--muted)';
+      btn.style.borderBottom = `2px solid ${active ? 'var(--jade)' : 'transparent'}`;
+    }
+    if (content) {
+      content.style.display = t === tabName ? 'block' : 'none';
+    }
+  });
+}
+
+function triggerNativePwaPrompt() {
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    deferredInstallPrompt.userChoice.then(() => {
+      deferredInstallPrompt = null;
+      closePwaInstallModal();
+    });
+  }
+}
+
+function closePwaInstallModal() {
+  const el = document.getElementById('pwa-install-modal');
+  if (el) el.remove();
+}
+
 async function initApp() {
   applyTheme(state.theme);
+  updatePwaInstallButtons();
 
   // Register service worker for background sync and real-time push notifications
   if ('serviceWorker' in navigator) {
@@ -1767,6 +1974,11 @@ function renderAppShell(innerHtml) {
               💡
             </button>
 
+            <!-- Mobile PWA Install Button -->
+            <button class="btn btn-secondary btn-sm pwa-install-trigger" onclick="triggerPwaInstall()" title="Install EconSim App" style="width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; border-color: rgba(16, 185, 129, 0.4); color: var(--jade);">
+              📲
+            </button>
+
             <!-- Mobile Notification Bell -->
             <div class="notif-container" id="notif-container-mobile">
               <button class="notif-btn" style="width: 32px; height: 32px;" onclick="toggleNotifDropdown(event)" aria-label="Notifications" title="Notifications">
@@ -1809,6 +2021,11 @@ function renderAppShell(innerHtml) {
             <!-- Desktop Guided Tour Button -->
             <button class="btn btn-secondary btn-sm" onclick="startPageTour()" title="Guided Walkthrough for this Page" style="font-size: 11.5px; padding: 5px 10px; display: inline-flex; align-items: center; gap: 4px; font-weight: 600;">
               <span>💡</span> Guided Tour
+            </button>
+
+            <!-- Desktop PWA Install Button -->
+            <button class="btn btn-secondary btn-sm pwa-install-trigger" onclick="triggerPwaInstall()" title="Install EconSim Workstation App" style="font-size: 11.5px; padding: 5px 10px; display: inline-flex; align-items: center; gap: 4px; font-weight: 600; border-color: rgba(16, 185, 129, 0.4); color: var(--jade);">
+              <span>📲</span> Install App
             </button>
 
             <!-- Notifications Dropdown Container -->
@@ -1910,6 +2127,11 @@ function renderAppShell(innerHtml) {
                 <b>${formatMoney(activeBal.total || 0)} ${currLabel}</b>
               </div>
             </div>
+
+            <!-- Drawer PWA Install Trigger -->
+            <button type="button" class="btn btn-secondary btn-full pwa-install-trigger" onclick="triggerPwaInstall(); closeMobileDrawer();" style="margin-bottom: 14px; font-size: 12.5px; padding: 9px; font-weight: 700; border-color: rgba(16, 185, 129, 0.4); color: var(--jade); display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+              <span>📲</span> Install App on this Device
+            </button>
 
             <div class="level-card" style="margin-bottom: 18px;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
@@ -2379,7 +2601,7 @@ function renderWalletPage() {
               </div>
               <div style="margin-top: 14px; padding: 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; font-size: 12px; color: var(--muted);">
                 <b>Supported Channels:</b>
-                <div style="display: flex; gap: 12px; margin-top: 6px; color: var(--text); font-weight: 500;">
+                <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; color: var(--text); font-weight: 500;">
                   <span>💳 Debit/Credit Card</span>
                   <span>🏦 Direct Bank Transfer</span>
                   <span>⚡ USSD</span>
@@ -2723,7 +2945,7 @@ function renderScenarioLab() {
       <div id="lab-ai-box" style="display: ${lab.isAiBoxOpen ? 'block' : 'none'}; margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--line);">
         <form onsubmit="handleGenerateAiScenario(event)">
           <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <input class="input" id="lab-ai-prompt" placeholder="E.g., Crude drops to $50, FX hits ₦2,200, fuel surges 30%..." style="font-size: 12.5px; flex: 1; min-width: 260px;" required>
+            <input class="input" id="lab-ai-prompt" placeholder="E.g., Crude drops to $50, FX hits ₦2,200, fuel surges 30%..." style="font-size: 12.5px; flex: 1; min-width: 0; width: 100%;" required>
             <button type="submit" class="btn btn-secondary" style="white-space: nowrap;" id="btn-gen-ai-scenario">
               ${lab.isAiGenLoading ? 'Generating...' : 'Synthesize Custom Shock'}
             </button>
@@ -3426,6 +3648,7 @@ function renderOnboardingPage() {
 // View Lifecycle & Event Handlers
 // -------------------------------------------------------------
 function attachViewEvents() {
+  updatePwaInstallButtons();
   if (state.page === 'dashboard') {
     loadDashboardData();
   } else if (state.page === 'predictor') {
@@ -3620,7 +3843,7 @@ async function loadMarketDetailData(id) {
 
             <!-- Two-Sided Analytical Theses -->
             <h3 style="font-size: 15px; margin-bottom: 12px; color: var(--navy);">Two-Sided Analytical Theses</h3>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px;">
+            <div class="theses-grid">
               <div style="background: var(--jade-light); padding: 14px; border-radius: 8px; border: 1px solid rgba(36, 121, 101, 0.2);">
                 <b style="color: var(--jade); font-size: 13.5px;">The Affirmative (YES) Thesis:</b>
                 <p style="font-size: 12.5px; color: var(--text); margin-top: 6px; line-height: 1.6;">
@@ -3882,45 +4105,132 @@ async function loadWaitingRoomData(challengeId) {
     const el = document.getElementById('waiting-room-content');
     if (!el) return;
 
+    if (c.state === 'live') {
+      navigate('live_challenge', { challengeId: c.id });
+      return;
+    }
+
+    const inviteUrl = window.location.origin + '/?page=live_challenge&challengeId=' + c.id;
+
     el.innerHTML = `
       <div class="two-col">
         <div class="panel">
-          <div class="sealed-box">
-            <div class="lock">🔒</div>
-            <h2>Confidential Business Scenario</h2>
-            <p style="color: var(--muted); max-width: 450px; margin: 8px auto;">
-              Both participants receive the identical dilemma simultaneously. No advance previews.
+          <div class="sealed-box" style="padding: 24px 16px;">
+            <div class="lock" style="font-size: 36px; margin-bottom: 6px;">🔒</div>
+            <h2 style="font-size: 17px; margin-bottom: 4px;">Confidential Strategy Scenario Sealed</h2>
+            <p style="color: var(--muted); max-width: 450px; margin: 0 auto 14px; font-size: 12.5px;">
+              Both executive strategists receive the identical case dilemma simultaneously. Content unseals the moment an opponent joins.
             </p>
+
+            <!-- Matchmaking Radar Status -->
+            <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 10px; padding: 12px; margin-bottom: 14px; text-align: center;">
+              <div style="display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--jade); font-weight: 700; font-size: 13px; margin-bottom: 2px;">
+                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--jade); box-shadow: 0 0 8px var(--jade); animation: pulse 1.5s infinite;"></span>
+                Live Lobby Matchmaking Active
+              </div>
+              <div style="font-size: 11.5px; color: var(--muted);">Waiting for an executive peer in the lobby... (Checking every 2.5s)</div>
+            </div>
+
+            <!-- Direct Match Invite Link -->
+            <div style="background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 14px; text-align: left;">
+              <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; margin-bottom: 5px;">Direct Duel Invite Link</div>
+              <div style="display: flex; gap: 6px;">
+                <input type="text" class="input" style="font-size: 11px; font-family: monospace; padding: 6px 8px; flex: 1; min-width: 0;" readonly value="${inviteUrl}" id="waiting-invite-url">
+                <button type="button" class="btn btn-secondary" style="font-size: 11px; padding: 6px 10px; white-space: nowrap;" onclick="copyWaitingInviteUrl()">Copy 📋</button>
+              </div>
+            </div>
+
+            <!-- AI Benchmark Duel Option -->
+            <button class="btn btn-primary btn-full" onclick="handleStartBenchmarkDuel('${c.id}')" style="padding: 11px; font-weight: 700; font-size: 13px;">
+              Duel Institutional AI Benchmark 🤖
+            </button>
+            <div style="font-size: 11px; color: var(--muted); margin-top: 5px;">
+              Can't wait? Test your executive strategy immediately against our Institutional Benchmark model.
+            </div>
           </div>
-          <button class="btn btn-primary btn-full" onclick="handleStartDemoMatch('${c.id}')">Start Demo Round ↗</button>
         </div>
 
         <div class="panel">
-          <h2>Challenge Logistics</h2>
-          <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 14px; font-size: 14px;">
-            <div>Industry: <b>${c.industry}</b></div>
-            <div>Commitment: <b>${formatMoney(c.commitment)}</b></div>
-            <div>Duration: <b>${c.duration_minutes} minutes</b></div>
-            <div>Participant: <b>${c.host_name}</b> (Ready)</div>
+          <h2>Challenge Parameters</h2>
+          <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 14px; font-size: 13px;">
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--line); padding-bottom: 8px;">
+              <span style="color: var(--muted);">Industry Sector:</span>
+              <b>${c.industry}</b>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--line); padding-bottom: 8px;">
+              <span style="color: var(--muted);">Capital Commitment:</span>
+              <b style="color: var(--jade);">${formatMoney(c.commitment)}</b>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--line); padding-bottom: 8px;">
+              <span style="color: var(--muted);">Memo Duration:</span>
+              <b>${c.duration_minutes} minutes</b>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--line); padding-bottom: 8px;">
+              <span style="color: var(--muted);">Host Strategist:</span>
+              <b>${c.host_name} (Ready)</b>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: var(--muted);">Opponent Status:</span>
+              <b style="color: #fbbf24;">Awaiting Match...</b>
+            </div>
           </div>
         </div>
       </div>
     `;
+
+    // Start 2.5s polling for opponent join
+    if (window.waitingRoomPollInterval) clearInterval(window.waitingRoomPollInterval);
+    window.waitingRoomPollInterval = setInterval(async () => {
+      if (state.page !== 'waiting_room' || state.currentChallengeId !== challengeId) {
+        clearInterval(window.waitingRoomPollInterval);
+        return;
+      }
+      try {
+        const pollRes = await api.get(`/boardroom/challenge/${challengeId}`);
+        if (pollRes?.data?.state === 'live') {
+          clearInterval(window.waitingRoomPollInterval);
+          sendSystemNotification(
+            'Executive Opponent Joined! 🏛️',
+            `An opponent has accepted your challenge in ${pollRes.data.industry}. The strategic memo scenario is now unsealed!`,
+            'live_challenge',
+            challengeId,
+            'boardroom'
+          );
+          api.toast('Opponent joined! Scenario unsealed.', 'success');
+          navigate('live_challenge', { challengeId });
+        }
+      } catch (err) {}
+    }, 2500);
+
   } catch (e) {}
 }
 
-async function handleStartDemoMatch(challengeId) {
+function copyWaitingInviteUrl() {
+  const input = document.getElementById('waiting-invite-url');
+  if (input) {
+    navigator.clipboard.writeText(input.value).then(() => {
+      api.toast('Direct invite link copied! Send to an executive peer to duel.', 'success');
+    }).catch(() => {
+      api.toast('Copied: ' + input.value, 'info');
+    });
+  }
+}
+
+async function handleStartBenchmarkDuel(challengeId) {
+  if (window.waitingRoomPollInterval) clearInterval(window.waitingRoomPollInterval);
   try {
     await api.post(`/boardroom/start-demo/${challengeId}`);
     sendSystemNotification(
-      'Boardroom Match Live',
-      'The dilemma scenario has unsealed. Review parameters and draft your response memo.',
+      'Boardroom Match Live 🏛️',
+      'The dilemma scenario has unsealed against the AI Benchmark Strategist. Draft your executive memo.',
       'live_challenge',
       challengeId,
       'boardroom'
     );
     navigate('live_challenge', { challengeId });
-  } catch (e) {}
+  } catch (e) {
+    api.toast(e.message || 'Could not start duel', 'error');
+  }
 }
 
 async function loadLiveChallengeData(challengeId) {
@@ -3931,45 +4241,57 @@ async function loadLiveChallengeData(challengeId) {
     if (!el) return;
 
     const s = c.scenario || {
-      title: 'The Runway Crisis',
-      body: 'You are the CFO of an established Nigerian fintech. Monthly revenue is ₦24m, operating costs are ₦31m, cash available is ₦42m. Your lead investor has delayed funding for 90 days. Formulate a 90-day liquidity and operational plan.',
+      title: 'The Liquidity Squeeze',
+      body: 'Formulate an actionable 90-day liquidity and operational plan addressing burn rate, downside exposure, and working capital.',
     };
 
     el.innerHTML = `
       <div class="page-head">
         <div>
-          <div class="eyebrow" style="color: var(--red);">● LIVE STRATEGY ARENA</div>
+          <div class="eyebrow" style="color: var(--red); display: flex; align-items: center; gap: 6px;">
+            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--red); animation:pulse 1.5s infinite;"></span>
+            LIVE STRATEGIC ARENA · ${(c.industry || 'MACROECONOMICS').toUpperCase()}
+          </div>
           <h1>${s.title}</h1>
-          <p>Respond in writing with your strategic recommendations.</p>
+          <p>Read the executive dilemma carefully and submit your structured strategy memo.</p>
         </div>
       </div>
 
       <div class="two-col">
         <div class="panel">
-          <div class="eyebrow">CONFIDENTIAL CASE DETAILS</div>
-          <div style="font-size: 14.5px; line-height: 1.7; white-space: pre-line; margin-top: 10px;">
+          <div class="eyebrow">CONFIDENTIAL CASE DILEMMA</div>
+          <div style="font-size: 14.5px; line-height: 1.75; white-space: pre-line; margin-top: 10px; color: var(--text);">
             ${s.body}
           </div>
+
+          ${s.reference_case ? `
+            <div style="margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--line);">
+              <div class="eyebrow" style="color: var(--jade);">MACRO REFERENCE CONTEXT</div>
+              <div style="font-size: 13px; color: var(--muted); margin-top: 6px; line-height: 1.6;">
+                ${s.reference_case.historical_case || s.reference_case.notes || JSON.stringify(s.reference_case)}
+              </div>
+            </div>
+          ` : ''}
         </div>
 
         <div class="panel">
           <div class="eyebrow">EXECUTIVE STRATEGY MEMO</div>
-          <h2>What is your decision?</h2>
+          <h2 style="font-size: 17px; margin-bottom: 8px;">What is your strategic decision?</h2>
+
+          <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; padding: 10px 12px; font-size: 12px; color: var(--text); margin-bottom: 12px; line-height: 1.5;">
+            <b style="color: #f87171;">Strict Grading Standard:</b> Unrelated text, spam, or gibberish receives a strict <b>0/100</b>. Points are earned from 0 upwards: Financial Mechanics (40%), Downside Risk Controls (30%), Macro Precedent (20%), and Executive Communication (10%).
+          </div>
 
           <form onsubmit="handleSubmitMemo(event, '${c.id}')">
             <div class="form-group">
-              <textarea class="textarea" id="memo-answer" rows="12" placeholder="My immediate 72-hour priority is...\n\nFinancial assessment...\n\nRisk controls...\n\n30-day execution plan..." required></textarea>
-              <div style="display: flex; justify-content: space-between; font-size: 11.5px; color: var(--muted); margin-top: 4px;">
-                <span>Min. 40 characters</span>
-                <span id="char-counter">0 chars</span>
+              <textarea class="textarea" id="memo-answer" rows="11" placeholder="1. Immediate Operational Action (First 72 Hours):\n- Concrete burn reduction or working capital measures...\n\n2. Financial & Liquidity Mechanics:\n- Specific figures, runway extensions, revenue or cost calculations...\n\n3. Downside Risk Controls:\n- Mitigating default, counterparty, churn, or FX exposure..." required style="line-height: 1.6; font-size: 13.5px;"></textarea>
+              <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; color: var(--muted); margin-top: 6px;">
+                <span>Min: 40 chars</span>
+                <span id="char-counter">0 words · 0 chars</span>
               </div>
             </div>
 
-            <div style="background: var(--bg); padding: 10px; border-radius: 8px; font-size: 12px; color: var(--muted); margin-bottom: 14px;">
-              Core Evaluation Focus: Financial Mechanics · Downside Risk Insulation · Historical Precedent · Executive Clarity
-            </div>
-
-            <button type="submit" class="btn btn-primary btn-full">Submit Executive Memo ↗</button>
+            <button type="submit" class="btn btn-primary btn-full" style="padding: 12px; font-weight: 700; font-size: 14px;">Submit Executive Memo ↗</button>
           </form>
         </div>
       </div>
@@ -3978,7 +4300,13 @@ async function loadLiveChallengeData(challengeId) {
     const tx = document.getElementById('memo-answer');
     if (tx) {
       tx.addEventListener('input', () => {
-        document.getElementById('char-counter').innerText = `${tx.value.length} chars`;
+        const chars = tx.value.length;
+        const words = tx.value.trim() ? tx.value.trim().split(/\s+/).length : 0;
+        const counterEl = document.getElementById('char-counter');
+        if (counterEl) {
+          counterEl.innerHTML = `<b>${words}</b> words · ${chars} chars ${words >= 40 ? '✓' : '(aim for 80+)'}`;
+          counterEl.style.color = words >= 40 ? 'var(--jade)' : 'var(--muted)';
+        }
       });
     }
   } catch (e) {}
@@ -4008,6 +4336,20 @@ async function loadChallengeReportData(challengeId) {
     const r = res.data;
     const el = document.getElementById('challenge-report-content');
     if (!el) return;
+
+    if (r.status === 'pending_review') {
+      el.innerHTML = `
+        <div class="panel" style="text-align: center; padding: 48px 24px;">
+          <div style="font-size: 38px; margin-bottom: 12px;">⚖️</div>
+          <h2>Held for Strategic Admin Review</h2>
+          <p style="color: var(--muted); max-width: 520px; margin: 8px auto 20px; font-size: 13.5px; line-height: 1.6;">
+            Your executive memo has been evaluated by our AI rubric and is currently undergoing quality review and sign-off by the Institutional Administrator. Final scores and payout will unlock immediately upon verification.
+          </p>
+          <button class="btn btn-primary" onclick="loadChallengeReportData('${challengeId}')">Refresh Adjudication Status ↺</button>
+        </div>
+      `;
+      return;
+    }
 
     if (r.status === 'queued' || r.status === 'pending' || !r.scores) {
       el.innerHTML = `

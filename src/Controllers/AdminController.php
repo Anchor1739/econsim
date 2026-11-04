@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Config\Database;
 use App\Services\AuthService;
+use App\Services\BoardroomService;
 use App\Services\LedgerService;
 use App\Utils\Response;
 use App\Utils\Security;
@@ -462,5 +463,286 @@ Respond ONLY with valid JSON:
         $stmt->execute([':val' => $model]);
 
         Response::success(['active_model' => $model], "Active AI adjudication model switched to {$model}.");
+    }
+
+    public function getBoardroomGradingDesk(): void
+    {
+        $this->requireAdmin();
+        $pdo = Database::getConnection();
+
+        $modeStmt = $pdo->query("SELECT value FROM platform_settings WHERE `key` = 'boardroom_grading_mode' LIMIT 1");
+        $gradingMode = $modeStmt->fetchColumn() ?: 'ai';
+
+        // Fetch pending submissions waiting for review
+        $pendingQuery = "
+            SELECT r.id AS run_id, r.challenge_id, r.model_id, r.evaluation_state, r.created_at,
+                   c.industry_id, c.mode AS challenge_mode, c.commitment_minor,
+                   i.name AS industry_name,
+                   scn.title AS scenario_title, scn.confidential_body,
+                   s.id AS submission_id, s.user_id, s.answer_text, s.submitted_at,
+                   u.display_name AS user_name, u.email AS user_email,
+                   sc.financial_mechanics, sc.risk_management, sc.historical_alignment, sc.communication,
+                   sc.explanation, sc.evidence
+            FROM evaluation_runs r
+            JOIN boardroom_challenges c ON r.challenge_id = c.id
+            JOIN industries i ON c.industry_id = i.id
+            JOIN boardroom_scenarios scn ON c.scenario_id = scn.id
+            JOIN boardroom_submissions s ON c.id = s.challenge_id
+            JOIN users u ON s.user_id = u.id
+            LEFT JOIN evaluation_scores sc ON r.id = sc.run_id AND s.id = sc.submission_id
+            WHERE r.evaluation_state = 'pending_review'
+            ORDER BY r.created_at DESC
+            LIMIT 50
+        ";
+        $pending = $pdo->query($pendingQuery)->fetchAll();
+
+        // Format pending rows
+        $pendingFormatted = array_map(function ($row) {
+            $hasScore = $row['financial_mechanics'] !== null;
+            $fm = $hasScore ? (float)$row['financial_mechanics'] : null;
+            $rm = $hasScore ? (float)$row['risk_management'] : null;
+            $ha = $hasScore ? (float)$row['historical_alignment'] : null;
+            $cm = $hasScore ? (float)$row['communication'] : null;
+            $total = $hasScore ? round($fm + $rm + $ha + $cm, 1) : null;
+
+            return [
+                'run_id' => $row['run_id'],
+                'challenge_id' => $row['challenge_id'],
+                'submission_id' => $row['submission_id'],
+                'state' => $row['evaluation_state'],
+                'created_at' => $row['created_at'],
+                'industry' => $row['industry_name'],
+                'scenario_title' => $row['scenario_title'],
+                'scenario_body' => $row['confidential_body'],
+                'user' => [
+                    'id' => $row['user_id'],
+                    'name' => $row['user_name'] ?? 'Executive Participant',
+                    'email' => $row['user_email'] ?? '',
+                ],
+                'answer_text' => $row['answer_text'],
+                'proposed_ai_scores' => $hasScore ? [
+                    'financial_mechanics' => $fm,
+                    'risk_management' => $rm,
+                    'historical_alignment' => $ha,
+                    'communication' => $cm,
+                    'total' => $total,
+                    'explanation' => $row['explanation'],
+                    'evidence' => !empty($row['evidence']) ? json_decode((string)$row['evidence'], true) : [],
+                ] : null,
+            ];
+        }, $pending);
+
+        // Fetch recent corrections/approvals
+        $correctionsQuery = "
+            SELECT c.*, u.display_name AS admin_name, s.user_id AS participant_id, pu.display_name AS participant_name,
+                   scn.title AS scenario_title
+            FROM ai_grading_corrections c
+            LEFT JOIN users u ON c.admin_id = u.id
+            LEFT JOIN boardroom_submissions s ON c.submission_id = s.id
+            LEFT JOIN users pu ON s.user_id = pu.id
+            LEFT JOIN boardroom_challenges ch ON c.challenge_id = ch.id
+            LEFT JOIN boardroom_scenarios scn ON ch.scenario_id = scn.id
+            ORDER BY c.created_at DESC
+            LIMIT 25
+        ";
+        $corrections = $pdo->query($correctionsQuery)->fetchAll();
+
+        $correctionsFormatted = array_map(function ($row) {
+            return [
+                'id' => $row['id'],
+                'run_id' => $row['run_id'],
+                'challenge_id' => $row['challenge_id'],
+                'submission_id' => $row['submission_id'],
+                'scenario_title' => $row['scenario_title'] ?? 'Boardroom Executive Challenge',
+                'participant_name' => $row['participant_name'] ?? 'Executive',
+                'action_taken' => $row['action_taken'],
+                'original_ai_scores' => !empty($row['original_ai_scores']) ? json_decode((string)$row['original_ai_scores'], true) : null,
+                'admin_scores' => !empty($row['admin_scores']) ? json_decode((string)$row['admin_scores'], true) : null,
+                'ai_explanation' => $row['ai_explanation'],
+                'admin_explanation' => $row['admin_explanation'],
+                'correction_notes' => $row['correction_notes'],
+                'created_at' => $row['created_at'],
+            ];
+        }, $corrections);
+
+        // Stats
+        $pendingCount = count($pendingFormatted);
+        $totalEvaluated = (int)$pdo->query("SELECT COUNT(*) FROM evaluation_runs WHERE evaluation_state = 'complete'")->fetchColumn();
+        $totalCorrections = (int)$pdo->query("SELECT COUNT(*) FROM ai_grading_corrections")->fetchColumn();
+
+        Response::success([
+            'grading_mode' => $gradingMode,
+            'pending_submissions' => $pendingFormatted,
+            'recent_corrections' => $correctionsFormatted,
+            'stats' => [
+                'pending_count' => $pendingCount,
+                'total_evaluated' => $totalEvaluated,
+                'total_reviewed_or_corrected' => $totalCorrections,
+            ],
+        ]);
+    }
+
+    public function setBoardroomGradingMode(): void
+    {
+        $this->requireAdmin();
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+        $mode = trim($body['mode'] ?? 'ai');
+
+        if (!in_array($mode, ['ai', 'admin_review'], true)) {
+            Response::error('Invalid grading mode. Must be "ai" or "admin_review".', 400);
+        }
+
+        $pdo = Database::getConnection();
+        $stmt = $pdo->prepare(
+            "INSERT INTO platform_settings (`key`, `value`, `updated_at`) 
+             VALUES ('boardroom_grading_mode', :val, NOW(3))
+             ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `updated_at` = NOW(3)"
+        );
+        $stmt->execute([':val' => $mode]);
+
+        Response::success(['grading_mode' => $mode], "Boardroom strategy grading mode set to {$mode}.");
+    }
+
+    public function adjudicateBoardroomSubmission(): void
+    {
+        $admin = $this->requireAdmin();
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+
+        $runId = trim($body['run_id'] ?? '');
+        $challengeId = trim($body['challenge_id'] ?? '');
+        $submissionId = trim($body['submission_id'] ?? '');
+        $action = trim($body['action'] ?? 'approve_ai'); // 'approve_ai', 'correct_ai', 'reject_zero'
+        $correctionNotes = trim($body['correction_notes'] ?? '');
+        $adminExplanation = trim($body['explanation'] ?? '');
+
+        if (empty($runId) || empty($challengeId) || empty($submissionId)) {
+            Response::error('Missing run_id, challenge_id, or submission_id.', 400);
+        }
+
+        $pdo = Database::getConnection();
+
+        // Fetch current score and submission
+        $stmt = $pdo->prepare("
+            SELECT sc.*, r.model_id, s.answer_text
+            FROM evaluation_runs r
+            JOIN boardroom_submissions s ON s.id = :sid
+            LEFT JOIN evaluation_scores sc ON r.id = sc.run_id AND s.id = sc.submission_id
+            WHERE r.id = :rid
+        ");
+        $stmt->execute([':rid' => $runId, ':sid' => $submissionId]);
+        $current = $stmt->fetch();
+
+        $originalScores = [
+            'financial_mechanics' => (float)($current['financial_mechanics'] ?? 0.0),
+            'risk_management' => (float)($current['risk_management'] ?? 0.0),
+            'historical_alignment' => (float)($current['historical_alignment'] ?? 0.0),
+            'communication' => (float)($current['communication'] ?? 0.0),
+        ];
+        $originalExplanation = $current['explanation'] ?? '';
+
+        $finalScores = $originalScores;
+        $finalExplanation = $originalExplanation;
+
+        $dbAction = match ($action) {
+            'approve_ai', 'approved_ai' => 'approved_ai',
+            'correct_ai', 'corrected' => 'corrected',
+            'reject_zero', 'rejected_zero' => 'rejected_zero',
+            default => 'admin_override',
+        };
+
+        if ($action === 'reject_zero' || $action === 'rejected_zero') {
+            $finalScores = [
+                'financial_mechanics' => 0.0,
+                'risk_management' => 0.0,
+                'historical_alignment' => 0.0,
+                'communication' => 0.0,
+            ];
+            $finalExplanation = !empty($adminExplanation) 
+                ? $adminExplanation 
+                : "Submission graded 0/100 by Executive Administrator: Non-strategic, irrelevant, or insufficient substance.";
+        } elseif ($action === 'correct_ai' || $action === 'corrected') {
+            $inScores = $body['scores'] ?? [];
+            $finalScores = [
+                'financial_mechanics' => max(0.0, min(40.0, (float)($inScores['financial_mechanics'] ?? $originalScores['financial_mechanics']))),
+                'risk_management' => max(0.0, min(30.0, (float)($inScores['risk_management'] ?? $originalScores['risk_management']))),
+                'historical_alignment' => max(0.0, min(20.0, (float)($inScores['historical_alignment'] ?? $originalScores['historical_alignment']))),
+                'communication' => max(0.0, min(10.0, (float)($inScores['communication'] ?? $originalScores['communication']))),
+            ];
+            if (!empty($adminExplanation)) {
+                $finalExplanation = $adminExplanation;
+            }
+        }
+
+        // Update evaluation_scores
+        $upScore = $pdo->prepare("
+            INSERT INTO evaluation_scores 
+                (run_id, submission_id, financial_mechanics, risk_management, historical_alignment, communication, explanation, evidence)
+            VALUES 
+                (:rid, :sid, :fm, :rm, :ha, :cm, :exp, :ev)
+            ON DUPLICATE KEY UPDATE
+                financial_mechanics = VALUES(financial_mechanics),
+                risk_management = VALUES(risk_management),
+                historical_alignment = VALUES(historical_alignment),
+                communication = VALUES(communication),
+                explanation = VALUES(explanation),
+                evidence = VALUES(evidence)
+        ");
+        $evidence = [
+            'Adjudicated by Executive Administrator',
+            'Action: ' . $action,
+            'Total Score: ' . round(array_sum($finalScores), 1) . ' / 100'
+        ];
+        $upScore->execute([
+            ':rid' => $runId,
+            ':sid' => $submissionId,
+            ':fm' => $finalScores['financial_mechanics'],
+            ':rm' => $finalScores['risk_management'],
+            ':ha' => $finalScores['historical_alignment'],
+            ':cm' => $finalScores['communication'],
+            ':exp' => $finalExplanation,
+            ':ev' => json_encode($evidence),
+        ]);
+
+        // Complete the run
+        $upRun = $pdo->prepare("
+            UPDATE evaluation_runs 
+            SET evaluation_state = 'complete', completed_at = NOW(3)
+            WHERE id = ?
+        ");
+        $upRun->execute([$runId]);
+
+        // Record in ai_grading_corrections table
+        $corrId = Security::uuid();
+        $insCorr = $pdo->prepare("
+            INSERT INTO ai_grading_corrections
+                (id, run_id, challenge_id, submission_id, admin_id, original_ai_scores, admin_scores, ai_explanation, admin_explanation, correction_notes, action_taken, created_at)
+            VALUES
+                (:id, :rid, :cid, :sid, :aid, :orig, :admin_sc, :ai_exp, :adm_exp, :notes, :action, NOW(3))
+        ");
+        $insCorr->execute([
+            ':id' => $corrId,
+            ':rid' => $runId,
+            ':cid' => $challengeId,
+            ':sid' => $submissionId,
+            ':aid' => $admin['id'],
+            ':orig' => json_encode($originalScores),
+            ':admin_sc' => json_encode($finalScores),
+            ':ai_exp' => $originalExplanation,
+            ':adm_exp' => $finalExplanation,
+            ':notes' => $correctionNotes,
+            ':action' => $dbAction,
+        ]);
+
+        // Settle challenge with final scores
+        BoardroomService::settleChallengeWithScores($challengeId);
+
+        Response::success([
+            'run_id' => $runId,
+            'challenge_id' => $challengeId,
+            'action_taken' => $action,
+            'final_scores' => $finalScores,
+            'total' => round(array_sum($finalScores), 1),
+            'explanation' => $finalExplanation,
+        ], 'Submission adjudicated and settled successfully.');
     }
 }

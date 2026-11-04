@@ -143,6 +143,9 @@ if (str_starts_with($path, '/api/')) {
     $router->post('/api/a/markets/ai-evaluate', [AdminController::class, 'aiEvaluateMarket']);
     $router->get('/api/a/ai/model', [AdminController::class, 'getAiConfig']);
     $router->post('/api/a/ai/model', [AdminController::class, 'updateAiModel']);
+    $router->get('/api/a/boardroom/grading-desk', [AdminController::class, 'getBoardroomGradingDesk']);
+    $router->post('/api/a/boardroom/grading-mode', [AdminController::class, 'setBoardroomGradingMode']);
+    $router->post('/api/a/boardroom/adjudicate', [AdminController::class, 'adjudicateBoardroomSubmission']);
 
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $router->dispatch($method, $uri);
