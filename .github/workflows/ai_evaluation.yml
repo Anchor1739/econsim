@@ -1,20 +1,48 @@
-name: EconSim AI Evaluation Runner
+name: EconSim Production CI & Strategic Sync
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'ai_agent/**'
   schedule:
-    # Optimized 30-minute interval to prevent quota exhaustion on GitHub Actions
-    - cron: '*/30 * * * *'
+    # Runs twice daily (06:00 & 18:00 UTC) for maintenance & reconciliation.
+    # Consumes < 45 runner minutes/month (well within the 2,000 free tier limit) to avoid abuse flags.
+    # High-frequency 1-5 min keep-warm & memo evaluation is handled via cron-job.org -> /api/cron/worker.
+    - cron: '0 6,18 * * *'
   workflow_dispatch:
-    # Allows instant manual trigger anytime from GitHub Actions tab
+    # Allows on-demand manual trigger anytime from GitHub Actions tab
 
-# Prevent redundant runs from overlapping and wasting execution minutes
 concurrency:
-  group: econsim-ai-runner
+  group: econsim-production-pipeline
   cancel-in-progress: true
 
 jobs:
+  verify:
+    name: Code Integrity & Linter
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, pdo_mysql, bcmath, zip
+        continue-on-error: true
+
+      - name: PHP Syntax Check
+        run: |
+          find src -name "*.php" -exec php -l {} \;
+          php -l public/index.php
+
   evaluate:
-    name: Poll & Evaluate Boardroom Memos
+    name: Strategic Evaluator & Market Sync
+    needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -29,10 +57,21 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install -r ai_agent/requirements.txt
 
-      - name: Run Evaluation Agent (NVIDIA NIM with Multi-Model Fallback)
+      - name: Check Secrets Configuration
+        id: check_secrets
+        run: |
+          if [ -z "${{ secrets.DB_HOST }}" ]; then
+            echo "::warning ::DB_HOST secret is not configured in GitHub Secrets. Skipping database sync."
+            echo "configured=false" >> $GITHUB_OUTPUT
+          else
+            echo "configured=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run Evaluation Agent (NVIDIA NIM)
+        if: steps.check_secrets.outputs.configured == 'true'
         env:
           DB_HOST: ${{ secrets.DB_HOST }}
           DB_PORT: ${{ secrets.DB_PORT }}
@@ -46,6 +85,7 @@ jobs:
           python ai_agent/evaluator.py
 
       - name: Run Market Populator & Catalyst Agent
+        if: steps.check_secrets.outputs.configured == 'true'
         env:
           DB_HOST: ${{ secrets.DB_HOST }}
           DB_PORT: ${{ secrets.DB_PORT }}
@@ -57,4 +97,3 @@ jobs:
           NVIDIA_MODEL: ${{ secrets.NVIDIA_MODEL || 'meta/llama-3.1-70b-instruct' }}
         run: |
           python ai_agent/market_populator.py
-
