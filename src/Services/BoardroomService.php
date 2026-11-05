@@ -1163,5 +1163,147 @@ Respond ONLY with valid JSON in this exact structure:
 
         return $dispatched;
     }
+
+    public static function continuousScenarioIngestion(int $maxPerCycle = 1): array
+    {
+        $pdo = Database::getConnection();
+        $ingested = [];
+
+        try {
+            $apiKey = (string)Env::get('NVIDIA_API_KEY', '');
+            if (empty($apiKey)) {
+                return $ingested;
+            }
+
+            // 1. Fetch live breaking headlines
+            $liveHeadlines = PredictorService::fetchLiveMacroHeadlines(3);
+            if (empty($liveHeadlines)) {
+                return $ingested;
+            }
+
+            $industries = $pdo->query("
+                SELECT i.id, i.slug, i.name, COUNT(bs.id) as scenario_cnt
+                FROM industries i
+                LEFT JOIN boardroom_scenarios bs ON i.id = bs.industry_id
+                GROUP BY i.id, i.slug, i.name
+                ORDER BY scenario_cnt ASC
+            ")->fetchAll(PDO::FETCH_ASSOC);
+
+            $added = 0;
+            foreach ($liveHeadlines as $headline) {
+                if ($added >= $maxPerCycle) {
+                    break;
+                }
+
+                // Check if a scenario based on this headline already exists
+                $chk = $pdo->prepare("SELECT id FROM boardroom_scenarios WHERE confidential_body LIKE ? LIMIT 1");
+                $chk->execute(['%' . substr($headline, 0, 40) . '%']);
+                if ($chk->fetch()) {
+                    continue;
+                }
+
+                $lowestSlug = $industries[0]['slug'] ?? 'fintech';
+                $slugsList = implode(', ', array_column($industries, 'slug'));
+
+                $prompt = "You are the Lead Executive Strategy Case Designer for EconSim.
+Based on this real-world macroeconomic headline: \"{$headline}\",
+formulate 1 SHARP, BITE-SIZED, SINGLE-OBJECTIVE boardroom dilemma for a corporate executive (CFO/COO/CEO).
+Available industry slugs: [{$slugsList}]. Target industry: '{$lowestSlug}'.
+
+CRITICAL SPECIFICATIONS:
+1. SINGLE FOCUSED PROBLEM: Do NOT create 3 or 4 complex sub-tasks. Focus on ONE concrete crisis or trade-off (e.g. 72-hour cash burn, FX contract rollover, tariff hike, raw material port hold, power cost surge).
+2. CONCRETE NUMBERS: Include explicit figures (e.g. ₦X million burn, Y% cost surge, Z days deadline).
+3. PUNCHY DIRECTIVE: Conclude with 1 clear Executive Directive presenting 2 distinct strategic alternatives (Option A vs Option B).
+
+Respond ONLY with valid JSON:
+{
+  \"industry_slug\": \"{$lowestSlug}\",
+  \"title\": \"Punchy 6-12 word dilemma title\",
+  \"body\": \"1 short backstory paragraph with figures + Executive Directive with Option A and Option B\",
+  \"reference\": {
+    \"company\": \"Relevant enterprise name or sector cluster\",
+    \"precedent\": \"Historical emerging market or Nigerian business case\"
+  },
+  \"difficulty\": \"intermediate\"
+}";
+
+                $postData = [
+                    'model' => 'meta/llama-3.1-70b-instruct',
+                    'messages' => [
+                        ['role' => 'system', 'content' => 'You design sharp, single-objective executive business dilemmas. Return valid JSON only.'],
+                        ['role' => 'user', 'content' => $prompt],
+                    ],
+                    'temperature' => 0.25,
+                    'max_tokens' => 896,
+                ];
+
+                $ch = curl_init("https://integrate.api.nvidia.com/v1/chat/completions");
+                curl_setopt_array($ch, [
+                    CURLOPT_POST => true,
+                    CURLOPT_POSTFIELDS => json_encode($postData),
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_HTTPHEADER => [
+                        'Content-Type: application/json',
+                        "Authorization: Bearer {$apiKey}",
+                    ],
+                    CURLOPT_TIMEOUT => 15,
+                    CURLOPT_SSL_VERIFYPEER => false,
+                ]);
+                $res = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+
+                if ($httpCode === 200 && $res) {
+                    $data = json_decode($res, true);
+                    $content = $data['choices'][0]['message']['content'] ?? '';
+                    if (preg_match('/\{.*\}/s', $content, $m)) {
+                        $parsed = json_decode($m[0], true);
+                        if (!empty($parsed['title']) && !empty($parsed['body'])) {
+                            // Find target industry ID
+                            $targetSlug = $parsed['industry_slug'] ?? $lowestSlug;
+                            $targetIndId = (int)($industries[0]['id'] ?? 1);
+                            foreach ($industries as $ind) {
+                                if ($ind['slug'] === $targetSlug) {
+                                    $targetIndId = (int)$ind['id'];
+                                    break;
+                                }
+                            }
+
+                            $scId = Security::uuid();
+                            $rubricJson = json_encode(['financial_mechanics' => 40, 'risk_management' => 30, 'historical_alignment' => 20, 'communication' => 10]);
+                            $refJson = json_encode($parsed['reference'] ?? ['company' => 'Corporate Enterprise', 'precedent' => 'Live market macroeconomic disruption.']);
+
+                            $ins = $pdo->prepare("
+                                INSERT INTO boardroom_scenarios 
+                                    (id, industry_id, title, confidential_body, reference_case, rubric, difficulty, created_at)
+                                VALUES 
+                                    (:id, :ind, :title, :body, :ref, :rubric, :diff, NOW(3))
+                            ");
+                            $ins->execute([
+                                ':id' => $scId,
+                                ':ind' => $targetIndId,
+                                ':title' => $parsed['title'],
+                                ':body' => $parsed['body'],
+                                ':ref' => $refJson,
+                                ':rubric' => $rubricJson,
+                                ':diff' => $parsed['difficulty'] ?? 'intermediate',
+                            ]);
+
+                            $added++;
+                            $ingested[] = [
+                                'industry' => $targetSlug,
+                                'title' => $parsed['title'],
+                                'origin' => 'live_news_scanner',
+                            ];
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // Non-blocking
+        }
+
+        return $ingested;
+    }
 }
 

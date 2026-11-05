@@ -79,6 +79,7 @@ class MarketController
         try {
             $keepAlive = KeepAliveService::pingDatabase();
             $predictor = PredictorService::runRealtimeMaintenance();
+            $boardroomScenarios = BoardroomService::continuousScenarioIngestion(1);
             $boardroomNotifs = BoardroomService::checkAndDispatchScheduledNotifications();
             $boardroom = BoardroomService::processQueuedEvaluations(5);
 
@@ -87,6 +88,7 @@ class MarketController
                 'render_status' => 'warm_active',
                 'aiven_keep_alive' => $keepAlive,
                 'predictor' => $predictor,
+                'boardroom_scenarios' => $boardroomScenarios,
                 'boardroom_notifications' => $boardroomNotifs,
                 'boardroom' => $boardroom,
             ];

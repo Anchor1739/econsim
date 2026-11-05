@@ -38,13 +38,19 @@ while (true) {
             echo " [+] Predictor: Locked {$pred['auto_locked_5min_markets']} market(s), resolved {$pred['auto_resolved_markets']} market(s), settled {$pred['settled_positions_count']} position(s).\n";
         }
 
-        // 3. Boardroom scheduled notifications (5-min alerts + match started)
+        // 3. Continuous Boardroom Scenario Ingestion
+        $scenarios = BoardroomService::continuousScenarioIngestion(1);
+        if (!empty($scenarios)) {
+            echo " [+] Boardroom: Ingested " . count($scenarios) . " new scenario(s) from live news.\n";
+        }
+
+        // 4. Boardroom scheduled notifications (5-min alerts + match started)
         $notifs = BoardroomService::checkAndDispatchScheduledNotifications();
         if ($notifs['5min_warnings'] > 0 || $notifs['started_alerts'] > 0) {
             echo " [+] Boardroom: Dispatched {$notifs['5min_warnings']} 5-min warning(s), {$notifs['started_alerts']} start alert(s).\n";
         }
 
-        // 4. Queued memo evaluation
+        // 5. Queued memo evaluation
         $br = BoardroomService::processQueuedEvaluations(3);
         if ($br['evaluated_memos_count'] > 0) {
             echo " [+] Evaluated {$br['evaluated_memos_count']} queued memo(s).\n";
