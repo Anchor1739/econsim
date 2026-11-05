@@ -598,10 +598,10 @@ Respond ONLY with valid JSON:
         $updates['auto_locked_5min_markets'] = $lockStmt->rowCount();
 
         // 2. Automated Outcome Detection & Payout Distribution:
-        // For markets in 'closed' state where resolves_at <= NOW()
+        // For markets whose resolves_at <= NOW(3)
         $dueStmt = $pdo->query("
             SELECT * FROM market_events 
-            WHERE state = 'closed' AND resolves_at <= NOW()
+            WHERE state IN ('closed', 'open') AND resolves_at <= NOW(3)
             LIMIT 5
         ");
         $dueMarkets = $dueStmt->fetchAll(PDO::FETCH_ASSOC);

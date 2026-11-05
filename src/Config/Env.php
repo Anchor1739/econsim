@@ -11,6 +11,9 @@ class Env
 
     public static function load(?string $path = null): void
     {
+        // Enforce strict UTC timezone alignment across all PHP operations
+        date_default_timezone_set('UTC');
+
         if (self::$loaded) {
             return;
         }
