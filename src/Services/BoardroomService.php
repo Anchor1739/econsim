@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Config\Database;
 use App\Config\Env;
+use App\Services\NotificationService;
 use App\Utils\Security;
 use PDO;
 use RuntimeException;
@@ -16,14 +17,21 @@ class BoardroomService
     {
         $pdo = Database::getConnection();
 
+        // Run proactive scheduled match alerts
+        try {
+            self::checkAndDispatchScheduledNotifications();
+        } catch (\Throwable $e) {
+            // Non-blocking notification dispatch
+        }
+
         $sql = "
             SELECT c.id, c.mode, c.commitment_minor, c.scheduled_at, c.duration_minutes,
-                   c.state, i.name AS industry_name, i.slug AS industry_slug,
+                   c.state, c.host_id, c.opponent_id, i.name AS industry_name, i.slug AS industry_slug,
                    u.display_name AS host_name
             FROM boardroom_challenges c
             JOIN industries i ON c.industry_id = i.id
             JOIN users u ON c.host_id = u.id
-            WHERE c.state IN ('open', 'matched')
+            WHERE c.state IN ('open', 'matched', 'scheduled')
         ";
 
         $params = [];
@@ -39,6 +47,9 @@ class BoardroomService
         $rows = $stmt->fetchAll();
 
         return array_map(function ($r) {
+            $scheduledTs = !empty($r['scheduled_at']) ? strtotime((string)$r['scheduled_at']) : time();
+            $secUntil = max(0, $scheduledTs - time());
+
             return [
                 'id' => $r['id'],
                 'industry' => $r['industry_name'],
@@ -46,9 +57,12 @@ class BoardroomService
                 'host' => $r['host_name'],
                 'commitment' => (int)($r['commitment_minor'] / 100),
                 'scheduled_at' => $r['scheduled_at'],
+                'seconds_until_start' => $secUntil,
+                'is_scheduled' => ($secUntil > 0),
                 'duration' => (int)$r['duration_minutes'],
                 'mode' => $r['mode'] ?? 'demo',
                 'state' => $r['state'],
+                'has_opponent' => !empty($r['opponent_id']),
                 'sealed' => true, // Scenario and rubric strictly excluded
             ];
         }, $rows);
@@ -75,6 +89,13 @@ class BoardroomService
         if ($durationMinutes < 5 || $durationMinutes > 120) {
             throw new RuntimeException("Duration must be between 5 and 120 minutes.");
         }
+
+        // Parse and validate scheduled match time (ensure valid future datetime)
+        $scheduledTs = !empty($scheduledAt) ? strtotime($scheduledAt) : (time() + 600);
+        if (!$scheduledTs || $scheduledTs < time()) {
+            $scheduledTs = time() + 600; // Default 10 minutes into the future
+        }
+        $formattedScheduledAt = date('Y-m-d H:i:s', $scheduledTs);
 
         $pdo = Database::getConnection();
 
@@ -110,9 +131,9 @@ class BoardroomService
         try {
             $stmt = $pdo->prepare(
                 "INSERT INTO boardroom_challenges 
-                    (id, host_id, industry_id, scenario_id, mode, commitment_minor, scheduled_at, duration_minutes, state, created_at)
+                    (id, host_id, industry_id, scenario_id, mode, commitment_minor, scheduled_at, duration_minutes, state, notified_5min, notified_started, created_at)
                  VALUES 
-                    (:id, :uid, :ind, :sc, :mode, :amt, :sched, :dur, 'open', NOW(3))"
+                    (:id, :uid, :ind, :sc, :mode, :amt, :sched, :dur, 'open', 0, 0, NOW(3))"
             );
             $stmt->execute([
                 ':id' => $challengeId,
@@ -121,7 +142,7 @@ class BoardroomService
                 ':sc' => $scenarioId,
                 ':mode' => $normalizedMode,
                 ':amt' => $commitmentMinor,
-                ':sched' => $scheduledAt,
+                ':sched' => $formattedScheduledAt,
                 ':dur' => $durationMinutes,
             ]);
 
@@ -134,12 +155,24 @@ class BoardroomService
 
             $pdo->commit();
 
+            // Notify host of successful scheduling
+            $startTimeFormatted = date('H:i', $scheduledTs);
+            NotificationService::dispatch(
+                $userId,
+                '🏛️ Boardroom Challenge Created',
+                "Match scheduled for {$startTimeFormatted}. Waiting for opponent in lobby. Scenario is securely sealed.",
+                'boardroom_waiting_room',
+                $challengeId
+            );
+
             return [
                 'challenge_id' => $challengeId,
                 'state' => 'open',
                 'mode' => $normalizedMode,
                 'commitment' => $commitmentAmount,
                 'duration' => $durationMinutes,
+                'scheduled_at' => $formattedScheduledAt,
+                'seconds_until_start' => max(0, $scheduledTs - time()),
                 'message' => 'Challenge created and published to lobby. Scenario is sealed.',
             ];
         } catch (\Throwable $e) {
@@ -163,7 +196,7 @@ class BoardroomService
             if (!$challenge) {
                 throw new RuntimeException("Challenge not found.");
             }
-            if ($challenge['state'] !== 'open') {
+            if (!in_array($challenge['state'], ['open', 'matched'], true)) {
                 throw new RuntimeException("This challenge is no longer open for opponents.");
             }
             if ($challenge['host_id'] === $userId) {
@@ -190,35 +223,98 @@ class BoardroomService
             );
 
             $duration = (int)$challenge['duration_minutes'];
+            $scheduledTs = !empty($challenge['scheduled_at']) ? strtotime((string)$challenge['scheduled_at']) : time();
+            $isPastOrNow = ($scheduledTs <= time());
 
-            // Match and start with strict conditional check
-            $up = $pdo->prepare(
-                "UPDATE boardroom_challenges 
-                 SET opponent_id = :uid, state = 'live', start_at = NOW(3), 
-                     deadline_at = DATE_ADD(NOW(3), INTERVAL :dur MINUTE)
-                 WHERE id = :cid AND state = 'open'"
-            );
-            $up->execute([
-                ':uid' => $userId,
-                ':dur' => $duration,
-                ':cid' => $challengeId,
-            ]);
+            if ($isPastOrNow) {
+                // Scheduled time has arrived: match is immediately live
+                $up = $pdo->prepare(
+                    "UPDATE boardroom_challenges 
+                     SET opponent_id = :uid, state = 'live', start_at = NOW(3), 
+                         deadline_at = DATE_ADD(NOW(3), INTERVAL :dur MINUTE),
+                         notified_started = 1
+                     WHERE id = :cid AND state IN ('open', 'matched')"
+                );
+                $up->execute([
+                    ':uid' => $userId,
+                    ':dur' => $duration,
+                    ':cid' => $challengeId,
+                ]);
 
-            if ($up->rowCount() !== 1) {
-                throw new RuntimeException("Challenge was already accepted by another executive.");
+                if ($up->rowCount() !== 1) {
+                    throw new RuntimeException("Challenge was already accepted by another executive.");
+                }
+
+                $newState = 'live';
+            } else {
+                // Scheduled time is in the future: lock match into 'scheduled' state
+                $up = $pdo->prepare(
+                    "UPDATE boardroom_challenges 
+                     SET opponent_id = :uid, state = 'scheduled'
+                     WHERE id = :cid AND state IN ('open', 'matched')"
+                );
+                $up->execute([
+                    ':uid' => $userId,
+                    ':cid' => $challengeId,
+                ]);
+
+                if ($up->rowCount() !== 1) {
+                    throw new RuntimeException("Challenge was already accepted by another executive.");
+                }
+
+                $newState = 'scheduled';
             }
 
             $part = $pdo->prepare(
                 "INSERT INTO boardroom_participants (challenge_id, user_id, joined_at, commitment_held_at)
-                 VALUES (:cid, :uid, NOW(3), NOW(3))"
+                 VALUES (:cid, :uid, NOW(3), NOW(3))
+                 ON DUPLICATE KEY UPDATE joined_at = NOW(3)"
             );
             $part->execute([':cid' => $challengeId, ':uid' => $userId]);
 
             $pdo->commit();
 
+            // Dispatch smart notifications
+            $startTimeFormatted = date('H:i', $scheduledTs);
+            $minsRemaining = max(1, ceil(($scheduledTs - time()) / 60));
+
+            if ($newState === 'live') {
+                NotificationService::dispatch(
+                    $challenge['host_id'],
+                    '🏛️ Boardroom Match Started! Dilemma Unsealed',
+                    'An executive opponent accepted! The boardroom duel is live and the scenario is unsealed.',
+                    'live_challenge',
+                    $challengeId
+                );
+                NotificationService::dispatch(
+                    $userId,
+                    '🏛️ Boardroom Match Started! Dilemma Unsealed',
+                    'You entered the boardroom duel. The confidential scenario has unsealed. Good luck!',
+                    'live_challenge',
+                    $challengeId
+                );
+            } else {
+                NotificationService::dispatch(
+                    $challenge['host_id'],
+                    '⚔️ Opponent Accepted Match!',
+                    "An executive joined your challenge! Match starts at {$startTimeFormatted} (in {$minsRemaining} mins). Enter the waiting lounge.",
+                    'boardroom_waiting_room',
+                    $challengeId
+                );
+                NotificationService::dispatch(
+                    $userId,
+                    '⚔️ Challenge Accepted & Locked!',
+                    "You joined the match starting at {$startTimeFormatted} (in {$minsRemaining} mins). Enter the waiting lounge.",
+                    'boardroom_waiting_room',
+                    $challengeId
+                );
+            }
+
             return [
                 'challenge_id' => $challengeId,
-                'state' => 'live',
+                'state' => $newState,
+                'scheduled_at' => $challenge['scheduled_at'],
+                'seconds_until_start' => max(0, $scheduledTs - time()),
                 'deadline_minutes' => $duration,
             ];
         } catch (\Throwable $e) {
@@ -299,6 +395,13 @@ class BoardroomService
     {
         $pdo = Database::getConnection();
 
+        // Run notification dispatcher
+        try {
+            self::checkAndDispatchScheduledNotifications();
+        } catch (\Throwable $e) {
+            // Non-blocking
+        }
+
         $stmt = $pdo->prepare(
             "SELECT c.*, i.name AS industry_name,
                     h.display_name AS host_name, o.display_name AS opponent_name,
@@ -324,8 +427,26 @@ class BoardroomService
             throw new RuntimeException("Unauthorized: you are not a participant in this challenge.");
         }
 
-        // Scenario confidentiality: Only reveal scenario when challenge is 'live', 'evaluating', or 'settled'
-        $isLiveOrCompleted = in_array($c['state'], ['live', 'evaluating', 'settled', 'disputed'], true);
+        // Automatic start on schedule arrival if opponent is present
+        $now = time();
+        $scheduledTs = !empty($c['scheduled_at']) ? strtotime((string)$c['scheduled_at']) : $now;
+
+        if (($c['state'] === 'scheduled' || ($c['state'] === 'open' && !empty($c['opponent_id']))) && $scheduledTs <= $now) {
+            $up = $pdo->prepare(
+                "UPDATE boardroom_challenges 
+                 SET state = 'live', start_at = NOW(3), 
+                     deadline_at = DATE_ADD(NOW(3), INTERVAL duration_minutes MINUTE),
+                     notified_started = 1
+                 WHERE id = ? AND state IN ('open', 'matched', 'scheduled')"
+            );
+            $up->execute([$challengeId]);
+            $c['state'] = 'live';
+            $c['start_at'] = date('Y-m-d H:i:s');
+            $c['deadline_at'] = date('Y-m-d H:i:s', $now + ((int)$c['duration_minutes'] * 60));
+        }
+
+        $secondsUntilStart = max(0, $scheduledTs - $now);
+        $isLiveOrCompleted = in_array($c['state'], ['live', 'evaluating', 'settled', 'disputed'], true) && ($secondsUntilStart === 0);
 
         // Fetch user submission if already submitted
         $subStmt = $pdo->prepare("SELECT * FROM boardroom_submissions WHERE challenge_id = ? AND user_id = ?");
@@ -337,12 +458,18 @@ class BoardroomService
             'state' => $c['state'],
             'industry' => $c['industry_name'],
             'host_name' => $c['host_name'],
-            'opponent_name' => $c['opponent_name'] ?? 'Institutional AI Benchmark',
+            'opponent_name' => $c['opponent_name'] ?? null,
+            'has_opponent' => !empty($c['opponent_id']),
+            'opponent_ready' => !empty($c['opponent_id']),
             'commitment' => (int)($c['commitment_minor'] / 100),
+            'scheduled_at' => $c['scheduled_at'],
+            'seconds_until_start' => $secondsUntilStart,
+            'is_scheduled_waiting' => ($secondsUntilStart > 0 && !in_array($c['state'], ['evaluating', 'settled', 'disputed'], true)),
             'start_at' => $c['start_at'],
             'deadline_at' => $c['deadline_at'],
             'duration_minutes' => (int)$c['duration_minutes'],
             'is_host' => $isHost,
+            'is_opponent' => $isOpponent,
             'has_submitted' => (bool)$userSub,
             'user_submission' => $userSub ? $userSub['answer_text'] : null,
             'scenario' => $isLiveOrCompleted ? [
@@ -374,8 +501,21 @@ class BoardroomService
         if (!$c) {
             throw new RuntimeException("Challenge not found.");
         }
+
+        $now = time();
+        $scheduledTs = !empty($c['scheduled_at']) ? strtotime((string)$c['scheduled_at']) : $now;
+
+        if ($c['state'] === 'scheduled' || $scheduledTs > $now) {
+            $startTimeFormatted = date('H:i', $scheduledTs);
+            throw new RuntimeException("Match has not started yet. The confidential dilemma unseals at {$startTimeFormatted}.");
+        }
+
         if ($c['state'] !== 'live') {
             throw new RuntimeException("Challenge is not currently accepting submissions.");
+        }
+
+        if (!empty($c['deadline_at']) && strtotime((string)$c['deadline_at']) < ($now - 30)) {
+            throw new RuntimeException("Submission deadline has expired for this boardroom match.");
         }
 
         $subId = Security::uuid();
@@ -941,6 +1081,87 @@ Respond ONLY with valid JSON in this exact structure:
 
         $winnerId = $rows[0]['user_id'];
         self::settleChallenge($challengeId, $winnerId, "Scored {$rows[0]['total_score']}/100");
+    }
+
+    public static function checkAndDispatchScheduledNotifications(): array
+    {
+        $pdo = Database::getConnection();
+        $dispatched = [
+            '5min_warnings' => 0,
+            'started_alerts' => 0,
+        ];
+
+        // 1. Proactive 5-Minute Warning: Match starts in <= 5 minutes and > 0 minutes
+        $stmt5 = $pdo->query(
+            "SELECT c.id, c.host_id, c.opponent_id, c.scheduled_at, c.duration_minutes, i.name AS industry_name
+             FROM boardroom_challenges c
+             JOIN industries i ON c.industry_id = i.id
+             WHERE c.state IN ('open', 'matched', 'scheduled')
+               AND c.notified_5min = 0
+               AND c.scheduled_at > NOW()
+               AND c.scheduled_at <= DATE_ADD(NOW(), INTERVAL 5 MINUTE)"
+        );
+        $warnChallenges = $stmt5->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($warnChallenges as $row) {
+            $mins = max(1, (int)ceil((strtotime((string)$row['scheduled_at']) - time()) / 60));
+            $title = "🏛️ Boardroom Match in {$mins} Minutes!";
+            $msg = "Your {$row['industry_name']} boardroom match begins in {$mins} minutes. Step into the waiting lounge to prepare.";
+
+            NotificationService::dispatch($row['host_id'], $title, $msg, 'boardroom_waiting_room', $row['id']);
+            if (!empty($row['opponent_id'])) {
+                NotificationService::dispatch($row['opponent_id'], $title, $msg, 'boardroom_waiting_room', $row['id']);
+            }
+
+            $up = $pdo->prepare("UPDATE boardroom_challenges SET notified_5min = 1 WHERE id = ?");
+            $up->execute([$row['id']]);
+            $dispatched['5min_warnings']++;
+        }
+
+        // 2. Proactive Match Start Alert: Match time has arrived (scheduled_at <= NOW())
+        $stmtStart = $pdo->query(
+            "SELECT c.id, c.host_id, c.opponent_id, c.scheduled_at, c.duration_minutes, i.name AS industry_name
+             FROM boardroom_challenges c
+             JOIN industries i ON c.industry_id = i.id
+             WHERE c.state IN ('open', 'matched', 'scheduled')
+               AND c.scheduled_at <= NOW()
+               AND c.notified_started = 0"
+        );
+        $startChallenges = $stmtStart->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($startChallenges as $row) {
+            $duration = (int)$row['duration_minutes'];
+
+            if (!empty($row['opponent_id'])) {
+                // Opponent is locked in: start match immediately!
+                $upLive = $pdo->prepare(
+                    "UPDATE boardroom_challenges 
+                     SET state = 'live', start_at = NOW(3), 
+                         deadline_at = DATE_ADD(NOW(3), INTERVAL :dur MINUTE),
+                         notified_started = 1
+                     WHERE id = :cid AND state IN ('open', 'matched', 'scheduled')"
+                );
+                $upLive->execute([':dur' => $duration, ':cid' => $row['id']]);
+
+                $title = "🏛️ Boardroom Match Started! Dilemma Unsealed";
+                $msg = "The {$row['industry_name']} dilemma is unsealed! You have {$duration} minutes to submit your executive strategy memo.";
+
+                NotificationService::dispatch($row['host_id'], $title, $msg, 'live_challenge', $row['id']);
+                NotificationService::dispatch($row['opponent_id'], $title, $msg, 'live_challenge', $row['id']);
+            } else {
+                // Still waiting for an opponent: inform host that scheduled time has arrived
+                $upOpen = $pdo->prepare("UPDATE boardroom_challenges SET notified_started = 1 WHERE id = ?");
+                $upOpen->execute([$row['id']]);
+
+                $title = "🏛️ Match Scheduled Time Arrived";
+                $msg = "Your {$row['industry_name']} match time has arrived! Awaiting an opponent in the lobby.";
+                NotificationService::dispatch($row['host_id'], $title, $msg, 'boardroom_lobby', $row['id']);
+            }
+
+            $dispatched['started_alerts']++;
+        }
+
+        return $dispatched;
     }
 }
 

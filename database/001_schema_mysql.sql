@@ -119,7 +119,7 @@ CREATE TABLE boardroom_challenges (
  industry_id BIGINT UNSIGNED NOT NULL,scenario_id CHAR(36),
  mode ENUM('demo','real') NOT NULL DEFAULT 'demo',commitment_minor BIGINT UNSIGNED NOT NULL,
  scheduled_at DATETIME(3) NOT NULL,duration_minutes SMALLINT UNSIGNED NOT NULL,
- start_at DATETIME(3),deadline_at DATETIME(3),
+ start_at DATETIME(3),deadline_at DATETIME(3),notified_5min TINYINT(1) DEFAULT 0,notified_started TINYINT(1) DEFAULT 0,
  state ENUM('open','matched','scheduled','live','evaluating','settled','cancelled','forfeited','disputed') NOT NULL DEFAULT 'open',
  created_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3),
  FOREIGN KEY(host_id) REFERENCES users(id),FOREIGN KEY(opponent_id) REFERENCES users(id),
@@ -273,6 +273,19 @@ CREATE TABLE ai_grading_corrections (
  correction_notes TEXT,
  action_taken ENUM('approved_ai', 'corrected', 'admin_override', 'rejected_zero') NOT NULL,
  created_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3)
+) ENGINE=InnoDB;
+CREATE TABLE user_notifications (
+ id VARCHAR(64) PRIMARY KEY,
+ user_id CHAR(36) NOT NULL,
+ title VARCHAR(191) NOT NULL,
+ message TEXT NOT NULL,
+ target_page VARCHAR(64) NOT NULL DEFAULT 'dashboard',
+ target_id VARCHAR(64) NULL,
+ category VARCHAR(64) NOT NULL DEFAULT 'boardroom',
+ is_read TINYINT(1) NOT NULL DEFAULT 0,
+ created_at DATETIME(3) NOT NULL,
+ INDEX idx_user_read (user_id, is_read, created_at),
+ CONSTRAINT fk_user_notifications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 INSERT INTO platform_features(code,enabled) VALUES
  ('demo_mode',TRUE),('real_mode',FALSE),('real_funding',FALSE),('real_payouts',FALSE),

@@ -496,6 +496,11 @@ async function initApp() {
         }
       });
 
+      syncServerNotifications();
+      if (!window.serverNotifInterval) {
+        window.serverNotifInterval = setInterval(syncServerNotifications, 12000);
+      }
+
       navigate(targetPage || 'dashboard', { marketId: targetMarketId, challengeId: targetChallengeId });
       return;
     }
@@ -687,6 +692,53 @@ function saveNotificationsToStorage() {
   } catch (e) {}
 }
 
+async function syncServerNotifications() {
+  if (!state.user) return;
+  try {
+    const res = await api.get('/notifications');
+    if (res?.data?.notifications) {
+      const serverNotifs = res.data.notifications;
+      const localNotifs = state.notifications || [];
+      const localIds = new Set(localNotifs.map(n => n.id));
+
+      let hasNew = false;
+      for (const s of serverNotifs) {
+        if (!localIds.has(s.id)) {
+          hasNew = true;
+          localNotifs.unshift({
+            id: s.id,
+            title: s.title,
+            message: s.message,
+            target_page: s.target_page,
+            target_id: s.target_id,
+            category: s.category,
+            read: Boolean(s.is_read),
+            created_at: s.created_at,
+          });
+
+          // Proactive native Web Push pop-up
+          if ('Notification' in window && Notification.permission === 'granted') {
+            try {
+              new Notification(s.title, {
+                body: s.message,
+                icon: '/icon-192.png',
+                badge: '/icon-192.png',
+                data: { target_page: s.target_page, target_id: s.target_id }
+              });
+            } catch (err) {}
+          }
+        }
+      }
+
+      if (hasNew) {
+        state.notifications = localNotifs.slice(0, 50);
+        saveNotificationsToStorage();
+        updateNotifBadges();
+      }
+    }
+  } catch (err) {}
+}
+
 function updateNotifBadges() {
   const unreadCount = (state.notifications || []).filter(n => !n.read).length;
   const badgeDesktop = document.getElementById('notif-badge-count');
@@ -722,6 +774,7 @@ function markAllNotificationsRead(e) {
   document.querySelectorAll('.notif-dropdown').forEach(dropdown => {
     dropdown.innerHTML = renderNotifDropdownContent();
   });
+  api.post('/notifications/read', {}).catch(() => {});
 }
 
 function handleNotificationClick(notifId) {
@@ -735,6 +788,7 @@ function handleNotificationClick(notifId) {
     dropdown.classList.remove('active');
   });
   updateNotifBadges();
+  api.post('/notifications/read', { notification_id: notifId }).catch(() => {});
 
   api.toast(`Navigating to ${notif.title}...`, 'info');
 
@@ -2464,7 +2518,23 @@ function renderCreateChallenge() {
               <option value="15">15 Minutes</option>
               <option value="20">20 Minutes</option>
               <option value="30">30 Minutes</option>
+              <option value="45">45 Minutes</option>
+              <option value="60">60 Minutes</option>
             </select>
+          </div>
+          <div class="form-group" style="margin-top: 12px;">
+            <label>Scheduled Match Start Time</label>
+            <select class="select" id="create-scheduled-offset" onchange="toggleCustomScheduleInput(this.value)">
+              <option value="10">In 10 Minutes (Recommended)</option>
+              <option value="15">In 15 Minutes</option>
+              <option value="30">In 30 Minutes</option>
+              <option value="60">In 1 Hour</option>
+              <option value="custom">Custom Date & Time...</option>
+            </select>
+            <div id="custom-schedule-wrap" style="display: none; margin-top: 8px;">
+              <input type="datetime-local" class="input" id="create-scheduled-custom">
+            </div>
+            <small style="color: var(--muted);">Fixed start time. The confidential dilemma unlocks simultaneously for both participants when this timer hits zero.</small>
           </div>
           <button type="submit" class="btn btn-primary btn-full" style="margin-top: 14px;">Publish Challenge to Lobby ↗</button>
         </form>
@@ -4007,6 +4077,14 @@ async function handlePlaceForecast(e, eventId) {
   } catch (err) {}
 }
 
+function toggleCustomScheduleInput(val) {
+  const wrap = document.getElementById('custom-schedule-wrap');
+  if (wrap) {
+    wrap.style.display = (val === 'custom') ? 'block' : 'none';
+  }
+}
+window.toggleCustomScheduleInput = toggleCustomScheduleInput;
+
 async function loadBoardroomLobby() {
   try {
     const res = await api.get('/boardroom/lobby');
@@ -4023,26 +4101,41 @@ async function loadBoardroomLobby() {
       return;
     }
 
-    el.innerHTML = res.data.map(c => `
-      <div class="panel" style="display: flex; flex-direction: column;">
-        <div class="market-top">
-          <span class="market-tag">${c.industry}</span>
-          <span class="sim-tag" style="${c.mode === 'real' ? 'background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);' : ''}">
-            ${c.mode === 'real' ? 'REAL STAKE (NGN)' : 'VIRTUAL (VNGN)'}
-          </span>
+    el.innerHTML = res.data.map(c => {
+      const isScheduledFuture = (c.seconds_until_start || 0) > 0;
+      const minsLeft = Math.ceil((c.seconds_until_start || 0) / 60);
+
+      return `
+        <div class="panel" style="display: flex; flex-direction: column;">
+          <div class="market-top">
+            <span class="market-tag">${c.industry}</span>
+            <span class="sim-tag" style="${c.mode === 'real' ? 'background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);' : ''}">
+              ${c.mode === 'real' ? 'REAL STAKE (NGN)' : 'VIRTUAL (VNGN)'}
+            </span>
+          </div>
+          <div class="sealed-box">
+            <div class="lock">🔒</div>
+            <b>Scenario Sealed</b>
+            <p style="font-size: 11.5px; color: var(--muted); margin-top: 4px;">Unlocks strictly at scheduled match time</p>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin: 8px 0; font-size: 13px;">
+            <span>Host: <b>${c.host}</b></span>
+            <span>Commitment: <b>${formatMoney(c.commitment)} ${c.mode === 'real' ? 'NGN' : 'VNGN'}</b></span>
+          </div>
+          <div style="font-size: 12px; color: var(--muted); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; background: var(--bg); padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border);">
+            <span>⏰ Match Time:</span>
+            <b style="color: ${isScheduledFuture ? 'var(--jade)' : '#fbbf24'};">
+              ${isScheduledFuture ? `Starts in ${minsLeft}m` : 'Starting Now'}
+            </b>
+          </div>
+          ${c.has_opponent ? `
+            <button class="btn btn-secondary btn-full" style="margin-top: auto; opacity: 0.85;" disabled>Match Locked (Full) 🔒</button>
+          ` : `
+            <button class="btn btn-primary btn-full" style="margin-top: auto;" onclick="handleJoinChallenge('${c.id}')">Accept Challenge ↗</button>
+          `}
         </div>
-        <div class="sealed-box">
-          <div class="lock">🔒</div>
-          <b>Scenario Sealed</b>
-          <p style="font-size: 11.5px; color: var(--muted); margin-top: 4px;">Released simultaneously upon match start</p>
-        </div>
-        <div style="display: flex; justify-content: space-between; margin: 8px 0; font-size: 13px;">
-          <span>Host: <b>${c.host}</b></span>
-          <span>Commitment: <b>${formatMoney(c.commitment)} ${c.mode === 'real' ? 'NGN' : 'VNGN'}</b></span>
-        </div>
-        <button class="btn btn-primary btn-full" style="margin-top: auto;" onclick="handleJoinChallenge('${c.id}')">Accept Challenge ↗</button>
-      </div>
-    `).join('');
+      `;
+    }).join('');
   } catch (e) {}
 }
 
@@ -4064,17 +4157,34 @@ async function handleCreateChallenge(e) {
     }
   }
 
+  // Calculate scheduled time
+  const scheduleOffset = document.getElementById('create-scheduled-offset')?.value || '10';
+  let scheduledAt;
+  if (scheduleOffset === 'custom') {
+    const customVal = document.getElementById('create-scheduled-custom')?.value;
+    if (!customVal) {
+      api.toast('Please select a custom scheduled date and time.', 'warning');
+      return;
+    }
+    scheduledAt = new Date(customVal).toISOString().slice(0, 19).replace('T', ' ');
+  } else {
+    const offsetMins = parseInt(scheduleOffset, 10) || 10;
+    const targetDate = new Date(Date.now() + offsetMins * 60 * 1000);
+    scheduledAt = targetDate.toISOString().slice(0, 19).replace('T', ' ');
+  }
+
   try {
     const res = await api.post('/boardroom/create', {
       industry_id: industryId,
       stake,
       duration,
       mode,
+      scheduled_at: scheduledAt,
     });
     api.toast(res.message, 'success');
     sendSystemNotification(
-      'Boardroom Challenge Created',
-      `Challenge #${res.data?.challenge_id || ''} created with ₦${stake.toLocaleString()} stake. Waiting for challenger.`,
+      '🏛️ Boardroom Challenge Created',
+      `Challenge #${res.data?.challenge_id || ''} scheduled for ${new Date(scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Waiting for challenger.`,
       'waiting_room',
       res.data?.challenge_id,
       'boardroom'
@@ -4086,15 +4196,27 @@ async function handleCreateChallenge(e) {
 async function handleJoinChallenge(challengeId) {
   try {
     const res = await api.post(`/boardroom/join/${challengeId}`);
-    api.toast('Challenge accepted! Scenario revealed.', 'success');
-    sendSystemNotification(
-      'Boardroom Duel Commenced',
-      'You joined a live boardroom challenge. Scenario is now unlocked.',
-      'live_challenge',
-      challengeId,
-      'boardroom'
-    );
-    navigate('live_challenge', { challengeId });
+    if (res.data?.state === 'scheduled' || (res.data?.seconds_until_start || 0) > 0) {
+      api.toast('Challenge accepted & locked in! Scenario unseals at scheduled match time.', 'success');
+      sendSystemNotification(
+        '⚔️ Challenge Accepted & Locked!',
+        'You joined the boardroom match. Waiting in the executive lounge.',
+        'waiting_room',
+        challengeId,
+        'boardroom'
+      );
+      navigate('waiting_room', { challengeId });
+    } else {
+      api.toast('Challenge accepted! Scenario revealed.', 'success');
+      sendSystemNotification(
+        '🏛️ Boardroom Match Live!',
+        'You joined a live boardroom challenge. Scenario is now unlocked.',
+        'live_challenge',
+        challengeId,
+        'boardroom'
+      );
+      navigate('live_challenge', { challengeId });
+    }
   } catch (err) {}
 }
 
@@ -4105,30 +4227,59 @@ async function loadWaitingRoomData(challengeId) {
     const el = document.getElementById('waiting-room-content');
     if (!el) return;
 
-    if (c.state === 'live') {
+    if (c.state === 'live' && !c.is_scheduled_waiting) {
       navigate('live_challenge', { challengeId: c.id });
       return;
     }
 
     const inviteUrl = window.location.origin + '/?page=live_challenge&challengeId=' + c.id;
+    let secondsLeft = parseInt(c.seconds_until_start, 10) || 0;
+
+    function formatCountdown(sec) {
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
 
     el.innerHTML = `
       <div class="two-col">
         <div class="panel">
           <div class="sealed-box" style="padding: 24px 16px;">
             <div class="lock" style="font-size: 36px; margin-bottom: 6px;">🔒</div>
-            <h2 style="font-size: 17px; margin-bottom: 4px;">Confidential Strategy Scenario Sealed</h2>
+            <h2 style="font-size: 18px; margin-bottom: 4px;">Confidential Strategy Scenario Sealed</h2>
             <p style="color: var(--muted); max-width: 450px; margin: 0 auto 14px; font-size: 12.5px;">
-              Both executive strategists receive the identical case dilemma simultaneously. Content unseals the moment an opponent joins.
+              Both executive strategists receive the identical case dilemma simultaneously. Content unseals strictly when the match countdown arrives.
             </p>
 
-            <!-- Matchmaking Radar Status -->
-            <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 10px; padding: 12px; margin-bottom: 14px; text-align: center;">
-              <div style="display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--jade); font-weight: 700; font-size: 13px; margin-bottom: 2px;">
-                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--jade); box-shadow: 0 0 8px var(--jade); animation: pulse 1.5s infinite;"></span>
-                Live Lobby Matchmaking Active
+            <!-- Fixed Match Scheduled Countdown -->
+            <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 12px; padding: 16px; margin-bottom: 14px; text-align: center;">
+              <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: var(--jade); letter-spacing: 0.05em; margin-bottom: 4px;">
+                MATCH SCHEDULED START COUNTDOWN
               </div>
-              <div style="font-size: 11.5px; color: var(--muted);">Waiting for an executive peer in the lobby... (Checking every 2.5s)</div>
+              <div id="scheduled-countdown-timer" style="font-size: 38px; font-weight: 900; font-family: monospace; color: var(--text); letter-spacing: 2px;">
+                ${formatCountdown(secondsLeft)}
+              </div>
+              <div style="font-size: 11.5px; color: var(--muted); margin-top: 4px;">
+                Scheduled for ${c.scheduled_at ? new Date(c.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Upcoming'}. Scenario auto-unlocks at 00:00.
+              </div>
+            </div>
+
+            <!-- Participant Presence Badges -->
+            <div style="display: flex; gap: 10px; margin-bottom: 14px;">
+              <div style="flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px; text-align: center;">
+                <div style="font-size: 11px; color: var(--muted); text-transform: uppercase;">Host Strategist</div>
+                <div style="font-weight: 700; color: var(--text); font-size: 13px; margin-top: 2px;">${c.host_name}</div>
+                <div style="font-size: 11px; color: var(--jade); font-weight: 700; margin-top: 2px;">● Ready in Lounge</div>
+              </div>
+              <div style="flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px; text-align: center;">
+                <div style="font-size: 11px; color: var(--muted); text-transform: uppercase;">Opponent Strategist</div>
+                <div style="font-weight: 700; color: var(--text); font-size: 13px; margin-top: 2px;">
+                  ${c.has_opponent ? c.opponent_name : 'Waiting for Opponent'}
+                </div>
+                <div style="font-size: 11px; color: ${c.has_opponent ? 'var(--jade)' : '#fbbf24'}; font-weight: 700; margin-top: 2px;">
+                  ${c.has_opponent ? '● Locked In & Ready' : '⏳ Lobby Matchmaking'}
+                </div>
+              </div>
             </div>
 
             <!-- Direct Match Invite Link -->
@@ -4140,13 +4291,15 @@ async function loadWaitingRoomData(challengeId) {
               </div>
             </div>
 
-            <!-- AI Benchmark Duel Option -->
-            <button class="btn btn-primary btn-full" onclick="handleStartBenchmarkDuel('${c.id}')" style="padding: 11px; font-weight: 700; font-size: 13px;">
-              Duel Institutional AI Benchmark 🤖
-            </button>
-            <div style="font-size: 11px; color: var(--muted); margin-top: 5px;">
-              Can't wait? Test your executive strategy immediately against our Institutional Benchmark model.
-            </div>
+            <!-- Institutional AI Benchmark Duel Option if no opponent yet -->
+            ${!c.has_opponent ? `
+              <button class="btn btn-primary btn-full" onclick="handleStartBenchmarkDuel('${c.id}')" style="padding: 11px; font-weight: 700; font-size: 13px;">
+                Duel Institutional AI Benchmark 🤖
+              </button>
+              <div style="font-size: 11px; color: var(--muted); margin-top: 5px;">
+                Can't wait? Test your executive strategy immediately against our Institutional Benchmark model.
+              </div>
+            ` : ''}
           </div>
         </div>
 
@@ -4159,48 +4312,92 @@ async function loadWaitingRoomData(challengeId) {
             </div>
             <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--line); padding-bottom: 8px;">
               <span style="color: var(--muted);">Capital Commitment:</span>
-              <b style="color: var(--jade);">${formatMoney(c.commitment)}</b>
+              <b style="color: var(--jade);">${formatMoney(c.commitment)} ${c.mode === 'real' ? 'NGN' : 'VNGN'}</b>
             </div>
             <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--line); padding-bottom: 8px;">
               <span style="color: var(--muted);">Memo Duration:</span>
               <b>${c.duration_minutes} minutes</b>
             </div>
             <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--line); padding-bottom: 8px;">
-              <span style="color: var(--muted);">Host Strategist:</span>
-              <b>${c.host_name} (Ready)</b>
+              <span style="color: var(--muted);">Scheduled Match Time:</span>
+              <b>${c.scheduled_at ? new Date(c.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Imminent'}</b>
             </div>
             <div style="display: flex; justify-content: space-between;">
-              <span style="color: var(--muted);">Opponent Status:</span>
-              <b style="color: #fbbf24;">Awaiting Match...</b>
+              <span style="color: var(--muted);">Match Status:</span>
+              <b style="color: ${c.has_opponent ? 'var(--jade)' : '#fbbf24'};">${c.has_opponent ? 'Matched & Scheduled' : 'Awaiting Match in Lobby...'}</b>
             </div>
           </div>
         </div>
       </div>
     `;
 
-    // Start 2.5s polling for opponent join
+    // Local 1s ticking countdown timer
+    if (window.waitingCountdownInterval) clearInterval(window.waitingCountdownInterval);
+    let notified5mLocal = false;
+
+    window.waitingCountdownInterval = setInterval(() => {
+      secondsLeft = Math.max(0, secondsLeft - 1);
+      const timerEl = document.getElementById('scheduled-countdown-timer');
+      if (timerEl) {
+        timerEl.textContent = formatCountdown(secondsLeft);
+      }
+
+      // Proactive 5-minute warning notification
+      if (secondsLeft <= 300 && secondsLeft > 290 && !notified5mLocal) {
+        notified5mLocal = true;
+        sendSystemNotification(
+          '🏛️ Boardroom Match in 5 Minutes!',
+          `Your ${c.industry} executive match starts in 5 minutes! Be ready at your terminal.`,
+          'waiting_room',
+          c.id,
+          'boardroom'
+        );
+      }
+
+      // When countdown hits 00:00
+      if (secondsLeft <= 0) {
+        clearInterval(window.waitingCountdownInterval);
+        sendSystemNotification(
+          '🏛️ Boardroom Match Started! Dilemma Unsealed',
+          `The ${c.industry} dilemma has unsealed! Enter the arena and submit your executive memo.`,
+          'live_challenge',
+          c.id,
+          'boardroom'
+        );
+        api.toast('Scheduled time arrived! Unsealing scenario...', 'success');
+        navigate('live_challenge', { challengeId: c.id });
+      }
+    }, 1000);
+
+    // Heartbeat poll every 3s to detect opponent join or match start
     if (window.waitingRoomPollInterval) clearInterval(window.waitingRoomPollInterval);
     window.waitingRoomPollInterval = setInterval(async () => {
       if (state.page !== 'waiting_room' || state.currentChallengeId !== challengeId) {
         clearInterval(window.waitingRoomPollInterval);
+        if (window.waitingCountdownInterval) clearInterval(window.waitingCountdownInterval);
         return;
       }
       try {
         const pollRes = await api.get(`/boardroom/challenge/${challengeId}`);
-        if (pollRes?.data?.state === 'live') {
+        const pollC = pollRes?.data;
+        if (pollC?.state === 'live' && !pollC?.is_scheduled_waiting) {
           clearInterval(window.waitingRoomPollInterval);
+          if (window.waitingCountdownInterval) clearInterval(window.waitingCountdownInterval);
           sendSystemNotification(
-            'Executive Opponent Joined! 🏛️',
-            `An opponent has accepted your challenge in ${pollRes.data.industry}. The strategic memo scenario is now unsealed!`,
+            '🏛️ Boardroom Match Live! Dilemma Unsealed',
+            `The ${pollC.industry} strategic memo scenario is unsealed!`,
             'live_challenge',
             challengeId,
             'boardroom'
           );
-          api.toast('Opponent joined! Scenario unsealed.', 'success');
+          api.toast('Match is live! Scenario unsealed.', 'success');
           navigate('live_challenge', { challengeId });
+        } else if (pollC?.has_opponent && !c.has_opponent) {
+          // Opponent joined! Re-render waiting room with opponent information
+          loadWaitingRoomData(challengeId);
         }
       } catch (err) {}
-    }, 2500);
+    }, 3000);
 
   } catch (e) {}
 }
@@ -4240,10 +4437,13 @@ async function loadLiveChallengeData(challengeId) {
     const el = document.getElementById('live-challenge-content');
     if (!el) return;
 
-    const s = c.scenario || {
-      title: 'The Liquidity Squeeze',
-      body: 'Formulate an actionable 90-day liquidity and operational plan addressing burn rate, downside exposure, and working capital.',
-    };
+    if (c.is_scheduled_waiting || !c.scenario) {
+      api.toast('Confidential dilemma is sealed until the scheduled match time arrives.', 'info');
+      navigate('waiting_room', { challengeId: c.id });
+      return;
+    }
+
+    const s = c.scenario;
 
     el.innerHTML = `
       <div class="page-head">

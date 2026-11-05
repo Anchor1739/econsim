@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Services\AuthService;
+use App\Services\NotificationService;
 use App\Services\ProfileService;
 use App\Utils\Response;
 use Throwable;
@@ -239,6 +240,43 @@ class ProfileController
         try {
             ProfileService::saveFcmToken($user['id'], $token);
             Response::success(['token_saved' => true], 'Device registered for Firebase push notifications.');
+        } catch (Throwable $e) {
+            Response::error($e->getMessage(), 500);
+        }
+    }
+
+    public function getNotifications(): void
+    {
+        $user = AuthService::getCurrentUser();
+        if (!$user) {
+            Response::error('Unauthenticated', 401);
+        }
+
+        try {
+            $notifs = NotificationService::getUserNotifications($user['id'], 50);
+            $unreadCount = NotificationService::getUnreadCount($user['id']);
+            Response::success([
+                'notifications' => $notifs,
+                'unread_count' => $unreadCount,
+            ]);
+        } catch (Throwable $e) {
+            Response::error($e->getMessage(), 500);
+        }
+    }
+
+    public function markNotificationsRead(): void
+    {
+        $user = AuthService::getCurrentUser();
+        if (!$user) {
+            Response::error('Unauthenticated', 401);
+        }
+
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+        $notifId = !empty($body['notification_id']) ? (string)$body['notification_id'] : null;
+
+        try {
+            NotificationService::markAsRead($user['id'], $notifId);
+            Response::success(['status' => 'marked_read']);
         } catch (Throwable $e) {
             Response::error($e->getMessage(), 500);
         }
