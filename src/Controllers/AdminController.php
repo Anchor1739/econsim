@@ -8,6 +8,7 @@ use App\Config\Database;
 use App\Services\AuthService;
 use App\Services\BoardroomService;
 use App\Services\LedgerService;
+use App\Services\PredictorService;
 use App\Utils\Response;
 use App\Utils\Security;
 use Throwable;
@@ -215,44 +216,19 @@ class AdminController
     {
         $this->requireAdmin();
         $body = json_decode(file_get_contents('php://input'), true) ?? [];
-        $eventId = $body['event_id'] ?? '';
+        $eventId = (string)($body['event_id'] ?? '');
         $outcome = isset($body['outcome']) ? (bool)$body['outcome'] : true;
 
-        $pdo = Database::getConnection();
-
-        // Fetch open positions on this market
-        $posStmt = $pdo->prepare("SELECT * FROM forecast_positions WHERE event_id = ? AND status = 'open'");
-        $posStmt->execute([$eventId]);
-        $positions = $posStmt->fetchAll();
-
-        foreach ($positions as $pos) {
-            $won = ((bool)$pos['selected_outcome']) === $outcome;
-            $heldMinor = (int)$pos['stake_minor'];
-            $prob = (float)$pos['quote_probability'];
-            $returnMinor = $won ? (int)round($heldMinor / $prob) : 0;
-            $status = $won ? 'won' : 'lost';
-
-            LedgerService::settleCommitment(
-                $pos['user_id'],
-                $heldMinor,
-                $returnMinor,
-                "forecast_settlement_{$status}",
-                $pos['id'],
-                "settle_{$pos['id']}",
-                $pos['mode']
-            );
-
-            $up = $pdo->prepare("UPDATE forecast_positions SET status = :st, total_return_minor = :ret, settled_at = NOW(3) WHERE id = :id");
-            $up->execute([':st' => $status, ':ret' => $returnMinor, ':id' => $pos['id']]);
+        if (empty($eventId)) {
+            Response::error('event_id is required', 400);
         }
 
-        // Mark event resolved
-        $upEv = $pdo->prepare(
-            "UPDATE market_events SET state = 'resolved', resolution_outcome = :out, resolved_at = NOW(3) WHERE id = :id"
-        );
-        $upEv->execute([':out' => $outcome ? 1 : 0, ':id' => $eventId]);
-
-        Response::success(null, "Market resolved as " . ($outcome ? 'YES' : 'NO') . ". All positions settled via double-entry ledger.");
+        try {
+            $res = PredictorService::resolveMarket($eventId, $outcome, 'Admin Operations Terminal Override');
+            Response::success($res, "Market resolved as " . ($outcome ? 'YES' : 'NO') . ". All positions settled and payouts distributed via double-entry ledger.");
+        } catch (\Throwable $e) {
+            Response::error($e->getMessage(), 400);
+        }
     }
 
     public function aiEvaluateMarket(): void

@@ -500,6 +500,11 @@ async function initApp() {
       if (!window.serverNotifInterval) {
         window.serverNotifInterval = setInterval(syncServerNotifications, 12000);
       }
+      if (!window.cronWorkerInterval) {
+        window.cronWorkerInterval = setInterval(() => {
+          api.get('/cron/worker').catch(() => {});
+        }, 60000);
+      }
 
       navigate(targetPage || 'dashboard', { marketId: targetMarketId, challengeId: targetChallengeId });
       return;
