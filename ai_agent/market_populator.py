@@ -554,11 +554,51 @@ def populate_markets(cursor, conn):
     print(f"[+] Successfully populated {count} fresh economic contracts.")
 
 
-def synthesize_ai_disruption_catalysts(cursor, conn):
+def fetch_latest_macro_news(limit=10):
+    """
+    Scans live macroeconomic and business news RSS feeds across Nigeria and Africa.
+    Returns a clean list of top real-world headlines to ground AI generation in current reality.
+    """
+    url = "https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=en-NG&gl=NG&ceid=NG:en"
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) EconSim/2.0 MarketScanner"}
+    headlines = []
+    try:
+        resp = requests.get(url, headers=headers, timeout=12)
+        if resp.status_code == 200:
+            import xml.etree.ElementTree as ET
+            root = ET.fromstring(resp.content)
+            items = root.findall(".//item")
+            for item in items[:limit]:
+                t = item.find("title")
+                if t is not None and t.text:
+                    clean_t = t.text.strip()
+                    if clean_t and clean_t not in headlines:
+                        headlines.append(clean_t)
+            print(f"[+] Live Web Scanner ingested {len(headlines)} current African business headlines.")
+    except Exception as e:
+        print(f"[!] Live news feed scanner notice: {e}")
+    return headlines
+
+
+def update_active_market_states(cursor, conn):
+    """
+    Scans existing open market contracts and closes those whose closing timestamp has arrived.
+    """
+    try:
+        cursor.execute("UPDATE market_events SET state = 'closed' WHERE state = 'open' AND closes_at <= NOW()")
+        closed_count = cursor.rowcount
+        conn.commit()
+        if closed_count > 0:
+            print(f"[+] Market Lifecycle Engine: Closed {closed_count} expired contract(s).")
+    except Exception as e:
+        print(f"[!] Market state update notice: {e}")
+
+
+def synthesize_ai_disruption_catalysts(cursor, conn, live_headlines=None):
     """
     Autonomous NVIDIA NIM Research Agent:
-    Dynamically scans power disruptions, port logjams, and corporate margin compression
-    to ensure active contracts exist across all African and Nigerian sectors.
+    Dynamically scans power disruptions, port logjams, sovereign debt, and corporate margins
+    grounded in live macroeconomic headlines to ensure active contracts exist across all sectors.
     """
     if not NVIDIA_API_KEY:
         print("[*] No NVIDIA_API_KEY provided; dynamic AI synthesis skipped. Static catalog active.")
@@ -570,9 +610,16 @@ def synthesize_ai_disruption_catalysts(cursor, conn):
         "Content-Type": "application/json",
     }
 
+    # Format live news context if available
+    news_context = ""
+    if live_headlines:
+        news_bullets = "\n".join([f"- {h}" for h in live_headlines[:6]])
+        news_context = f"\nRecent Real-World Economic Headlines:\n{news_bullets}\n"
+
     # Prompt AI to evaluate latest corporate & supply chain shifts
     prompt = (
         "You are an Elite African Equities Strategist & Industrial Economist. "
+        f"{news_context}"
         "Formulate 1 high-stakes verifiable economic or corporate forecasting contract for a public company on the Nigerian Exchange (NGX) "
         "or African regional bourses (e.g. BUA Foods, Geregu Power, Transcorp, Zenith Bank, Oando, Lafarge, Safaricom). "
         "Focus on critical real-economy disruptions: Band-A electricity tariffs, port demurrage at Apapa, gas pipeline pressure, or CBN recapitalization. "
@@ -593,7 +640,7 @@ def synthesize_ai_disruption_catalysts(cursor, conn):
                 "temperature": 0.2,
                 "max_tokens": 1024,
             },
-            timeout=20,
+            timeout=25,
         )
         if resp.status_code == 200:
             data = resp.json()
@@ -659,6 +706,95 @@ def synthesize_ai_disruption_catalysts(cursor, conn):
         print(f"[!] Autonomous AI Scanner note: {e}")
 
 
+def synthesize_ai_boardroom_scenarios(cursor, conn, live_headlines=None):
+    """
+    Autonomous Boardroom Dilemma Generator:
+    Generates sharp, bite-sized, single-objective boardroom scenarios based on real-world events.
+    Enforces that dilemmas contain concrete financial numbers and a focused directive.
+    """
+    if not NVIDIA_API_KEY:
+        return
+
+    print("[*] Checking Boardroom Scenario Coverage across industries...")
+    headers = {
+        "Authorization": f"Bearer {NVIDIA_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    news_context = ""
+    if live_headlines:
+        news_bullets = "\n".join([f"- {h}" for h in live_headlines[:5]])
+        news_context = f"Current Economic Intelligence:\n{news_bullets}\n"
+
+    prompt = (
+        "You are the Lead Executive Strategy Designer for EconSim. "
+        f"{news_context}"
+        "Formulate 1 SHARP, BITE-SIZED, SINGLE-OBJECTIVE boardroom challenge for an executive (CFO/COO/CEO). "
+        "CRITICAL RULES:\n"
+        "1. SINGLE FOCUSED PROBLEM: Do NOT create 3 or 4 huge essay tasks. Pick ONE concrete dilemma (e.g. 72-hour burn reduction, key client renegotiation, invoice factoring bridge, power tariff surge).\n"
+        "2. CONCRETE NUMBERS: Include specific numbers (monthly revenue, cash burn, cash reserves, percentage transport or electricity hike).\n"
+        "3. PUNCHY DIRECTIVE: End with 1 clear Executive Directive with 2 distinct strategic options (Option A vs Option B) or an immediate actionable operational plan.\n"
+        "Output strictly valid JSON with keys: "
+        "'industry_slug' (one of: fintech, energy, agriculture, fmcg, healthcare, real-estate, monetary-policy, capital-markets, fx-reserves, manufacturing, telecoms), "
+        "'title' (punchy 6-10 word title), "
+        "'body' (1 short backstory paragraph + Executive Directive), "
+        "'reference' ({'company': 'Name', 'precedent': 'Historical emerging market precedent'}), "
+        "'difficulty' ('intermediate')."
+    )
+
+    try:
+        resp = requests.post(
+            f"{NVIDIA_API_URL}/chat/completions",
+            headers=headers,
+            json={
+                "model": NVIDIA_MODEL,
+                "messages": [
+                    {"role": "system", "content": "You design rigorous, realistic business simulation cases. Output valid JSON only."},
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.25,
+                "max_tokens": 1024,
+            },
+            timeout=25,
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            raw_content = data["choices"][0]["message"]["content"]
+            clean_json = raw_content.replace("```json", "").replace("```", "").strip()
+            sc = json.loads(clean_json)
+
+            # Check if title already exists
+            cursor.execute("SELECT id FROM boardroom_scenarios WHERE title = %s LIMIT 1", (sc["title"],))
+            if not cursor.fetchone():
+                cursor.execute("SELECT id FROM industries WHERE slug = %s LIMIT 1", (sc.get("industry_slug", "fintech"),))
+                ind_row = cursor.fetchone()
+                ind_id = ind_row[0] if ind_row else 1
+
+                sc_id = str(uuid.uuid4())
+                rubric_json = json.dumps({'financial_mechanics': 40, 'risk_management': 30, 'historical_alignment': 20, 'communication': 10})
+                ref_json = json.dumps(sc.get("reference", {}))
+
+                ins_sc = """
+                    INSERT INTO boardroom_scenarios
+                        (id, industry_id, title, confidential_body, reference_case, rubric, difficulty, created_at)
+                    VALUES
+                        (%s, %s, %s, %s, %s, %s, %s, NOW(3))
+                """
+                cursor.execute(ins_sc, (
+                    sc_id,
+                    ind_id,
+                    sc["title"],
+                    sc["body"],
+                    ref_json,
+                    rubric_json,
+                    sc.get("difficulty", "intermediate"),
+                ))
+                conn.commit()
+                print(f"[+] Autonomous Boardroom Engine generated new sharp dilemma: [{sc.get('industry_slug')}] {sc['title']}")
+    except Exception as e:
+        print(f"[!] Boardroom scenario generator notice: {e}")
+
+
 def execute_keep_alive_query(conn):
     """Executes a user select query to keep Aiven free-tier database alive and active."""
     try:
@@ -691,17 +827,28 @@ def main():
     # Execute keep-alive query on each invocation
     execute_keep_alive_query(conn)
 
+    # Ingest live macroeconomic headlines via web scanner
+    live_headlines = fetch_latest_macro_news(limit=10)
+
+    # Lifecycle update: close expired contracts
+    update_active_market_states(cursor, conn)
+
+    # Core catalog and AI synthesis
     ensure_industries(cursor, conn)
     populate_markets(cursor, conn)
-    synthesize_ai_disruption_catalysts(cursor, conn)
+    synthesize_ai_disruption_catalysts(cursor, conn, live_headlines)
+    synthesize_ai_boardroom_scenarios(cursor, conn, live_headlines)
 
     cursor.execute("SELECT COUNT(*) FROM market_events WHERE state = 'open'")
     total_open = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM boardroom_scenarios")
+    total_scenarios = cursor.fetchone()[0]
     print(f"[+] Active open market contracts verified in database: {total_open}")
+    print(f"[+] Active sharp boardroom dilemmas verified in database: {total_scenarios}")
 
     cursor.close()
     conn.close()
-    print("[+] Market populator execution completed successfully.")
+    print("[+] Market populator & real-time scanner execution completed successfully.")
 
 
 if __name__ == "__main__":

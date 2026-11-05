@@ -8,10 +8,10 @@ on:
       - 'public/**'
       - 'ai_agent/**'
   schedule:
-    # Runs twice daily (06:00 & 18:00 UTC) for maintenance & reconciliation.
-    # Consumes < 45 runner minutes/month (well within the 2,000 free tier limit) to avoid abuse flags.
-    # High-frequency 1-5 min keep-warm & memo evaluation is handled via cron-job.org -> /api/cron/worker.
-    - cron: '0 6,18 * * *'
+    # Runs 4 times daily (00:00, 06:00, 12:00, 18:00 UTC) for real-time market scanning & scenario sync.
+    # Consumes < 180 runner minutes/month (well within the 2,000 free tier limit) to avoid any abuse flags.
+    # Manual on-demand triggers can be launched anytime from the Actions tab.
+    - cron: '0 0,6,12,18 * * *'
   workflow_dispatch:
     # Allows on-demand manual trigger anytime from GitHub Actions tab
 
