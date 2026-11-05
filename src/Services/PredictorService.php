@@ -619,9 +619,10 @@ Respond ONLY with valid JSON:
             }
         }
 
-        // 3. Dynamic Multi-Sector Auto-Replenishment:
-        // Ensures platform never runs dry; maintains >= 4 open contracts across all 11 sectors
-        $replenished = self::autoReplenishSectors(4);
+        // 3. Continuous Multi-Sector Market Ingestion Engine:
+        // Constantly ingests fresh prediction markets whenever data or catalysts are available;
+        // does NOT wait for sector counts to drop.
+        $replenished = self::continuousMarketIngestion(3);
         $updates['auto_replenished_count'] = count($replenished);
         if ($updates['auto_replenished_count'] > 0) {
             $updates['replenished_markets'] = $replenished;
@@ -636,10 +637,118 @@ Respond ONLY with valid JSON:
 
     public static function autoReplenishSectors(int $minPerSector = 4): array
     {
-        $pdo = Database::getConnection();
-        $replenished = [];
+        return self::continuousMarketIngestion(3);
+    }
 
-        // Sector catalog of macro-realistic rotating catalysts
+    public static function fetchLiveMacroHeadlines(int $limit = 5): array
+    {
+        $url = "https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=en-NG&gl=NG&ceid=NG:en";
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_TIMEOUT => 6,
+            CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) EconSim/2.0 MarketScanner',
+            CURLOPT_SSL_VERIFYPEER => false,
+        ]);
+        $xml = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        $headlines = [];
+        if ($httpCode === 200 && $xml) {
+            try {
+                libxml_use_internal_errors(true);
+                $rss = simplexml_load_string($xml);
+                if ($rss && isset($rss->channel->item)) {
+                    foreach ($rss->channel->item as $item) {
+                        $title = trim((string)$item->title);
+                        if (!empty($title) && !in_array($title, $headlines, true)) {
+                            $headlines[] = $title;
+                            if (count($headlines) >= $limit) {
+                                break;
+                            }
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {}
+        }
+        return $headlines;
+    }
+
+    public static function synthesizeMarketFromNewsHeadline(string $headline, array $industries): ?array
+    {
+        $apiKey = (string)\App\Config\Env::get('NVIDIA_API_KEY', '');
+        if (empty($apiKey)) {
+            return null;
+        }
+
+        $slugsList = implode(', ', array_column($industries, 'slug'));
+        $prompt = "You are an Elite African Equities Strategist & Industrial Economist for the EconSim terminal.
+Based on this real-world business headline: \"{$headline}\",
+formulate 1 high-stakes, verifiable economic prediction contract for the Nigerian economy or NGX public companies.
+Available industry slugs: [{$slugsList}].
+
+Respond ONLY with valid JSON:
+{
+  \"industry\": \"one of the industry slugs above\",
+  \"title\": \"Clear verifiable question starting with Will ...?\",
+  \"slug\": \"short-unique-kebab-slug\",
+  \"definition\": \"Resolves YES if [exact measurable criteria and official published benchmark]...\",
+  \"source\": \"Official authority or regulatory disclosure (e.g. CBN, NGX, FMDQ, NBS, NUPRC)\",
+  \"days\": 60,
+  \"metrics\": [
+    [\"Primary Metric 1\", \"Impact on the economy or corporate revenue\"],
+    [\"Primary Metric 2\", \"Transmission channel and secondary effect\"]
+  ],
+  \"history\": \"Relevant historical precedent in Nigerian economic history.\"
+}";
+
+        $postData = [
+            'model' => 'meta/llama-3.1-70b-instruct',
+            'messages' => [
+                ['role' => 'system', 'content' => 'You are a macroeconomic forecasting engine. Return valid JSON only.'],
+                ['role' => 'user', 'content' => $prompt],
+            ],
+            'temperature' => 0.2,
+            'max_tokens' => 768,
+        ];
+
+        $ch = curl_init("https://integrate.api.nvidia.com/v1/chat/completions");
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => json_encode($postData),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                "Authorization: Bearer {$apiKey}",
+            ],
+            CURLOPT_TIMEOUT => 15,
+            CURLOPT_SSL_VERIFYPEER => false,
+        ]);
+        $res = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($httpCode === 200 && $res) {
+            $data = json_decode($res, true);
+            $content = $data['choices'][0]['message']['content'] ?? '';
+            if (preg_match('/\{.*\}/s', $content, $m)) {
+                $parsed = json_decode($m[0], true);
+                if ($parsed && !empty($parsed['title']) && !empty($parsed['definition'])) {
+                    return $parsed;
+                }
+            }
+        }
+        return null;
+    }
+
+    public static function continuousMarketIngestion(int $maxPerCycle = 3): array
+    {
+        $pdo = Database::getConnection();
+        $ingested = [];
+
+        // Comprehensive sector reservoir across all 11 core industries
         $sectorCatalogs = [
             'monetary-policy' => [
                 [
@@ -665,6 +774,18 @@ Respond ONLY with valid JSON:
                         ['System Liquidity Absorption', 'Mopping up excess money supply to stabilize headline inflation.']
                     ],
                     'history' => 'Major OMO auctions in early 2024 attracted strong foreign institutional demand following high stop rates.'
+                ],
+                [
+                    'title' => 'Will the Central Bank of Nigeria raise the MPR by at least 50 bps at the upcoming MPC meeting?',
+                    'slug' => 'cbn-mpr-hike-50bps',
+                    'def' => 'Resolves YES if the published CBN Monetary Policy Committee communique officially raises the Monetary Policy Rate (MPR) by 50 basis points or higher above the preceding benchmark.',
+                    'source' => 'Central Bank of Nigeria (CBN) Official MPC Communique (cbn.gov.ng)',
+                    'days' => 45,
+                    'metrics' => [
+                        ['Headline vs Core CPI Spread', 'Measures food and energy volatility relative to structural underlying inflation.'],
+                        ['Currency Stabilization Pressure', 'Naira exchange rate volatility increases pressure for restrictive policy.']
+                    ],
+                    'history' => 'In 2024, the MPC increased the policy rate past 26% to curb inflation and narrow the negative real interest rate corridor.'
                 ]
             ],
             'capital-markets' => [
@@ -691,6 +812,18 @@ Respond ONLY with valid JSON:
                         ['Shareholder Subscription Rate', 'Domestic retail and institutional rights uptake.']
                     ],
                     'history' => 'The CBN mandated all commercial banks to substantially bolster minimum paid-up capital.'
+                ],
+                [
+                    'title' => 'Will Zenith Bank Plc (ZENITHBANK) report full-year Gross Earnings exceeding ₦2.5 Trillion?',
+                    'slug' => 'zenith-bank-gross-earnings-2-5t',
+                    'def' => 'Resolves YES if audited annual financial statements of Zenith Bank Plc filed on the NGX confirm consolidated gross earnings equal to or exceeding ₦2,500,000,000,000.',
+                    'source' => 'Nigerian Exchange Group (NGX) Audited Financial Disclosures (ngxgroup.com)',
+                    'days' => 120,
+                    'metrics' => [
+                        ['FX Trading & Revaluation Gains', 'Net trading income and foreign exchange position revaluation.'],
+                        ['Non-Interest Revenue Growth', 'Electronic fees, letters of credit, and treasury advisory income.']
+                    ],
+                    'history' => 'Zenith Bank scaled gross earnings aggressively following expanded corporate lending and foreign exchange revaluation.'
                 ]
             ],
             'fx-reserves' => [
@@ -717,6 +850,18 @@ Respond ONLY with valid JSON:
                         ['Trade Balance Surplus', 'Reduction in non-essential merchandise import demand.']
                     ],
                     'history' => 'Exchange rate stability improved as central bank cleared verified legacy commitments.'
+                ],
+                [
+                    'title' => 'Will Nigeria official gross foreign exchange reserves exceed $40 Billion before year-end 2026?',
+                    'slug' => 'nigeria-fx-reserves-40b',
+                    'def' => 'Resolves YES if the CBN official 30-day moving average gross external reserves data published on the CBN website reaches or exceeds USD 40,000,000,000 on or before December 31, 2026.',
+                    'source' => 'CBN Official External Reserves Daily Statistics',
+                    'days' => 70,
+                    'metrics' => [
+                        ['Crude Oil Output & Lifting', 'NNPC joint venture production, condensate output, and prompt dollar repatriation.'],
+                        ['Diaspora Remittance Inflows', 'Growth of formal autonomous remittances through IMTO corridors.']
+                    ],
+                    'history' => 'Reserves hit a multi-year high in late 2024 following crude recovery and cleared forward backlog obligations.'
                 ]
             ],
             'fintech' => [
@@ -743,20 +888,32 @@ Respond ONLY with valid JSON:
                         ['Fintech-Bank Credit Data Sharing', 'Automated underwriting and account verification workflows.']
                     ],
                     'history' => 'The CBN released comprehensive regulatory operational guidelines for Open Banking in Nigeria.'
+                ],
+                [
+                    'title' => 'Will Nigeria NIBSS instant payment transaction volume expand by over 30% year-on-year?',
+                    'slug' => 'nibss-instant-payments-growth',
+                    'def' => 'Resolves YES if the annual electronic payment data published by the Nigeria Inter-Bank Settlement System (NIBSS) shows total NIP volume growth equal to or exceeding 30.0% compared to the prior year.',
+                    'source' => 'NIBSS Official Electronic Payments Statistical Factsheet',
+                    'days' => 60,
+                    'metrics' => [
+                        ['Agency Banking Distribution', 'Expansion of POS agent networks in peri-urban and rural trade hubs.'],
+                        ['Mobile App & USSD Penetration', 'Smartphone adoption and transaction uptime among digital banks.']
+                    ],
+                    'history' => 'Digital payments surged rapidly during cash-scarcity periods, permanently shifting consumer payment habits to electronic rails.'
                 ]
             ],
             'energy' => [
                 [
-                    'title' => 'Will Dangote Petroleum Refinery achieve regular commercial export shipments of automotive gas oil (diesel) to European markets?',
-                    'slug' => 'dangote-refinery-euro-diesel-exports',
-                    'def' => 'Resolves YES if verified S&P Global Commodity Insights or shipping manifest data confirms at least 3 commercial marine cargo shipments of Euro-V diesel from Lekki Free Zone to European ports.',
-                    'source' => 'S&P Global Commodity Insights / Argus Media Manifest Reports',
-                    'days' => 90,
+                    'title' => 'Will Dangote Petroleum Refinery achieve sustained export volume of refined diesel to West African ports?',
+                    'slug' => 'dangote-refinery-regional-exports',
+                    'def' => 'Resolves YES if official maritime tracking and customs shipment disclosures confirm at least 500,000 metric tons of refined Euro-V diesel exported across ECOWAS destinations in a single quarter.',
+                    'source' => 'NMDPRA & S&P Global Commodities Manifest Reports',
+                    'days' => 80,
                     'metrics' => [
-                        ['Crude Run Utilization Rate', 'Daily processing volume scaling towards 550,000 bpd design capacity.'],
-                        ['Sulphur Content Compliance', 'Meeting European 10-ppm sulphur environmental purity standards.']
+                        ['Domestic Crude Supply Agreements', 'Naira-for-crude supply framework execution with NNPC Limited.'],
+                        ['Secondary Refining Unit Efficiency', 'RFCC and hydrocracker operating throughput rates.']
                     ],
-                    'history' => 'The 650,000 bpd refinery began domestic distribution and international cargo exports in 2024.'
+                    'history' => 'Refinery commissioning in 2024 marked a structural transition for Nigerian energy trade from net refined importer to regional supplier.'
                 ],
                 [
                     'title' => 'Will the Nigerian Upstream Petroleum Regulatory Commission (NUPRC) conclude the 2024/2026 deepwater licensing round with at least 8 signed PSCs?',
@@ -769,6 +926,18 @@ Respond ONLY with valid JSON:
                         ['Exploration Capex Commitments', 'Deepwater drilling campaigns scheduled across the Niger Delta basin.']
                     ],
                     'history' => 'The Petroleum Industry Act (PIA) overhauled fiscal terms to attract international upstream investment.'
+                ],
+                [
+                    'title' => 'Will Nigeria national power grid sustain wheeled electricity generation exceeding 5,000 MW for 14 consecutive days?',
+                    'slug' => 'grid-electricity-generation-5000mw',
+                    'def' => 'Resolves YES if Transmission Company of Nigeria (TCN) operational load records show average wheeled grid generation sustained above 5,000.00 Megawatts for 14 consecutive calendar days.',
+                    'source' => 'National Control Centre (NCC) Osogbo / TCN Daily Grid Operational Reports',
+                    'days' => 90,
+                    'metrics' => [
+                        ['Gas Pipeline Delivery Pressure', 'Adequate thermal feedstock to Egbin, Delta, and Geregu power plants.'],
+                        ['Transmission Wheeled Capacity', 'Minimizing frequency swings and transmission system collapses.']
+                    ],
+                    'history' => 'National grid generation repeatedly faced gas shortages and tripping before major transmission expansions.'
                 ]
             ],
             'agriculture' => [
@@ -795,6 +964,18 @@ Respond ONLY with valid JSON:
                         ['Feed Mill Industrial Demand', 'Poultry and livestock feed manufacturing procurement pressure.']
                     ],
                     'history' => 'Grain prices experienced sharp volatility following transport fuel costs and regional harvest variances.'
+                ],
+                [
+                    'title' => 'Will Presco Plc (PRESCO) complete commercial commissioning of its 500-tonne-per-day palm kernel crushing plant?',
+                    'slug' => 'presco-palm-kernel-crushing-commissioning',
+                    'def' => 'Resolves YES if official regulatory corporate filings on the NGX confirm full commercial operations of Presco new palm kernel processing facility.',
+                    'source' => 'Nigerian Exchange Group (NGX) Corporate Disclosures & Presco Plc Press Release',
+                    'days' => 90,
+                    'metrics' => [
+                        ['Crude Palm Oil Yield Ratio', 'Fresh fruit bunch extraction rate and milling recovery efficiency.'],
+                        ['Domestic Industrial Sourcing', 'Supplying refined olein to soap, detergent, and food manufacturers.']
+                    ],
+                    'history' => 'Presco expanded plantation acreage in Edo State to satisfy rapid domestic demand for industrial fats.'
                 ]
             ],
             'manufacturing' => [
@@ -821,6 +1002,18 @@ Respond ONLY with valid JSON:
                         ['DisCo Embedded Power Agreements', 'Direct bilateral power purchase agreements bypassing transmission bottlenecks.']
                     ],
                     'history' => 'Industrial energy accounts for over 35% of total operating overhead for Nigerian manufacturers.'
+                ],
+                [
+                    'title' => 'Will local manufacturing capacity utilization improve above 60% according to the MAN survey?',
+                    'slug' => 'manufacturers-association-utilization-60',
+                    'def' => 'Resolves YES if the bi-annual Economic Review of the Manufacturers Association of Nigeria (MAN) records average industrial capacity utilization equal to or higher than 60.0%.',
+                    'source' => 'Manufacturers Association of Nigeria (MAN) Executive Economic Review',
+                    'days' => 100,
+                    'metrics' => [
+                        ['Industrial Power Reliability', 'Band-A electricity tariff impacts and captive gas power plant operations.'],
+                        ['Local Raw Material Sourcing', 'Backward integration programs in agro-allied, packaging, and chemical inputs.']
+                    ],
+                    'history' => 'Manufacturing utilization faced severe headwinds from FX depreciation in 2023-2024, prompting domestic raw material substitution.'
                 ]
             ],
             'fmcg' => [
@@ -847,6 +1040,18 @@ Respond ONLY with valid JSON:
                         ['Gross Margin Stabilization', 'Domestic grain malting facilities reducing foreign exchange import reliance.']
                     ],
                     'history' => 'Nigerian Breweries undertook landmark rights issue to extinguish foreign currency debt and repair balance sheet.'
+                ],
+                [
+                    'title' => 'Will BUA Foods Plc (BUAFOODS) maintain gross profit margin above 32% across its sugar and flour divisions?',
+                    'slug' => 'bua-foods-gross-margin-32pct',
+                    'def' => 'Resolves YES if published quarterly financial statements of BUA Foods Plc on the NGX confirm consolidated gross profit margin equal to or exceeding 32.0%.',
+                    'source' => 'Nigerian Exchange Group (NGX) Quarterly Earnings Releases (ngxgroup.com)',
+                    'days' => 90,
+                    'metrics' => [
+                        ['Backward Integration Sugarcane Farming', 'Lafiagi sugar estate harvest output mitigating raw sugar import costs.'],
+                        ['Industrial Client Demand', 'Direct commercial supply contracts with beverage and confectionery producers.']
+                    ],
+                    'history' => 'BUA Foods achieved rapid revenue expansion through domestic milling scale and efficient logistics.'
                 ]
             ],
             'real-estate' => [
@@ -873,6 +1078,18 @@ Respond ONLY with valid JSON:
                         ['Developer Project Completion Velocity', 'Timely handover of residential housing estates across state capitals.']
                     ],
                     'history' => 'The National Housing Fund provides subsidized mortgage and estate development financing.'
+                ],
+                [
+                    'title' => 'Will commercial prime warehousing occupancy across the Ikeja and Agbara industrial clusters exceed 90%?',
+                    'slug' => 'industrial-warehousing-occupancy-90pct',
+                    'def' => 'Resolves YES if quarterly industrial real estate market research reports from Northcourt or Estate Intel confirm average warehousing occupancy equal to or exceeding 90.0%.',
+                    'source' => 'Estate Intel / Northcourt Real Estate Industrial Market Survey',
+                    'days' => 90,
+                    'metrics' => [
+                        ['FMCG & Retail Inventory Buffering', 'Manufacturers holding larger local safety stocks to counter import delays.'],
+                        ['E-Commerce Logistics Hubs', 'Expansion of regional fulfillment and cold chain storage hubs.']
+                    ],
+                    'history' => 'Logistics real estate demand surged as supply chain operators sought secure, modern Grade-A warehousing.'
                 ]
             ],
             'telecoms' => [
@@ -899,6 +1116,18 @@ Respond ONLY with valid JSON:
                         ['Enterprise Fixed Wireless Access (FWA)', 'Commercial broadband rollouts for SME and corporate clients.']
                     ],
                     'history' => 'NCC issued 3.5GHz spectrum licenses to MTN, Mafab, and Airtel to accelerate 5G coverage.'
+                ],
+                [
+                    'title' => 'Will 5G network coverage reach at least 25% of urban population centres in Nigeria?',
+                    'slug' => 'telecom-5g-coverage-25pct',
+                    'def' => 'Resolves YES if official Nigerian Communications Commission (NCC) broadband performance data verifies 5G active coverage spanning at least 25% of state capitals and tier-1 commercial cities.',
+                    'source' => 'Nigerian Communications Commission (NCC) Broadband Monitoring Portal',
+                    'days' => 120,
+                    'metrics' => [
+                        ['Fiber-to-the-Tower Deployments', 'Metropolitan fiber optic buildout and right-of-way (RoW) harmonization.'],
+                        ['Capex Investment in 3.5GHz Base Stations', 'Foreign exchange allocation for radio access network equipment.']
+                    ],
+                    'history' => 'Commercial 5G launched in 2022-2023 by MTN and Airtel, focusing initially on metropolitan business districts.'
                 ]
             ],
             'healthcare' => [
@@ -925,41 +1154,140 @@ Respond ONLY with valid JSON:
                         ['Hospital Supply Contracts', 'Direct procurement agreements with federal tertiary teaching hospitals.']
                     ],
                     'history' => 'Fidson partnered with international medical firms to localize high-grade sterile infusion products.'
+                ],
+                [
+                    'title' => 'Will active citizen enrolments under the National Health Insurance Authority (NHIA) surpass 20 Million individuals?',
+                    'slug' => 'nhia-active-enrolment-20m',
+                    'def' => 'Resolves YES if official NHIA annual performance review statistics record total verified registered beneficiaries equal to or exceeding 20,000,000 across formal and informal sector programs.',
+                    'source' => 'National Health Insurance Authority (NHIA) Official Annual Statistical Reports',
+                    'days' => 120,
+                    'metrics' => [
+                        ['State Social Health Insurance Agency (SSHIA) Adoption', 'Vulnerable group fund operationalization in sub-national states.'],
+                        ['Health Maintenance Organization (HMO) Accreditations', 'Tier-1 provider network expansion in rural and semi-urban districts.']
+                    ],
+                    'history' => 'The NHIA Act made health insurance mandatory in Nigeria to advance universal health coverage.'
                 ]
             ],
         ];
 
         try {
-            $industries = $pdo->query("SELECT id, slug, name FROM industries")->fetchAll(PDO::FETCH_ASSOC);
+            // Sort industries by lowest open markets first so sectors with fewer markets are prioritized
+            $industries = $pdo->query("
+                SELECT i.id, i.slug, i.name, COUNT(me.id) as open_cnt
+                FROM industries i
+                LEFT JOIN market_events me ON i.id = me.industry_id AND me.state = 'open'
+                GROUP BY i.id, i.slug, i.name
+                ORDER BY open_cnt ASC
+            ")->fetchAll(PDO::FETCH_ASSOC);
 
+            $addedTotal = 0;
+
+            // 1. Live Breaking News Ingestion (if NVIDIA AI key is present and fresh headlines exist)
+            $liveHeadlines = self::fetchLiveMacroHeadlines(3);
+            if (!empty($liveHeadlines)) {
+                foreach ($liveHeadlines as $headline) {
+                    if ($addedTotal >= $maxPerCycle) {
+                        break;
+                    }
+
+                    // Check if a market with similar title exists
+                    $chkNews = $pdo->prepare("SELECT id FROM market_events WHERE outcome_definition LIKE ? LIMIT 1");
+                    $chkNews->execute(['%' . substr($headline, 0, 40) . '%']);
+                    if ($chkNews->fetch()) {
+                        continue;
+                    }
+
+                    $aiMarket = self::synthesizeMarketFromNewsHeadline($headline, $industries);
+                    if ($aiMarket && !empty($aiMarket['title'])) {
+                        // Find industry ID
+                        $aiSlug = $aiMarket['industry'] ?? 'capital-markets';
+                        $aiIndId = 2;
+                        foreach ($industries as $ind) {
+                            if ($ind['slug'] === $aiSlug) {
+                                $aiIndId = (int)$ind['id'];
+                                break;
+                            }
+                        }
+
+                        $eventId = Security::uuid();
+                        $uniqueSlug = ($aiMarket['slug'] ?? 'macro-news') . '-' . substr(bin2hex(random_bytes(4)), 0, 6);
+                        $days = max(30, min(150, (int)($aiMarket['days'] ?? 60)));
+                        $closesAt = date('Y-m-d H:i:s', time() + ($days * 86400));
+                        $resolvesAt = date('Y-m-d H:i:s', time() + (($days + 1) * 86400));
+
+                        $ins = $pdo->prepare("
+                            INSERT INTO market_events 
+                                (id, slug, industry_id, title, outcome_definition, resolution_source, resolves_at, closes_at, state, created_at)
+                            VALUES 
+                                (:id, :slug, :ind, :title, :def, :src, :res, :cls, 'open', NOW(3))
+                        ");
+                        $ins->execute([
+                            ':id' => $eventId,
+                            ':slug' => $uniqueSlug,
+                            ':ind' => $aiIndId,
+                            ':title' => $aiMarket['title'],
+                            ':def' => $aiMarket['definition'] ?? $headline,
+                            ':src' => $aiMarket['source'] ?? 'Official Macro & Regulatory Disclosures',
+                            ':res' => $resolvesAt,
+                            ':cls' => $closesAt,
+                        ]);
+
+                        $contextId = Security::uuid();
+                        $metricsJson = json_encode($aiMarket['metrics'] ?? [
+                            ['Real Economy Impact', 'Inflationary, fiscal or currency transmission channel.'],
+                            ['Corporate Sector Liquidity', 'Direct capital reallocation and balance sheet adjustment.']
+                        ]);
+                        $historyJson = json_encode([['period' => 'Macro Precedent', 'action' => $aiMarket['history'] ?? 'Breaking economic development based on live market reporting.']]);
+
+                        $insCtx = $pdo->prepare("
+                            INSERT INTO study_context_versions 
+                                (id, event_id, version, summary, metrics, historical_cases, ai_generated, published_at)
+                            VALUES 
+                                (:id, :eid, 1, :summary, :metrics, :history, 1, NOW(3))
+                        ");
+                        $insCtx->execute([
+                            ':id' => $contextId,
+                            ':eid' => $eventId,
+                            ':summary' => $aiMarket['definition'] ?? $headline,
+                            ':metrics' => $metricsJson,
+                            ':history' => $historyJson,
+                        ]);
+
+                        $addedTotal++;
+                        $ingested[] = [
+                            'industry' => $aiSlug,
+                            'title' => $aiMarket['title'],
+                            'slug' => $uniqueSlug,
+                            'origin' => 'live_news_scanner',
+                        ];
+                    }
+                }
+            }
+
+            // 2. Continuous Reservoir Catalog Ingestion:
+            // Does NOT wait for sectors to drop below 4! Ingests whenever there is un-ingested data info available.
             foreach ($industries as $ind) {
-                $indId = (int)$ind['id'];
-                $indSlug = $ind['slug'];
-
-                $chk = $pdo->prepare("SELECT COUNT(*) FROM market_events WHERE industry_id = ? AND state = 'open'");
-                $chk->execute([$indId]);
-                $openCount = (int)$chk->fetchColumn();
-
-                if ($openCount >= $minPerSector) {
-                    continue;
+                if ($addedTotal >= $maxPerCycle) {
+                    break;
                 }
 
-                $needed = $minPerSector - $openCount;
+                $indId = (int)$ind['id'];
+                $indSlug = $ind['slug'];
                 $templates = $sectorCatalogs[$indSlug] ?? [];
                 if (empty($templates)) {
                     continue;
                 }
 
-                $addedForSector = 0;
                 foreach ($templates as $tmpl) {
-                    if ($addedForSector >= $needed) {
+                    if ($addedTotal >= $maxPerCycle) {
                         break;
                     }
 
+                    // Check if this market is ALREADY open
                     $chkExists = $pdo->prepare("SELECT id FROM market_events WHERE industry_id = ? AND title = ? AND state = 'open'");
                     $chkExists->execute([$indId, $tmpl['title']]);
                     if ($chkExists->fetch()) {
-                        continue;
+                        continue; // Already active, proceed to next catalyst
                     }
 
                     $eventId = Security::uuid();
@@ -1002,11 +1330,12 @@ Respond ONLY with valid JSON:
                         ':history' => $historyJson,
                     ]);
 
-                    $addedForSector++;
-                    $replenished[] = [
+                    $addedTotal++;
+                    $ingested[] = [
                         'industry' => $ind['name'],
                         'title' => $tmpl['title'],
                         'slug' => $uniqueSlug,
+                        'origin' => 'catalog_continuous',
                     ];
                 }
             }
@@ -1014,7 +1343,7 @@ Respond ONLY with valid JSON:
             // Non-blocking
         }
 
-        return $replenished;
+        return $ingested;
     }
 }
 

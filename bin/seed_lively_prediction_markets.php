@@ -503,3 +503,4 @@ foreach ($catalysts as $cat) {
 }
 
 echo "\n[✓] Successfully added {$count} new high-stakes prediction markets!\n";
+
