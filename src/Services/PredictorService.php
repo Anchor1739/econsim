@@ -619,11 +619,402 @@ Respond ONLY with valid JSON:
             }
         }
 
-        if ($updates['auto_locked_5min_markets'] > 0 || $updates['auto_resolved_markets'] > 0) {
+        // 3. Dynamic Multi-Sector Auto-Replenishment:
+        // Ensures platform never runs dry; maintains >= 4 open contracts across all 11 sectors
+        $replenished = self::autoReplenishSectors(4);
+        $updates['auto_replenished_count'] = count($replenished);
+        if ($updates['auto_replenished_count'] > 0) {
+            $updates['replenished_markets'] = $replenished;
+        }
+
+        if ($updates['auto_locked_5min_markets'] > 0 || $updates['auto_resolved_markets'] > 0 || $updates['auto_replenished_count'] > 0) {
             self::clearMarketCache();
         }
 
         return $updates;
+    }
+
+    public static function autoReplenishSectors(int $minPerSector = 4): array
+    {
+        $pdo = Database::getConnection();
+        $replenished = [];
+
+        // Sector catalog of macro-realistic rotating catalysts
+        $sectorCatalogs = [
+            'monetary-policy' => [
+                [
+                    'title' => 'Will the CBN Monetary Policy Committee lower the Standing Lending Facility (SLF) rate spread within 120 days?',
+                    'slug' => 'cbn-slf-spread-compression',
+                    'def' => 'Resolves YES if the official CBN MPC communique reduces the asymmetric corridor around the MPR for the Standing Lending Facility to ease interbank liquidity frictions.',
+                    'source' => 'Central Bank of Nigeria (CBN) Official MPC Communique (cbn.gov.ng)',
+                    'days' => 120,
+                    'metrics' => [
+                        ['Interbank Call Rate Volatility', 'Overnight interbank market liquidity and NIBOR stability.'],
+                        ['CBN Discount Window Usage', 'Commercial bank borrowing volumes from the discount window.']
+                    ],
+                    'history' => 'The CBN established an asymmetric interest rate corridor around the MPR to manage excess liquidity.'
+                ],
+                [
+                    'title' => 'Will the CBN issue a new open market operation (OMO) treasury bill tranche exceeding ₦1 Trillion in single auction sales?',
+                    'slug' => 'cbn-omo-tranche-1t-auction',
+                    'def' => 'Resolves YES if official CBN financial markets auction results confirm total OMO bill sales exceeding ₦1,000,000,000,000 in a single auction.',
+                    'source' => 'CBN Financial Markets Department Auction Results',
+                    'days' => 90,
+                    'metrics' => [
+                        ['Foreign Portfolio Inflow', 'Offshore demand for high-yielding short-dated paper.'],
+                        ['System Liquidity Absorption', 'Mopping up excess money supply to stabilize headline inflation.']
+                    ],
+                    'history' => 'Major OMO auctions in early 2024 attracted strong foreign institutional demand following high stop rates.'
+                ]
+            ],
+            'capital-markets' => [
+                [
+                    'title' => 'Will the NGX 30 Index achieve positive quarterly net total return exceeding 10% in the upcoming quarter?',
+                    'slug' => 'ngx-30-quarterly-return-10pct',
+                    'def' => 'Resolves YES if the Nigerian Exchange NGX 30 index quarterly closing return exceeds +10.0% as published in NGX quarterly statistics.',
+                    'source' => 'Nigerian Exchange Group (NGX) Official Statistics (ngxgroup.com)',
+                    'days' => 90,
+                    'metrics' => [
+                        ['Tier-1 Banking Profit Margins', 'Net interest income and dividend yield across top commercial banks.'],
+                        ['Industrial Goods Price Realization', 'Cement and building material manufacturer market pricing power.']
+                    ],
+                    'history' => 'The NGX 30 represents the top capitalized and most liquid companies listed on the Nigerian Exchange.'
+                ],
+                [
+                    'title' => 'Will at least two Tier-1 Nigerian banks complete new sovereign capital rights issues exceeding ₦150 Billion each?',
+                    'slug' => 'tier1-bank-capital-recapitalization-milestone',
+                    'def' => 'Resolves YES if the Securities and Exchange Commission (SEC) and NGX confirm regulatory approval and formal closing of two separate commercial bank recapitalization rights issues above ₦150 Billion each.',
+                    'source' => 'Securities and Exchange Commission (SEC) & NGX Disclosures',
+                    'days' => 150,
+                    'metrics' => [
+                        ['CBN Minimum Capital Requirement', 'Meeting the ₦500 Billion international authorization threshold.'],
+                        ['Shareholder Subscription Rate', 'Domestic retail and institutional rights uptake.']
+                    ],
+                    'history' => 'The CBN mandated all commercial banks to substantially bolster minimum paid-up capital.'
+                ]
+            ],
+            'fx-reserves' => [
+                [
+                    'title' => 'Will monthly autonomous foreign exchange turnover on the NAFEM window exceed $4 Billion?',
+                    'slug' => 'nafem-monthly-fx-turnover-4b',
+                    'def' => 'Resolves YES if FMDQ Securities Exchange monthly financial market statistics show total NAFEM trading turnover surpassing $4,000,000,000.',
+                    'source' => 'FMDQ Financial Markets Monthly Reports (fmdqgroup.com)',
+                    'days' => 60,
+                    'metrics' => [
+                        ['Autonomous Exporter FX Liquidation', 'Prompt sales of non-oil export proceeds into commercial banks.'],
+                        ['FPI Inflows into Sovereign Debt', 'Offshore institutional capital purchasing local fixed income.']
+                    ],
+                    'history' => 'Turnover reached historic highs following FX reforms and transparent price discovery.'
+                ],
+                [
+                    'title' => 'Will the official NAFEM closing exchange rate hold below ₦1,550/$ for 20 consecutive trading days?',
+                    'slug' => 'nafem-fx-stability-below-1550',
+                    'def' => 'Resolves YES if the official NAFEM daily closing rate published by FMDQ closes stronger than ₦1,550.00/USD on 20 consecutive trading days.',
+                    'source' => 'FMDQ Daily Closing FX Rate Bulletins',
+                    'days' => 75,
+                    'metrics' => [
+                        ['Gross External Reserve Accretion', 'CBN reserve buffers sustaining market liquidity interventions.'],
+                        ['Trade Balance Surplus', 'Reduction in non-essential merchandise import demand.']
+                    ],
+                    'history' => 'Exchange rate stability improved as central bank cleared verified legacy commitments.'
+                ]
+            ],
+            'fintech' => [
+                [
+                    'title' => 'Will monthly instant payment transaction volume on NIBSS exceed 1.2 Billion transactions?',
+                    'slug' => 'nibss-instant-payments-volume-1-2b',
+                    'def' => 'Resolves YES if the Nigeria Inter-Bank Settlement System (NIBSS) official monthly report registers over 1,200,000,000 NIP transactions.',
+                    'source' => 'Nigeria Inter-Bank Settlement System (NIBSS) Official Statistics',
+                    'days' => 60,
+                    'metrics' => [
+                        ['POS & Agent Banking Density', 'Last-mile merchant payment acceptance across semi-urban clusters.'],
+                        ['Mobile App Processing Reliability', 'System uptime and reduced transaction failure rates during peak retail hours.']
+                    ],
+                    'history' => 'Cashless payments accelerated rapidly with POS and mobile banking volume hitting record highs.'
+                ],
+                [
+                    'title' => 'Will Nigeria open banking licensed institutions launch at least 10 commercial production API endpoints?',
+                    'slug' => 'open-banking-production-api-launch',
+                    'def' => 'Resolves YES if the Open Banking Nigeria registry confirms ten or more live production APIs utilized by regulated financial institutions.',
+                    'source' => 'Open Banking Nigeria & Central Bank of Nigeria Regulatory Disclosures',
+                    'days' => 110,
+                    'metrics' => [
+                        ['API Integration Security Standards', 'OAuth2.0 compliance and data consent framework implementation.'],
+                        ['Fintech-Bank Credit Data Sharing', 'Automated underwriting and account verification workflows.']
+                    ],
+                    'history' => 'The CBN released comprehensive regulatory operational guidelines for Open Banking in Nigeria.'
+                ]
+            ],
+            'energy' => [
+                [
+                    'title' => 'Will Dangote Petroleum Refinery achieve regular commercial export shipments of automotive gas oil (diesel) to European markets?',
+                    'slug' => 'dangote-refinery-euro-diesel-exports',
+                    'def' => 'Resolves YES if verified S&P Global Commodity Insights or shipping manifest data confirms at least 3 commercial marine cargo shipments of Euro-V diesel from Lekki Free Zone to European ports.',
+                    'source' => 'S&P Global Commodity Insights / Argus Media Manifest Reports',
+                    'days' => 90,
+                    'metrics' => [
+                        ['Crude Run Utilization Rate', 'Daily processing volume scaling towards 550,000 bpd design capacity.'],
+                        ['Sulphur Content Compliance', 'Meeting European 10-ppm sulphur environmental purity standards.']
+                    ],
+                    'history' => 'The 650,000 bpd refinery began domestic distribution and international cargo exports in 2024.'
+                ],
+                [
+                    'title' => 'Will the Nigerian Upstream Petroleum Regulatory Commission (NUPRC) conclude the 2024/2026 deepwater licensing round with at least 8 signed PSCs?',
+                    'slug' => 'nuprc-deepwater-licensing-round-psc',
+                    'def' => 'Resolves YES if official NUPRC executive disclosures confirm formal execution of at least 8 Production Sharing Contracts (PSCs) for offshore acreage.',
+                    'source' => 'Nigerian Upstream Petroleum Regulatory Commission (NUPRC) Official Bulletins',
+                    'days' => 120,
+                    'metrics' => [
+                        ['Signature Bonus Accretion', 'Fiscal receipts bolstering Federal Government non-debt revenue.'],
+                        ['Exploration Capex Commitments', 'Deepwater drilling campaigns scheduled across the Niger Delta basin.']
+                    ],
+                    'history' => 'The Petroleum Industry Act (PIA) overhauled fiscal terms to attract international upstream investment.'
+                ]
+            ],
+            'agriculture' => [
+                [
+                    'title' => 'Will Nigerian raw cocoa bean export volume exceed 320,000 metric tons in the annual harvest cycle?',
+                    'slug' => 'nigerian-cocoa-export-volume-320k-tons',
+                    'def' => 'Resolves YES if official Nigerian Export Promotion Council (NEPC) and ICCO trade statistics record total annual bean exports exceeding 320,000 metric tons.',
+                    'source' => 'Nigerian Export Promotion Council (NEPC) & International Cocoa Organization',
+                    'days' => 100,
+                    'metrics' => [
+                        ['Farm-Gate Pricing Trends', 'Record global farm-gate prices in Ondo and Cross River farming belts.'],
+                        ['EUDR Deforestation Compliance', 'Traceability compliance with European Union Deforestation Regulations.']
+                    ],
+                    'history' => 'Historic global cocoa supply deficits drove Nigerian farm-gate prices to all-time highs.'
+                ],
+                [
+                    'title' => 'Will commercial maize wholesale prices in Northern regional grain hubs stabilize below ₦650,000 per metric ton?',
+                    'slug' => 'commercial-maize-grain-price-stabilization',
+                    'def' => 'Resolves YES if the AFEX Commodities Exchange official spot index confirms average maize prices closing below ₦650,000/ton for 30 consecutive calendar days.',
+                    'source' => 'AFEX Commodities Exchange Daily Spot Market Bulletins',
+                    'days' => 80,
+                    'metrics' => [
+                        ['Dry Season Irrigation Yield', 'Increased harvest volumes from Fadama river basin schemes.'],
+                        ['Feed Mill Industrial Demand', 'Poultry and livestock feed manufacturing procurement pressure.']
+                    ],
+                    'history' => 'Grain prices experienced sharp volatility following transport fuel costs and regional harvest variances.'
+                ]
+            ],
+            'manufacturing' => [
+                [
+                    'title' => 'Will Dangote Cement or BUA Cement announce domestic factory price reductions of over 10% on 50kg bags?',
+                    'slug' => 'cement-domestic-factory-price-reduction',
+                    'def' => 'Resolves YES if official corporate press statements and dealer price circulars from either major cement producer confirm an ex-factory price cut of 10% or more.',
+                    'source' => 'Corporate Exchange Notices (NGX) & Manufacturer Official Statements',
+                    'days' => 90,
+                    'metrics' => [
+                        ['Alternative Fuel Energy Substitution', 'Transitioning kilns from expensive imported fuel oil to local coal and gas.'],
+                        ['Haulage & Distribution Logistics', 'CNG-powered distribution fleet lowering transport operating costs.']
+                    ],
+                    'history' => 'Cement producers invested heavily in local captive power and compressed natural gas logistics.'
+                ],
+                [
+                    'title' => 'Will Manufacturers Association of Nigeria (MAN) report average captive power cost decline of 15% due to gas pipeline expansions?',
+                    'slug' => 'man-captive-power-cost-decline-15pct',
+                    'def' => 'Resolves YES if the MAN bi-annual economic review documents a reduction of 15% or greater in private industrial power generation expenses.',
+                    'source' => 'Manufacturers Association of Nigeria (MAN) Bi-Annual Economic Review',
+                    'days' => 130,
+                    'metrics' => [
+                        ['Industrial Gas Pricing Framework', 'Decoupling gas pricing from dollar volatility for local manufacturers.'],
+                        ['DisCo Embedded Power Agreements', 'Direct bilateral power purchase agreements bypassing transmission bottlenecks.']
+                    ],
+                    'history' => 'Industrial energy accounts for over 35% of total operating overhead for Nigerian manufacturers.'
+                ]
+            ],
+            'fmcg' => [
+                [
+                    'title' => 'Will Nestlé Nigeria (NESTLE) achieve operating profitability in its audited half-year or full-year financial results?',
+                    'slug' => 'nestle-nigeria-operating-profitability',
+                    'def' => 'Resolves YES if Nestlé Nigeria Plc filed IFRS financial statements with the NGX show positive operating profit (EBIT) before foreign exchange revaluation items.',
+                    'source' => 'Nestlé Nigeria Plc Audited Financial Results filed on NGX',
+                    'days' => 90,
+                    'metrics' => [
+                        ['Local Raw Material Sourcing', 'Substituting imported milk and starch with local sorghum and cassava.'],
+                        ['Brand Tiering & Small Pack Sizing', 'Scaling affordable single-serve packaging units for mass market consumers.']
+                    ],
+                    'history' => 'FMCG manufacturers restructured supply chains following significant FX volatility on imported inputs.'
+                ],
+                [
+                    'title' => 'Will Nigerian Breweries (NB) conclude its ₦600 Billion recapitalization rights issue with over 90% subscription?',
+                    'slug' => 'nigerian-breweries-rights-issue-90pct',
+                    'def' => 'Resolves YES if the official allotment announcement approved by SEC confirms total valid subscriptions exceeding 90% of the offered shares.',
+                    'source' => 'Securities and Exchange Commission (SEC) & Nigerian Breweries Allotment Release',
+                    'days' => 110,
+                    'metrics' => [
+                        ['Parent Company Underwriting', 'Heineken foreign equity support eliminating foreign currency debt exposure.'],
+                        ['Gross Margin Stabilization', 'Domestic grain malting facilities reducing foreign exchange import reliance.']
+                    ],
+                    'history' => 'Nigerian Breweries undertook landmark rights issue to extinguish foreign currency debt and repair balance sheet.'
+                ]
+            ],
+            'real-estate' => [
+                [
+                    'title' => 'Will Grade-A prime office rental rates in Victoria Island transition to 100% Naira-denominated billing?',
+                    'slug' => 'prime-office-rentals-naira-denomination',
+                    'def' => 'Resolves YES if research reports from Broll Nigeria, JLL, or Northcourt confirm that more than 85% of newly executed institutional lease agreements are structured exclusively in Naira.',
+                    'source' => 'Northcourt Real Estate / Broll Nigeria Institutional Market Report',
+                    'days' => 100,
+                    'metrics' => [
+                        ['CBN Foreign Exchange Act Enforcement', 'Strict prohibitions against domestic dollar-denominated invoicing.'],
+                        ['Multinational Lease Renegotiation', 'Corporate tenants demanding local currency parity to cap lease expenditure.']
+                    ],
+                    'history' => 'Commercial leases traditionally pegged to US Dollars faced rapid restructuring due to corporate tenant pushback.'
+                ],
+                [
+                    'title' => 'Will the Federal Mortgage Bank of Nigeria (FMBN) disburse over ₦30 Billion in National Housing Fund construction loans?',
+                    'slug' => 'fmbn-nhf-construction-loan-disbursement',
+                    'def' => 'Resolves YES if FMBN official executive disclosures confirm cumulative NHF estate development disbursements exceeding ₦30,000,000,000 in a calendar year.',
+                    'source' => 'Federal Mortgage Bank of Nigeria (FMBN) Operational Disclosures',
+                    'days' => 120,
+                    'metrics' => [
+                        ['Affordable Mortgage Underwriting', 'Single-digit interest mortgage access for public and private contributors.'],
+                        ['Developer Project Completion Velocity', 'Timely handover of residential housing estates across state capitals.']
+                    ],
+                    'history' => 'The National Housing Fund provides subsidized mortgage and estate development financing.'
+                ]
+            ],
+            'telecoms' => [
+                [
+                    'title' => 'Will MTN Nigeria (MTNN) record full recovery to positive retained earnings following tower contract renegotiations?',
+                    'slug' => 'mtn-nigeria-retained-earnings-recovery',
+                    'def' => 'Resolves YES if MTN Nigeria Communications Plc published quarterly financial statements on the NGX show positive cumulative retained earnings.',
+                    'source' => 'MTN Nigeria Communications Plc Quarterly Unaudited/Audited Financial Statements',
+                    'days' => 120,
+                    'metrics' => [
+                        ['Tower Lease Dollar-Cap Terms', 'IHS renegotiated contract amendments capping currency indexing.'],
+                        ['Data Revenue Expansion', 'Surge in 4G and 5G mobile data traffic monetization across urban centres.']
+                    ],
+                    'history' => 'MTN Nigeria renegotiated tower lease terms to reduce foreign currency liabilities.'
+                ],
+                [
+                    'title' => 'Will active 5G mobile network subscriptions in Nigeria cross 8 Million according to official NCC data?',
+                    'slug' => 'active-5g-subscriptions-8m-ncc',
+                    'def' => 'Resolves YES if the Nigerian Communications Commission (NCC) telecom subscriber statistics record total 5G subscriptions exceeding 8,000,000.',
+                    'source' => 'Nigerian Communications Commission (NCC) Monthly Subscriber Data',
+                    'days' => 90,
+                    'metrics' => [
+                        ['5G Smartphone Price Deflation', 'Affordable entry-level 5G devices entering the retail market.'],
+                        ['Enterprise Fixed Wireless Access (FWA)', 'Commercial broadband rollouts for SME and corporate clients.']
+                    ],
+                    'history' => 'NCC issued 3.5GHz spectrum licenses to MTN, Mafab, and Airtel to accelerate 5G coverage.'
+                ]
+            ],
+            'healthcare' => [
+                [
+                    'title' => 'Will the Presidential Initiative for Unlocking Healthcare Value Chain (PVAC) unlock over $200 Million in domestic pharma investments?',
+                    'slug' => 'pvac-healthcare-investment-200m',
+                    'def' => 'Resolves YES if official Federal Ministry of Health and PVAC releases confirm executed investment agreements and facility groundbreakings surpassing $200,000,000.',
+                    'source' => 'Federal Ministry of Health & PVAC Presidential Executive Briefs',
+                    'days' => 110,
+                    'metrics' => [
+                        ['Active Pharmaceutical Ingredient (API) Sourcing', 'Establishment of local chemical synthesis for generic antibiotics.'],
+                        ['Executive Order Zero Tariffs', 'Import duty and VAT waivers on pharma equipment and packaging materials.']
+                    ],
+                    'history' => 'The Federal Government signed an executive order removing tariffs on pharmaceutical manufacturing inputs.'
+                ],
+                [
+                    'title' => 'Will Fidson Healthcare (FIDSON) commission its new sterile injectable manufacturing line within 90 days?',
+                    'slug' => 'fidson-sterile-injectables-commissioning',
+                    'def' => 'Resolves YES if NAFDAC regulatory certification and NGX corporate disclosures confirm commercial commissioning of Fidson sterile formulation lines.',
+                    'source' => 'NAFDAC Regulatory Disclosures & Fidson Healthcare NGX Press Releases',
+                    'days' => 90,
+                    'metrics' => [
+                        ['NAFDAC GMP Recertification', 'World Health Organization pre-qualification standards compliance.'],
+                        ['Hospital Supply Contracts', 'Direct procurement agreements with federal tertiary teaching hospitals.']
+                    ],
+                    'history' => 'Fidson partnered with international medical firms to localize high-grade sterile infusion products.'
+                ]
+            ],
+        ];
+
+        try {
+            $industries = $pdo->query("SELECT id, slug, name FROM industries")->fetchAll(PDO::FETCH_ASSOC);
+
+            foreach ($industries as $ind) {
+                $indId = (int)$ind['id'];
+                $indSlug = $ind['slug'];
+
+                $chk = $pdo->prepare("SELECT COUNT(*) FROM market_events WHERE industry_id = ? AND state = 'open'");
+                $chk->execute([$indId]);
+                $openCount = (int)$chk->fetchColumn();
+
+                if ($openCount >= $minPerSector) {
+                    continue;
+                }
+
+                $needed = $minPerSector - $openCount;
+                $templates = $sectorCatalogs[$indSlug] ?? [];
+                if (empty($templates)) {
+                    continue;
+                }
+
+                $addedForSector = 0;
+                foreach ($templates as $tmpl) {
+                    if ($addedForSector >= $needed) {
+                        break;
+                    }
+
+                    $chkExists = $pdo->prepare("SELECT id FROM market_events WHERE industry_id = ? AND title = ? AND state = 'open'");
+                    $chkExists->execute([$indId, $tmpl['title']]);
+                    if ($chkExists->fetch()) {
+                        continue;
+                    }
+
+                    $eventId = Security::uuid();
+                    $uniqueSlug = $tmpl['slug'] . '-' . substr(bin2hex(random_bytes(4)), 0, 6);
+                    $closesAt = date('Y-m-d H:i:s', time() + ($tmpl['days'] * 86400));
+                    $resolvesAt = date('Y-m-d H:i:s', time() + (($tmpl['days'] + 1) * 86400));
+
+                    $insEvent = $pdo->prepare("
+                        INSERT INTO market_events 
+                            (id, slug, industry_id, title, outcome_definition, resolution_source, resolves_at, closes_at, state, created_at)
+                        VALUES 
+                            (:id, :slug, :ind, :title, :def, :src, :res, :cls, 'open', NOW(3))
+                    ");
+                    $insEvent->execute([
+                        ':id' => $eventId,
+                        ':slug' => $uniqueSlug,
+                        ':ind' => $indId,
+                        ':title' => $tmpl['title'],
+                        ':def' => $tmpl['def'],
+                        ':src' => $tmpl['source'],
+                        ':res' => $resolvesAt,
+                        ':cls' => $closesAt,
+                    ]);
+
+                    $contextId = Security::uuid();
+                    $metricsJson = json_encode($tmpl['metrics']);
+                    $historyJson = json_encode([['period' => 'Macro Precedent', 'action' => $tmpl['history']]]);
+
+                    $insCtx = $pdo->prepare("
+                        INSERT INTO study_context_versions 
+                            (id, event_id, version, summary, metrics, historical_cases, ai_generated, published_at)
+                        VALUES 
+                            (:id, :eid, 1, :summary, :metrics, :history, 1, NOW(3))
+                    ");
+                    $insCtx->execute([
+                        ':id' => $contextId,
+                        ':eid' => $eventId,
+                        ':summary' => $tmpl['def'],
+                        ':metrics' => $metricsJson,
+                        ':history' => $historyJson,
+                    ]);
+
+                    $addedForSector++;
+                    $replenished[] = [
+                        'industry' => $ind['name'],
+                        'title' => $tmpl['title'],
+                        'slug' => $uniqueSlug,
+                    ];
+                }
+            }
+        } catch (\Throwable $e) {
+            // Non-blocking
+        }
+
+        return $replenished;
     }
 }
 

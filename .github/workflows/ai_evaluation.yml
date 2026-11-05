@@ -80,7 +80,7 @@ jobs:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           DB_SSL_CA_CONTENT: ${{ secrets.DB_SSL_CA_CONTENT }}
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-          NVIDIA_MODEL: ${{ secrets.NVIDIA_MODEL || 'meta/llama-3.1-70b-instruct' }}
+          NVIDIA_MODEL: ${{ secrets.NVIDIA_MODEL }}
         run: |
           python ai_agent/evaluator.py
 
@@ -94,6 +94,6 @@ jobs:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           DB_SSL_CA_CONTENT: ${{ secrets.DB_SSL_CA_CONTENT }}
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-          NVIDIA_MODEL: ${{ secrets.NVIDIA_MODEL || 'meta/llama-3.1-70b-instruct' }}
+          NVIDIA_MODEL: ${{ secrets.NVIDIA_MODEL }}
         run: |
           python ai_agent/market_populator.py
