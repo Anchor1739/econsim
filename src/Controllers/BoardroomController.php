@@ -98,9 +98,11 @@ class BoardroomController
 
         $body = json_decode(file_get_contents('php://input'), true) ?? [];
         $answer = $body['answer'] ?? '';
+        $dictationUsed = !empty($body['dictation_used']);
+        $inputMethod = $body['input_method'] ?? ($dictationUsed ? 'voice_en-NG' : 'typed');
 
         try {
-            $res = BoardroomService::submitMemo($user['id'], $id, $answer);
+            $res = BoardroomService::submitMemo($user['id'], $id, $answer, $dictationUsed, $inputMethod);
             Response::success($res, 'Strategy memo received and queued for executive adjudication.');
         } catch (Throwable $e) {
             Response::error($e->getMessage(), 400);

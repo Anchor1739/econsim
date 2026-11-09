@@ -456,7 +456,7 @@ Respond ONLY with valid JSON:
                    i.name AS industry_name,
                    scn.title AS scenario_title, scn.confidential_body,
                    s.id AS submission_id, s.user_id, s.answer_text, s.submitted_at,
-                   s.ai_suspected, s.ai_flag_reason, s.typing_duration_seconds,
+                   s.ai_suspected, s.ai_flag_reason, s.typing_duration_seconds, s.input_method,
                    u.display_name AS user_name, u.email AS user_email,
                    sc.financial_mechanics, sc.risk_management, sc.historical_alignment, sc.communication,
                    sc.explanation, sc.evidence
@@ -500,6 +500,7 @@ Respond ONLY with valid JSON:
                 'ai_suspected' => (int)($row['ai_suspected'] ?? 0),
                 'ai_flag_reason' => $row['ai_flag_reason'] ?? null,
                 'typing_duration_seconds' => $row['typing_duration_seconds'] !== null ? (int)$row['typing_duration_seconds'] : null,
+                'input_method' => $row['input_method'] ?? 'typed',
                 'proposed_ai_scores' => $hasScore ? [
                     'financial_mechanics' => $fm,
                     'risk_management' => $rm,

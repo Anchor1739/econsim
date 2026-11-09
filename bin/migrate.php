@@ -70,8 +70,15 @@ try {
             $pdo->exec("ALTER TABLE boardroom_submissions 
                 ADD COLUMN ai_suspected TINYINT(1) NOT NULL DEFAULT 0,
                 ADD COLUMN typing_duration_seconds INT DEFAULT NULL,
-                ADD COLUMN ai_flag_reason VARCHAR(500) DEFAULT NULL");
-            echo "✓ Added 'ai_suspected' columns to boardroom_submissions.\n";
+                ADD COLUMN ai_flag_reason VARCHAR(500) DEFAULT NULL,
+                ADD COLUMN input_method VARCHAR(50) DEFAULT 'typed'");
+            echo "✓ Added 'ai_suspected' & 'input_method' columns to boardroom_submissions.\n";
+        } else {
+            $imCheck = $pdo->query("SHOW COLUMNS FROM boardroom_submissions LIKE 'input_method'")->fetch();
+            if (!$imCheck) {
+                $pdo->exec("ALTER TABLE boardroom_submissions ADD COLUMN input_method VARCHAR(50) DEFAULT 'typed'");
+                echo "✓ Added 'input_method' column to boardroom_submissions.\n";
+            }
         }
     } catch (\Throwable $e) {}
 

@@ -539,6 +539,10 @@ function navigate(page, params = {}) {
     }
   }
 
+  if (window.VoiceEngine && window.VoiceEngine.isRecording) {
+    window.VoiceEngine.stop();
+  }
+
   state.page = page;
   if (params.marketId) state.selectedMarketId = params.marketId;
   if (params.challengeId) state.currentChallengeId = params.challengeId;
@@ -2887,6 +2891,7 @@ function renderMentorPage() {
 
         <form onsubmit="handleAskMentor(event)" style="display: flex; gap: 8px;">
           <input class="input" id="mentor-input" placeholder="Ask about CBN monetary transmission, cash runway formulas, FX pass-through..." required>
+          <button type="button" class="btn btn-secondary" onclick="toggleMentorVoice()" id="btn-mentor-voice" style="padding: 0 12px; font-size: 15px;" title="Speak question in Nigerian English">🎙️</button>
           <button type="submit" class="btn btn-primary" style="white-space: nowrap;">Ask Mentor ↗</button>
         </form>
       </div>
@@ -3995,7 +4000,12 @@ async function loadMarketDetailData(id) {
               </div>
 
               <div class="form-group" style="margin-top: 14px;">
-                <label>Decision Journal Thesis (Builds Strategic Record & XP)</label>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                  <label style="margin-bottom: 0;">Decision Journal Thesis (Builds Strategic Record &amp; XP)</label>
+                  <button type="button" class="btn btn-secondary" onclick="toggleThesisVoice()" id="btn-thesis-voice" style="padding: 2px 8px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;" title="Speak thesis in Nigerian English">
+                    <span>🎙️</span> <span>Voice</span>
+                  </button>
+                </div>
                 <textarea class="textarea" id="forecast-thesis" rows="4" placeholder="Document your quantitative rationale: 1) What leading indicator gives you high conviction? 2) What downside trigger would invalidate this forecast? 3) What is your expected horizon?"></textarea>
                 <small style="color: var(--muted); font-size: 11.5px; display: block; margin-top: 4px;">
                   Documenting your decision thesis awards +25 Financial Literacy XP and records your verified reasoning.
@@ -4527,11 +4537,43 @@ async function loadLiveChallengeData(challengeId) {
         </div>
 
         <div class="panel">
-          <div class="eyebrow">EXECUTIVE STRATEGY MEMO</div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 8px;">
+            <div class="eyebrow" style="margin-bottom: 0;">EXECUTIVE STRATEGY MEMO</div>
+            
+            <!-- Voice Dictation Accent Selector & Mic Trigger -->
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <select id="voice-accent-selector" onchange="if(window.VoiceEngine) window.VoiceEngine.setLanguage(this.value)" style="background: rgba(255,255,255,0.06); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; font-size: 11.5px; cursor: pointer;" title="Select Speech Accent">
+                <option value="en-NG" selected>🇳🇬 Nigerian English</option>
+                <option value="en-GH">🇬🇭 Ghanaian English</option>
+                <option value="en-KE">🇰🇪 East African</option>
+                <option value="en-ZA">🇿🇦 South African</option>
+                <option value="en-GB">🇬🇧 British English</option>
+                <option value="en-US">🇺🇸 Global English</option>
+              </select>
+
+              <button type="button" id="btn-toggle-voice" class="btn btn-secondary" onclick="toggleBoardroomVoiceDictation()" style="font-size: 12px; padding: 4px 10px; display: inline-flex; align-items: center; gap: 6px; border-radius: 20px;">
+                <span id="voice-mic-icon">🎙️</span> <span id="voice-btn-text">Voice Dictate</span>
+              </button>
+            </div>
+          </div>
           <h2 style="font-size: 17px; margin-bottom: 8px;">What is your strategic decision?</h2>
 
           <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; padding: 10px 12px; font-size: 12px; color: var(--text); margin-bottom: 12px; line-height: 1.5;">
             <b style="color: #f87171;">Strict Grading Standard:</b> Unrelated text, spam, or gibberish receives a strict <b>0/100</b>. Points are earned from 0 upwards: Financial Mechanics (40%), Downside Risk Controls (30%), Macro Precedent (20%), and Executive Communication (10%).
+          </div>
+
+          <!-- Live Voice Dictation Feedback Bar -->
+          <div id="voice-live-bar" style="display: none; background: rgba(16, 185, 129, 0.08); border: 1px dashed rgba(16, 185, 129, 0.35); border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; font-size: 12px; color: #34d399; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="voice-wave-container">
+                <span class="voice-wave-bar"></span>
+                <span class="voice-wave-bar"></span>
+                <span class="voice-wave-bar"></span>
+                <span class="voice-wave-bar"></span>
+              </span>
+              <span id="voice-live-status">Listening in Nigerian English (en-NG)... Speak naturally.</span>
+            </div>
+            <button type="button" class="btn btn-secondary" onclick="toggleBoardroomVoiceDictation()" style="padding: 2px 8px; font-size: 11px;">Stop ⏹</button>
           </div>
 
           <form onsubmit="handleSubmitMemo(event, '${c.id}')">
@@ -4539,7 +4581,10 @@ async function loadLiveChallengeData(challengeId) {
               <textarea class="textarea" id="memo-answer" rows="11" placeholder="1. Immediate Operational Action (First 72 Hours):\n- Concrete burn reduction or working capital measures...\n\n2. Financial & Liquidity Mechanics:\n- Specific figures, runway extensions, revenue or cost calculations...\n\n3. Downside Risk Controls:\n- Mitigating default, counterparty, churn, or FX exposure..." required style="line-height: 1.6; font-size: 13.5px;"></textarea>
               <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; color: var(--muted); margin-top: 6px;">
                 <span>Min: 40 chars</span>
-                <span id="char-counter">0 words · 0 chars</span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <button type="button" id="btn-format-memo" class="btn btn-secondary" style="font-size: 10.5px; padding: 2px 8px; display: none;" onclick="autoFormatSpokenMemo()">✨ Format Spoken Memo</button>
+                  <span id="char-counter">0 words · 0 chars</span>
+                </div>
               </div>
             </div>
 
@@ -4628,16 +4673,108 @@ async function loadLiveChallengeData(challengeId) {
   } catch (e) {}
 }
 
+function toggleBoardroomVoiceDictation() {
+  if (!window.VoiceEngine || !window.VoiceEngine.isSupported()) {
+    api.toast('Voice-to-Text requires Chrome, Safari, Edge, or an Android browser with microphone access.', 'warning');
+    return;
+  }
+
+  const tx = document.getElementById('memo-answer');
+  if (!tx) return;
+
+  const btn = document.getElementById('btn-toggle-voice');
+  const liveBar = document.getElementById('voice-live-bar');
+  const liveStatus = document.getElementById('voice-live-status');
+  const formatBtn = document.getElementById('btn-format-memo');
+  const micIcon = document.getElementById('voice-mic-icon');
+  const btnText = document.getElementById('voice-btn-text');
+
+  if (window.VoiceEngine.isRecording) {
+    window.VoiceEngine.stop();
+    if (btn) {
+      btn.classList.remove('btn-voice-recording');
+      if (micIcon) micIcon.innerText = '🎙️';
+      if (btnText) btnText.innerText = 'Voice Dictate';
+    }
+    if (liveBar) liveBar.style.display = 'none';
+    if (formatBtn && tx.value.trim().length > 40) formatBtn.style.display = 'inline-block';
+    api.toast('Voice dictation paused. You can edit or submit your memo.', 'info');
+  } else {
+    const sel = document.getElementById('voice-accent-selector');
+    if (sel) window.VoiceEngine.setLanguage(sel.value);
+
+    // Subscribe to engine events for real-time live bar updates
+    if (!window._voiceSubscribed) {
+      window.VoiceEngine.subscribe((event, data) => {
+        const barStatus = document.getElementById('voice-live-status');
+        if (event === 'interimResult' && barStatus) {
+          barStatus.innerText = `Speaking: "${data.text.slice(-50)}"`;
+        } else if (event === 'finalResult') {
+          const fBtn = document.getElementById('btn-format-memo');
+          if (fBtn) fBtn.style.display = 'inline-block';
+          if (barStatus) {
+            barStatus.innerText = `Recorded ${data.totalSpoken} words. Keep speaking or tap Stop.`;
+          }
+        } else if (event === 'error') {
+          api.toast(data.message || 'Microphone error', 'error');
+          const vBtn = document.getElementById('btn-toggle-voice');
+          if (vBtn) vBtn.classList.remove('btn-voice-recording');
+          const vBar = document.getElementById('voice-live-bar');
+          if (vBar) vBar.style.display = 'none';
+        }
+      });
+      window._voiceSubscribed = true;
+    }
+
+    const started = window.VoiceEngine.start('memo-answer');
+    if (started) {
+      if (btn) {
+        btn.classList.add('btn-voice-recording');
+        if (micIcon) micIcon.innerText = '🔴';
+        if (btnText) btnText.innerText = 'Listening...';
+      }
+      if (liveBar) {
+        liveBar.style.display = 'flex';
+        const langLabel = sel ? sel.options[sel.selectedIndex].text : 'Nigerian English';
+        if (liveStatus) liveStatus.innerText = `Listening in ${langLabel}... Speak your recommendations.`;
+      }
+      api.toast('Microphone active! Speak naturally in your accent.', 'success');
+    }
+  }
+}
+window.toggleBoardroomVoiceDictation = toggleBoardroomVoiceDictation;
+
+function autoFormatSpokenMemo() {
+  const tx = document.getElementById('memo-answer');
+  if (!tx || !tx.value.trim()) return;
+  if (window.VoiceEngine) {
+    tx.value = window.VoiceEngine.formatAsExecutiveMemo(tx.value);
+    tx.dispatchEvent(new Event('input', { bubbles: true }));
+    api.toast('Memo structured into executive numbered points.', 'success');
+  }
+}
+window.autoFormatSpokenMemo = autoFormatSpokenMemo;
+
 async function handleSubmitMemo(e, challengeId) {
   e.preventDefault();
   const answer = document.getElementById('memo-answer').value;
+
+  // Stop voice dictation if running
+  if (window.VoiceEngine && window.VoiceEngine.isRecording) {
+    window.VoiceEngine.stop();
+  }
+  const dictStats = window.VoiceEngine ? window.VoiceEngine.getStats() : { used: false, language: 'en-NG' };
 
   const btn = e.submitter || e.target?.querySelector('button[type="submit"]');
   const origText = btn ? btn.innerHTML : '';
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Submitting...'; }
 
   try {
-    const res = await api.post(`/boardroom/submit/${challengeId}`, { answer });
+    const res = await api.post(`/boardroom/submit/${challengeId}`, {
+      answer,
+      dictation_used: dictStats.used,
+      input_method: dictStats.used ? `voice_${dictStats.language}` : 'typed'
+    });
     api.toast(res.message, 'success');
     sendSystemNotification(
       'Executive Strategy Memo Submitted',
@@ -4968,6 +5105,12 @@ async function handleAskMentor(e) {
   const q = input.value.trim();
   if (!q) return;
 
+  if (window.VoiceEngine && window.VoiceEngine.isRecording) {
+    window.VoiceEngine.stop();
+    const vBtn = document.getElementById('btn-mentor-voice');
+    if (vBtn) { vBtn.classList.remove('btn-voice-recording'); vBtn.innerText = '🎙️'; }
+  }
+
   const btn = e.submitter || e.target?.querySelector('button[type="submit"]');
   const origText = btn ? btn.innerHTML : '';
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Consulting...'; }
@@ -5010,6 +5153,56 @@ function triggerQuickMentor(q) {
   document.getElementById('mentor-input').value = q;
   handleAskMentor(new Event('submit'));
 }
+
+function toggleMentorVoice() {
+  if (!window.VoiceEngine || !window.VoiceEngine.isSupported()) {
+    api.toast('Voice dictation requires Chrome, Safari, Edge, or an Android browser.', 'warning');
+    return;
+  }
+  const btn = document.getElementById('btn-mentor-voice');
+  if (window.VoiceEngine.isRecording) {
+    window.VoiceEngine.stop();
+    if (btn) {
+      btn.classList.remove('btn-voice-recording');
+      btn.innerText = '🎙️';
+    }
+    api.toast('Voice recording paused.', 'info');
+  } else {
+    window.VoiceEngine.setLanguage('en-NG');
+    const started = window.VoiceEngine.start('mentor-input');
+    if (started && btn) {
+      btn.classList.add('btn-voice-recording');
+      btn.innerText = '🔴';
+      api.toast('Listening in Nigerian English (en-NG)... Speak your question.', 'success');
+    }
+  }
+}
+window.toggleMentorVoice = toggleMentorVoice;
+
+function toggleThesisVoice() {
+  if (!window.VoiceEngine || !window.VoiceEngine.isSupported()) {
+    api.toast('Voice dictation requires Chrome, Safari, Edge, or an Android browser.', 'warning');
+    return;
+  }
+  const btn = document.getElementById('btn-thesis-voice');
+  if (window.VoiceEngine.isRecording) {
+    window.VoiceEngine.stop();
+    if (btn) {
+      btn.classList.remove('btn-voice-recording');
+      btn.innerHTML = '<span>🎙️</span> <span>Voice</span>';
+    }
+    api.toast('Voice thesis paused.', 'info');
+  } else {
+    window.VoiceEngine.setLanguage('en-NG');
+    const started = window.VoiceEngine.start('forecast-thesis');
+    if (started && btn) {
+      btn.classList.add('btn-voice-recording');
+      btn.innerHTML = '<span>🔴</span> <span>Listening...</span>';
+      api.toast('Listening in Nigerian English... Dictate your forecast thesis.', 'success');
+    }
+  }
+}
+window.toggleThesisVoice = toggleThesisVoice;
 
 // -------------------------------------------------------------
 // Interactive Scenario Lab Controls & Simulation Engine

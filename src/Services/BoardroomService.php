@@ -480,7 +480,13 @@ class BoardroomService
         ];
     }
 
-    public static function submitMemo(string $userId, string $challengeId, string $answerText): array
+    public static function submitMemo(
+        string $userId,
+        string $challengeId,
+        string $answerText,
+        bool $dictationUsed = false,
+        string $inputMethod = 'typed'
+    ): array
     {
         $answerText = trim($answerText);
         $len = mb_strlen($answerText);
@@ -534,10 +540,12 @@ class BoardroomService
         $charCount  = mb_strlen($answerText);
         $wpm        = $typingSeconds > 0 ? ($wordCount / ($typingSeconds / 60)) : 0;
 
-        // Signal 1: Typing speed way above human max (~80 wpm sustained) 
-        if ($wpm > 90 && $wordCount > 80) {
+        // Signal 1: Typing / speaking speed anomaly
+        // Normal human typing is ~40-75 WPM. Spoken oral dictation is ~120-165 WPM.
+        $speedThreshold = $dictationUsed ? 185 : 90;
+        if ($wpm > $speedThreshold && $wordCount > 80) {
             $aiSuspected = 1;
-            $aiFlagReason = "Typing speed: {$wpm} WPM for {$wordCount} words in {$typingSeconds}s";
+            $aiFlagReason = "Speed anomaly: {$wpm} WPM for {$wordCount} words in {$typingSeconds}s (" . ($dictationUsed ? 'voice input' : 'typing') . ")";
         }
 
         // Signal 2: Markdown structure markers (AI formatting tells)
@@ -580,7 +588,13 @@ class BoardroomService
                     $pdo->exec("ALTER TABLE boardroom_submissions 
                         ADD COLUMN ai_suspected TINYINT(1) NOT NULL DEFAULT 0,
                         ADD COLUMN typing_duration_seconds INT DEFAULT NULL,
-                        ADD COLUMN ai_flag_reason VARCHAR(500) DEFAULT NULL");
+                        ADD COLUMN ai_flag_reason VARCHAR(500) DEFAULT NULL,
+                        ADD COLUMN input_method VARCHAR(50) DEFAULT 'typed'");
+                } else {
+                    $checkMethod = $pdo->query("SHOW COLUMNS FROM boardroom_submissions LIKE 'input_method'")->fetch();
+                    if (!$checkMethod) {
+                        $pdo->exec("ALTER TABLE boardroom_submissions ADD COLUMN input_method VARCHAR(50) DEFAULT 'typed'");
+                    }
                 }
                 $colsChecked = true;
             } catch (\Throwable $e) {}
@@ -590,11 +604,11 @@ class BoardroomService
         try {
             try {
                 $insSub = $pdo->prepare(
-                    "INSERT INTO boardroom_submissions (id, challenge_id, user_id, answer_text, submitted_at, ai_suspected, typing_duration_seconds, ai_flag_reason)
-                     VALUES (:id, :cid, :uid, :ans, NOW(3), :ai_suspected, :typing_sec, :ai_reason)
+                    "INSERT INTO boardroom_submissions (id, challenge_id, user_id, answer_text, submitted_at, ai_suspected, typing_duration_seconds, ai_flag_reason, input_method)
+                     VALUES (:id, :cid, :uid, :ans, NOW(3), :ai_suspected, :typing_sec, :ai_reason, :input_method)
                      ON DUPLICATE KEY UPDATE answer_text = VALUES(answer_text), submitted_at = NOW(3),
                        ai_suspected = VALUES(ai_suspected), typing_duration_seconds = VALUES(typing_duration_seconds),
-                       ai_flag_reason = VALUES(ai_flag_reason)"
+                       ai_flag_reason = VALUES(ai_flag_reason), input_method = VALUES(input_method)"
                 );
                 $insSub->execute([
                     ':id'          => $subId,
@@ -604,6 +618,7 @@ class BoardroomService
                     ':ai_suspected'=> $aiSuspected,
                     ':typing_sec'  => $typingSeconds,
                     ':ai_reason'   => $aiFlagReason,
+                    ':input_method'=> $inputMethod,
                 ]);
             } catch (\Throwable $e) {
                 // Graceful fallback to basic insert if column not yet present

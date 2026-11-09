@@ -1208,7 +1208,10 @@
 
       <!-- Strategist's Memo -->
       <div style="margin-bottom: 18px;">
-        <label style="display: block; font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">Submitted Executive Memo</label>
+        <label style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">
+          <span>Submitted Executive Memo</span>
+          <span id="adj-modal-voice-tag" style="display: none; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.35); color: #34d399; font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 4px;"></span>
+        </label>
         <div id="adj-modal-memo" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; font-size: 13px; line-height: 1.6; color: var(--text); max-height: 180px; overflow-y: auto; white-space: pre-wrap; font-family: inherit;"></div>
       </div>
 
@@ -1769,6 +1772,13 @@
             <td>
               <b>${item.scenario_title || 'Boardroom Dilemma'}</b><br>
               <span style="font-size: 11px; color: var(--accent);">${item.industry || 'Macroeconomics'}</span>
+              ${(item.input_method && item.input_method.startsWith('voice')) ? `
+                <div style="margin-top: 3px;">
+                  <span style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.35); color: #34d399; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;">
+                    🎙️ Voice (${item.input_method.replace('voice_', '')})
+                  </span>
+                </div>
+              ` : ''}
               ${item.ai_suspected ? `
                 <div style="margin-top: 4px;">
                   <span style="background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;" title="${item.ai_flag_reason || 'AI pattern flagged'}">
@@ -1849,6 +1859,16 @@
       document.getElementById('adj-modal-scenario-title').innerText = item.scenario_title || 'Executive Strategic Dilemma';
       document.getElementById('adj-modal-scenario-body').innerText = item.scenario_body || '';
       document.getElementById('adj-modal-memo').innerText = item.answer_text || '';
+
+      const voiceTag = document.getElementById('adj-modal-voice-tag');
+      if (voiceTag) {
+        if (item.input_method && item.input_method.startsWith('voice')) {
+          voiceTag.style.display = 'inline-block';
+          voiceTag.innerText = `🎙️ Voice Dictation (${item.input_method.replace('voice_', '')})`;
+        } else {
+          voiceTag.style.display = 'none';
+        }
+      }
 
       const aiAlert = document.getElementById('adj-modal-ai-alert');
       if (aiAlert) {
