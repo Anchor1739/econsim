@@ -1,19 +1,25 @@
 # EconSim — Financial Intelligence & Strategy Platform
 
-EconSim is an educational financial intelligence terminal designed for African and emerging-market students, founders, and strategists. Users study macroeconomic catalysts, forecast economic contracts with virtual capital (VNGN), and compete in the Boardroom on confidential corporate dilemmas with explainable AI evaluation.
+EconSim is an institutional-grade financial intelligence and macroeconomic strategy terminal designed for African and emerging-market founders, economists, executives, and finance students. Users study macroeconomic catalysts, forecast economic contracts with virtual capital (VNGN) or real capital (NGN), and compete in the Boardroom on confidential corporate dilemmas with explainable AI evaluation.
+
+> 📖 **Comprehensive System Documentation:** For an in-depth breakdown of every platform subsystem, economic mechanic, administrative workflow, and technical safeguard, please read [**FEATURES.md**](FEATURES.md).
 
 ---
 
-## 🏛 System Architecture
+## 🏛 System Architecture & Capabilities
 
-- **Database**: Aiven MySQL 8.0.16+ (InnoDB, `utf8mb4_0900_ai_ci`, strict mode, TLS/SSL connection with CA certificate verification).
+- **Double-Entry Ledger Engine**: Append-only double-entry core (`ledger_accounts`, `ledger_journals`, `ledger_entries`) with row-level locks (`SELECT ... FOR UPDATE`), idempotency keys, and mathematical zero-sum balance guarantees ($\sum \Delta = 0$).
+- **The Predictor**: Macroeconomic prediction markets across FX, Energy, Agriculture, Banking, Aviation, and FMCG with self-healing catalog seeding and automated empirical settlement.
+- **The Boardroom Arena**: Real-time peer-to-peer and Solo Benchmark Duel modes with fixed-time scheduling, device-local timezone formatting, confidential scenario sealing, and 4-pillar strategic adjudication.
+- **Multi-Dialect Voice Dictation**: Speech-to-text dictation supporting Nigerian English (`en-NG`), West African Pidgin, and Global English (`en-US`).
+- **Anti-Cheat & Screen Capture Lockdown**: Active clipboard purging on `PrintScreen` / `Win+Shift+S`, opaque 98% fullscreen privacy blackout shield upon window blur, and print stylesheet concealment.
+- **Real-World Expert Scenario Ingestion**: Pipeline for CFOs and corporate leaders to submit historical dilemmas, packaged automatically into Boardroom scenarios and verified via the Admin desk (+500 XP reward).
+- **User Feedback Desk**: In-app 1–5 star rating and category feedback submission modal integrated with administrative triage on `/a`.
+- **Strategic AI Adjudication Engine**: Python and PHP evaluation runners using **NVIDIA NIM API** (`integrate.api.nvidia.com/v1`) with 40/30/20/10 rubric scoring and administrative sign-off support.
+- **Database**: Aiven MySQL 8.0.16+ (InnoDB, strict mode, TLS/SSL connection with CA certificate verification).
 - **Backend**: Lightweight PHP 8.2+ REST API (`public/index.php`), zero framework bloat, PDO MySQL with prepared statements, modular services.
-- **Double-Entry Ledger**: Append-only double-entry engine (`ledger_accounts`, `ledger_journals`, `ledger_entries`) with row-level locks (`SELECT ... FOR UPDATE`), idempotency keys, and zero-sum balance guarantees ($\sum \Delta = 0$).
-- **Frontend**: Clean, responsive modern HTML5 / CSS / Vanilla JS financial terminal (Space Grotesk & DM Sans typography, Light & Dark themes, real REST API integration).
-- **AI Agent Modeling**: Python 3.11+ evaluation runner (`ai_agent/evaluator.py`) using **NVIDIA NIM API** (`integrate.api.nvidia.com/v1`) with the 40/30/20/10 rubric.
-- **Orchestration**: Scheduled GitHub Actions cron (`.github/workflows/ai_evaluation.yml`) running every 10 minutes to poll and evaluate pending Boardroom strategy memos in Aiven MySQL.
-- **Transactional Mail**: Direct cURL API (Resend / SendGrid) with local debug logging fallback.
-- **Hosting**: Render (`render.yaml`).
+- **Frontend**: Clean, responsive modern HTML5 / CSS / Vanilla JS financial terminal (Space Grotesk & DM Sans typography, Light & Dark themes, real REST API integration, sticky mobile navigation).
+- **Hosting**: Render Web Service (`render.yaml`).
 
 ---
 
