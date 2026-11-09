@@ -100,6 +100,27 @@ class ProductionAuditAgent
         if ($syntaxErrors === 0) {
             $this->recordPass("All " . count($phpFiles) . " PHP files verified with zero syntax errors.");
         }
+
+        // Audit namespace and class import resolution across all PHP files
+        $missingImports = 0;
+        foreach ($phpFiles as $file) {
+            $content = file_get_contents($file);
+            if (preg_match_all('/use\s+(App\\\\[A-Za-z0-9_\\\\]+);/', $content, $matches)) {
+                foreach ($matches[1] as $importClass) {
+                    $relativeClassPath = str_replace(['App\\', '\\'], ['', DIRECTORY_SEPARATOR], $importClass) . '.php';
+                    $targetPath = $this->root . DIRECTORY_SEPARATOR . 'src' . DIRECTORY_SEPARATOR . $relativeClassPath;
+                    if (!file_exists($targetPath)) {
+                        $rel = str_replace($this->root . DIRECTORY_SEPARATOR, '', $file);
+                        $this->recordFailure("Unresolved import class '{$importClass}' in {$rel}");
+                        $missingImports++;
+                    }
+                }
+            }
+        }
+
+        if ($missingImports === 0) {
+            $this->recordPass("All namespace imports across all PHP classes resolve to valid source files.");
+        }
     }
 
     /**

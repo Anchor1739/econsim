@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Config\Database;
-use App\Security\Security;
+use App\Utils\Security;
 use InvalidArgumentException;
 use PDO;
 use RuntimeException;
