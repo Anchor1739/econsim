@@ -13,7 +13,7 @@ use RuntimeException;
 
 class BoardroomService
 {
-    public static function getLobbyChallenges(?string $industrySlug = null): array
+    public static function getLobbyChallenges(?string $industrySlug = null, ?string $currentUserId = null): array
     {
         $pdo = Database::getConnection();
 
@@ -46,7 +46,7 @@ class BoardroomService
         $stmt->execute($params);
         $rows = $stmt->fetchAll();
 
-        return array_map(function ($r) {
+        return array_map(function ($r) use ($currentUserId) {
             $scheduledTs = !empty($r['scheduled_at']) ? strtotime((string)$r['scheduled_at']) : time();
             $secUntil = max(0, $scheduledTs - time());
 
@@ -55,8 +55,13 @@ class BoardroomService
                 'industry' => $r['industry_name'],
                 'industry_slug' => $r['industry_slug'],
                 'host' => $r['host_name'],
+                'host_id' => $r['host_id'],
+                'opponent_id' => $r['opponent_id'],
+                'is_host' => ($currentUserId && $r['host_id'] === $currentUserId),
+                'is_opponent' => ($currentUserId && $r['opponent_id'] === $currentUserId),
                 'commitment' => (int)($r['commitment_minor'] / 100),
                 'scheduled_at' => $r['scheduled_at'],
+                'scheduled_at_iso' => !empty($r['scheduled_at']) ? gmdate('Y-m-d\TH:i:s\Z', $scheduledTs) : null,
                 'seconds_until_start' => $secUntil,
                 'is_scheduled' => ($secUntil > 0),
                 'duration' => (int)$r['duration_minutes'],
@@ -196,11 +201,35 @@ class BoardroomService
             if (!$challenge) {
                 throw new RuntimeException("Challenge not found.");
             }
+
+            // Creator or Opponent re-entering their own room
+            if ($challenge['host_id'] === $userId) {
+                $pdo->rollBack();
+                $scheduledTs = !empty($challenge['scheduled_at']) ? strtotime((string)$challenge['scheduled_at']) : time();
+                $secondsUntil = max(0, $scheduledTs - time());
+                return [
+                    'challenge_id' => $challengeId,
+                    'state' => $challenge['state'],
+                    'reentered_as' => 'host',
+                    'seconds_until_start' => $secondsUntil,
+                    'message' => 'Returning to your executive boardroom lounge.',
+                ];
+            }
+            if (!empty($challenge['opponent_id']) && $challenge['opponent_id'] === $userId) {
+                $pdo->rollBack();
+                $scheduledTs = !empty($challenge['scheduled_at']) ? strtotime((string)$challenge['scheduled_at']) : time();
+                $secondsUntil = max(0, $scheduledTs - time());
+                return [
+                    'challenge_id' => $challengeId,
+                    'state' => $challenge['state'],
+                    'reentered_as' => 'opponent',
+                    'seconds_until_start' => $secondsUntil,
+                    'message' => 'Returning to your executive boardroom match.',
+                ];
+            }
+
             if (!in_array($challenge['state'], ['open', 'matched'], true)) {
                 throw new RuntimeException("This challenge is no longer open for opponents.");
-            }
-            if ($challenge['host_id'] === $userId) {
-                throw new RuntimeException("You cannot join your own challenge as an opponent.");
             }
 
             $challengeMode = strtolower((string)($challenge['mode'] ?? 'demo'));
@@ -463,6 +492,7 @@ class BoardroomService
             'opponent_ready' => !empty($c['opponent_id']),
             'commitment' => (int)($c['commitment_minor'] / 100),
             'scheduled_at' => $c['scheduled_at'],
+            'scheduled_at_iso' => !empty($c['scheduled_at']) ? gmdate('Y-m-d\TH:i:s\Z', $scheduledTs) : null,
             'seconds_until_start' => $secondsUntilStart,
             'is_scheduled_waiting' => ($secondsUntilStart > 0 && !in_array($c['state'], ['evaluating', 'settled', 'disputed'], true)),
             'start_at' => $c['start_at'],

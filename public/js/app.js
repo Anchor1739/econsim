@@ -543,6 +543,14 @@ function navigate(page, params = {}) {
     window.VoiceEngine.stop();
   }
 
+  if (window.waitingCountdownInterval) clearInterval(window.waitingCountdownInterval);
+  if (window.waitingRoomPollInterval) clearInterval(window.waitingRoomPollInterval);
+  if (window._waitingWakeHandler) {
+    document.removeEventListener('visibilitychange', window._waitingWakeHandler);
+    window.removeEventListener('focus', window._waitingWakeHandler);
+    window._waitingWakeHandler = null;
+  }
+
   state.page = page;
   if (params.marketId) state.selectedMarketId = params.marketId;
   if (params.challengeId) state.currentChallengeId = params.challengeId;
@@ -4144,6 +4152,33 @@ async function loadBoardroomLobby() {
       const isScheduledFuture = (c.seconds_until_start || 0) > 0;
       const minsLeft = Math.ceil((c.seconds_until_start || 0) / 60);
 
+      // Timezone-accurate local scheduled time display
+      const scheduledIso = c.scheduled_at_iso || (c.scheduled_at ? c.scheduled_at.replace(' ', 'T') + 'Z' : null);
+      const scheduledDate = scheduledIso ? new Date(scheduledIso) : null;
+      const localTimeStr = scheduledDate ? scheduledDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Soon';
+
+      // Detect if current user created this challenge or is already participant
+      const isCurrentUserHost = Boolean(c.is_host || (state.user && (state.user.id === c.host_id || state.user.display_name === c.host)));
+      const isCurrentUserOpponent = Boolean(c.is_opponent || (state.user && state.user.id === c.opponent_id));
+      const isUserParticipant = isCurrentUserHost || isCurrentUserOpponent;
+
+      let actionBtn = '';
+      if (isUserParticipant) {
+        const targetPage = (c.state === 'live') ? 'live_challenge' : 'waiting_room';
+        const label = isCurrentUserHost 
+          ? (c.state === 'live' ? 'Resume Strategy Match ↗' : 'Enter Your Lounge 🏛️')
+          : (c.state === 'live' ? 'Resume Strategy Match ↗' : 'Re-enter Lounge ⏳');
+        actionBtn = `
+          <button class="btn btn-primary btn-full" style="margin-top: auto; background: var(--jade); border-color: var(--jade); color: #fff; font-weight: 700;" onclick="navigate('${targetPage}', { challengeId: '${c.id}' })">
+            ${label}
+          </button>
+        `;
+      } else if (c.has_opponent) {
+        actionBtn = `<button class="btn btn-secondary btn-full" style="margin-top: auto; opacity: 0.85;" disabled>Match Locked (Full) 🔒</button>`;
+      } else {
+        actionBtn = `<button class="btn btn-primary btn-full" style="margin-top: auto;" data-join-id="${c.id}" onclick="handleJoinChallenge('${c.id}', this)">Accept Challenge ↗</button>`;
+      }
+
       return `
         <div class="panel" style="display: flex; flex-direction: column;">
           <div class="market-top">
@@ -4158,20 +4193,16 @@ async function loadBoardroomLobby() {
             <p style="font-size: 11.5px; color: var(--muted); margin-top: 4px;">Unlocks strictly at scheduled match time</p>
           </div>
           <div style="display: flex; justify-content: space-between; margin: 8px 0; font-size: 13px;">
-            <span>Host: <b>${c.host}</b></span>
+            <span>Host: <b>${c.host}</b> ${isCurrentUserHost ? '<span style="font-size: 10px; color: var(--jade); font-weight: 700;">(You)</span>' : ''}</span>
             <span>Commitment: <b>${formatMoney(c.commitment)} ${c.mode === 'real' ? 'NGN' : 'VNGN'}</b></span>
           </div>
           <div style="font-size: 12px; color: var(--muted); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; background: var(--bg); padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border);">
             <span>⏰ Match Time:</span>
             <b style="color: ${isScheduledFuture ? 'var(--jade)' : '#fbbf24'};">
-              ${isScheduledFuture ? `Starts in ${minsLeft}m` : 'Starting Now'}
+              ${localTimeStr} (${isScheduledFuture ? `in ${minsLeft}m` : 'Starting Now'})
             </b>
           </div>
-          ${c.has_opponent ? `
-            <button class="btn btn-secondary btn-full" style="margin-top: auto; opacity: 0.85;" disabled>Match Locked (Full) 🔒</button>
-          ` : `
-            <button class="btn btn-primary btn-full" style="margin-top: auto;" data-join-id="${c.id}" onclick="handleJoinChallenge('${c.id}', this)">Accept Challenge ↗</button>
-          `}
+          ${actionBtn}
         </div>
       `;
     }).join('');
@@ -4246,6 +4277,11 @@ async function handleJoinChallenge(challengeId, btnEl) {
 
   try {
     const res = await api.post(`/boardroom/join/${challengeId}`);
+    if (res.data?.reentered_as === 'host' || res.data?.reentered_as === 'opponent') {
+      api.toast(res.data.message || 'Returning to your challenge lounge.', 'info');
+      navigate(res.data.state === 'live' ? 'live_challenge' : 'waiting_room', { challengeId });
+      return;
+    }
     if (res.data?.state === 'scheduled' || (res.data?.seconds_until_start || 0) > 0) {
       api.toast('Challenge accepted & locked in! Scenario unseals at scheduled match time.', 'success');
       sendSystemNotification(
@@ -4285,7 +4321,18 @@ async function loadWaitingRoomData(challengeId) {
     }
 
     const inviteUrl = window.location.origin + '/?page=live_challenge&challengeId=' + c.id;
-    let secondsLeft = parseInt(c.seconds_until_start, 10) || 0;
+
+    // Timezone-accurate local target time and wall-clock calculation
+    const scheduledIso = c.scheduled_at_iso || (c.scheduled_at ? c.scheduled_at.replace(' ', 'T') + 'Z' : null);
+    const targetDate = scheduledIso 
+      ? new Date(scheduledIso) 
+      : new Date(Date.now() + (parseInt(c.seconds_until_start, 10) || 0) * 1000);
+    const targetEndMs = targetDate.getTime();
+    const scheduledTimeFormatted = targetDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    function getSecondsRemaining() {
+      return Math.max(0, Math.floor((targetEndMs - Date.now()) / 1000));
+    }
 
     function formatCountdown(sec) {
       const m = Math.floor(sec / 60);
@@ -4309,10 +4356,10 @@ async function loadWaitingRoomData(challengeId) {
                 MATCH SCHEDULED START COUNTDOWN
               </div>
               <div id="scheduled-countdown-timer" style="font-size: 38px; font-weight: 900; font-family: monospace; color: var(--text); letter-spacing: 2px;">
-                ${formatCountdown(secondsLeft)}
+                ${formatCountdown(getSecondsRemaining())}
               </div>
               <div style="font-size: 11.5px; color: var(--muted); margin-top: 4px;">
-                Scheduled for ${c.scheduled_at ? new Date(c.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Upcoming'}. Scenario auto-unlocks at 00:00.
+                Scheduled for ${scheduledTimeFormatted}. Scenario auto-unlocks at 00:00.
               </div>
             </div>
 
@@ -4372,7 +4419,7 @@ async function loadWaitingRoomData(challengeId) {
             </div>
             <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--line); padding-bottom: 8px;">
               <span style="color: var(--muted);">Scheduled Match Time:</span>
-              <b>${c.scheduled_at ? new Date(c.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Imminent'}</b>
+              <b>${scheduledTimeFormatted}</b>
             </div>
             <div style="display: flex; justify-content: space-between;">
               <span style="color: var(--muted);">Match Status:</span>
@@ -4383,19 +4430,23 @@ async function loadWaitingRoomData(challengeId) {
       </div>
     `;
 
-    // Local 1s ticking countdown timer
+    // True wall-clock ticking countdown timer
     if (window.waitingCountdownInterval) clearInterval(window.waitingCountdownInterval);
+    if (window._waitingWakeHandler) {
+      document.removeEventListener('visibilitychange', window._waitingWakeHandler);
+      window.removeEventListener('focus', window._waitingWakeHandler);
+    }
     let notified5mLocal = false;
 
-    window.waitingCountdownInterval = setInterval(() => {
-      secondsLeft = Math.max(0, secondsLeft - 1);
+    const tickCountdown = () => {
+      const remaining = getSecondsRemaining();
       const timerEl = document.getElementById('scheduled-countdown-timer');
       if (timerEl) {
-        timerEl.textContent = formatCountdown(secondsLeft);
+        timerEl.textContent = formatCountdown(remaining);
       }
 
       // Proactive 5-minute warning notification
-      if (secondsLeft <= 300 && secondsLeft > 290 && !notified5mLocal) {
+      if (remaining <= 300 && remaining > 290 && !notified5mLocal) {
         notified5mLocal = true;
         sendSystemNotification(
           '🏛️ Boardroom Match in 5 Minutes!',
@@ -4407,8 +4458,12 @@ async function loadWaitingRoomData(challengeId) {
       }
 
       // When countdown hits 00:00
-      if (secondsLeft <= 0) {
+      if (remaining <= 0) {
         clearInterval(window.waitingCountdownInterval);
+        if (window._waitingWakeHandler) {
+          document.removeEventListener('visibilitychange', window._waitingWakeHandler);
+          window.removeEventListener('focus', window._waitingWakeHandler);
+        }
         sendSystemNotification(
           '🏛️ Boardroom Match Started! Dilemma Unsealed',
           `The ${c.industry} dilemma has unsealed! Enter the arena and submit your executive memo.`,
@@ -4419,7 +4474,17 @@ async function loadWaitingRoomData(challengeId) {
         api.toast('Scheduled time arrived! Unsealing scenario...', 'success');
         navigate('live_challenge', { challengeId: c.id });
       }
-    }, 1000);
+    };
+
+    tickCountdown();
+    window.waitingCountdownInterval = setInterval(tickCountdown, 1000);
+
+    // Sync immediately on wake/visibilitychange so browser sleep never freezes the countdown!
+    window._waitingWakeHandler = () => {
+      if (!document.hidden) tickCountdown();
+    };
+    document.addEventListener('visibilitychange', window._waitingWakeHandler);
+    window.addEventListener('focus', window._waitingWakeHandler);
 
     // Heartbeat poll every 3s to detect opponent join or match start
     if (window.waitingRoomPollInterval) clearInterval(window.waitingRoomPollInterval);
@@ -4800,10 +4865,13 @@ async function loadChallengeReportData(challengeId) {
       el.innerHTML = `
         <div class="panel" style="text-align: center; padding: 48px 24px;">
           <div style="font-size: 38px; margin-bottom: 12px;">⚖️</div>
-          <h2>Held for Strategic Admin Review</h2>
-          <p style="color: var(--muted); max-width: 520px; margin: 8px auto 20px; font-size: 13.5px; line-height: 1.6;">
-            Your executive memo has been evaluated by our AI rubric and is currently undergoing quality review and sign-off by the Institutional Administrator. Final scores and payout will unlock immediately upon verification.
+          <h2>Under Executive Review &amp; Sign-off</h2>
+          <p style="color: var(--muted); max-width: 520px; margin: 8px auto 14px; font-size: 13.5px; line-height: 1.6;">
+            Your executive memo has been received and is currently undergoing quality review and sign-off by the Institutional Adjudication Administrator. Final scores and payout will unlock immediately upon verification.
           </p>
+          <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; padding: 10px 14px; font-size: 12px; color: var(--text); max-width: 520px; margin: 0 auto 20px; line-height: 1.5; text-align: left;">
+            <b style="color: #f87171;">Strict Grading Standard:</b> Unrelated text, spam, or gibberish receives a strict <b>0/100</b>. Points are earned from 0 upwards: Financial Mechanics (40%), Downside Risk Controls (30%), Macro Precedent (20%), and Executive Communication (10%).
+          </div>
           <button class="btn btn-primary" onclick="handleRefreshReport(this, '${challengeId}')">Refresh Adjudication Status ↺</button>
         </div>
       `;

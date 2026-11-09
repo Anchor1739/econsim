@@ -14,8 +14,9 @@ class BoardroomController
     public function getLobby(): void
     {
         $sector = $_GET['industry'] ?? null;
+        $user = AuthService::getCurrentUser();
         try {
-            $challenges = BoardroomService::getLobbyChallenges($sector);
+            $challenges = BoardroomService::getLobbyChallenges($sector, $user['id'] ?? null);
             Response::success($challenges);
         } catch (Throwable $e) {
             Response::error($e->getMessage(), 500);
