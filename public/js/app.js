@@ -2501,7 +2501,10 @@ function renderBoardroom() {
         <h1>Prove Your Thinking. Not Your Luck.</h1>
         <p>Compete on real-world business dilemmas, submit executive strategy memos, and receive authoritative executive evaluations.</p>
       </div>
-      <button class="btn btn-primary" onclick="navigate('create_challenge')">+ Create Challenge ↗</button>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button class="btn btn-secondary" onclick="openExpertScenarioSubmissionModal()" style="font-size: 13px; font-weight: 600;">+ Contribute Case 🎓</button>
+        <button class="btn btn-primary" onclick="navigate('create_challenge')">+ Create Challenge ↗</button>
+      </div>
     </div>
 
     ${renderPushPromptBanner()}
@@ -2512,26 +2515,6 @@ function renderBoardroom() {
       <p style="color: #cbd5e1; font-size: 13.5px; max-width: 780px;">
         To ensure competitive integrity, scenario parameters and historical parallels remain strictly confidential until the live strategy session commences.
       </p>
-    </div>
-
-    <!-- Call for Real-World Scenarios Banner -->
-    <div class="panel" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(56, 189, 248, 0.08) 100%); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 12px; padding: 20px 22px; margin-bottom: 24px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
-        <div style="max-width: 640px;">
-          <div style="display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--jade); letter-spacing: 0.05em; margin-bottom: 6px;">
-            <span>🎓</span> REAL-WORLD SCENARIO INGESTION
-          </div>
-          <h3 style="font-size: 17px; font-weight: 800; margin-bottom: 6px; color: var(--text);">
-            Are you an Industry Leader, CFO, or Macroeconomist?
-          </h3>
-          <p style="font-size: 13px; color: var(--muted); line-height: 1.5; margin: 0;">
-            Upload a real corporate dilemma you navigated, the decision made, and the historical outcome. Our system packages it into standard Boardroom format, strictly verified by Institutional Administrators before going live.
-          </p>
-        </div>
-        <button class="btn btn-primary" onclick="openExpertScenarioSubmissionModal()" style="padding: 10px 18px; font-weight: 700; font-size: 13px; white-space: nowrap;">
-          Contribute Real Case ✍️
-        </button>
-      </div>
     </div>
 
     <h2>Open Lobby Challenges</h2>
@@ -3048,7 +3031,10 @@ function renderScenarioLab() {
             Calibrate empirical policy levers, test supply & demand shocks, and observe real-time equilibrium transmission across sectors.
           </p>
         </div>
-        <div style="display: flex; gap: 8px; align-items: center;">
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="openExpertScenarioSubmissionModal()" style="font-size: 11.5px; padding: 5px 11px; font-weight: 600;">
+            <span>🎓</span> + Contribute Scenario
+          </button>
           <span class="badge" style="font-size: 11px; padding: 6px 12px; background: rgba(36,121,101,0.12); color: var(--jade); font-weight: 700; border: 1px solid rgba(36,121,101,0.25);">
             ⚡ Live Empirical Engine Active
           </span>
@@ -6388,8 +6374,8 @@ function openExpertScenarioSubmissionModal() {
           <div style="display: flex; align-items: center; gap: 10px;">
             <div style="width: 36px; height: 36px; border-radius: 8px; background: linear-gradient(135deg, #10b981, #0284c7); display: flex; align-items: center; justify-content: center; font-size: 18px;">🎓</div>
             <div>
-              <h3 style="font-size: 16px; font-weight: 800; color: var(--text); margin: 0;">Contribute Real-World Dilemma</h3>
-              <p style="font-size: 12px; color: var(--muted); margin: 2px 0 0;">Ingested &amp; packaged into boardroom arena challenges with executive attribution</p>
+              <h3 style="font-size: 16px; font-weight: 800; color: var(--text); margin: 0;">Contribute Real-World Scenario &amp; Casebook</h3>
+              <p style="font-size: 12px; color: var(--muted); margin: 2px 0 0;">Synthesized into Scenario Lab empirical simulations and Boardroom arena challenges</p>
             </div>
           </div>
           <button type="button" class="btn-link" onclick="closeExpertScenarioSubmissionModal()" style="font-size: 20px; color: var(--muted); cursor: pointer; padding: 4px;">✕</button>
@@ -6398,7 +6384,7 @@ function openExpertScenarioSubmissionModal() {
         <form onsubmit="handleSubmitExpertScenario(event)" style="padding: 20px 22px; overflow-y: auto;">
           <!-- Trust & Verification Notice -->
           <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; font-size: 12px; line-height: 1.5; color: var(--text);">
-            <b style="color: var(--jade);">🛡️ Administrator Verification:</b> Your submission will be synthesized and packaged into standard Boardroom single-objective format. An Institutional Administrator must inspect and verify the quantitative case before it goes live into Boardroom matchmaking. Approved contributors receive attribution and <b>+500 XP</b>.
+            <b style="color: var(--jade);">🛡️ Administrator Verification:</b> Your real-world dilemma will be synthesized and packaged into standard EconSim scenarios across both <b>The Boardroom</b> and <b>Scenario Lab</b>. An Institutional Administrator must inspect and verify the quantitative case before it goes live into the platform rotation. Approved contributors receive attribution and <b>+500 XP</b>.
           </div>
 
           <!-- Section 1: Executive Credentials -->
