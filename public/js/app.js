@@ -562,7 +562,9 @@ function navigate(page, params = {}) {
       if (g.cut) document.removeEventListener('cut', g.cut);
       if (g.blur) window.removeEventListener('blur', g.blur);
       if (g.focus) window.removeEventListener('focus', g.focus);
-      if (g.keydown) window.removeEventListener('keydown', g.keydown);
+      if (g.visibility) document.removeEventListener('visibilitychange', g.visibility);
+      if (g.keydown) window.removeEventListener('keydown', g.keydown, true);
+      if (g.keyup) window.removeEventListener('keyup', g.keyup, true);
     });
     window._boardroomGuards = [];
     document.body.classList.remove('boardroom-active', 'app-blurred');
@@ -4720,11 +4722,7 @@ async function loadLiveChallengeData(challengeId) {
               </button>
             </div>
           </div>
-          <h2 style="font-size: 17px; margin-bottom: 8px;">What is your strategic decision?</h2>
-
-          <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; padding: 10px 12px; font-size: 12px; color: var(--text); margin-bottom: 12px; line-height: 1.5;">
-            <b style="color: #f87171;">Strict Grading Standard:</b> Unrelated text, spam, or gibberish receives a strict <b>0/100</b>. Points are earned from 0 upwards: Financial Mechanics (40%), Downside Risk Controls (30%), Macro Precedent (20%), and Executive Communication (10%).
-          </div>
+          <h2 style="font-size: 17px; margin-bottom: 12px;">What is your strategic decision?</h2>
 
           <!-- Live Voice Dictation Feedback Bar -->
           <div id="voice-live-bar" style="display: none; background: rgba(16, 185, 129, 0.08); border: 1px dashed rgba(16, 185, 129, 0.35); border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; font-size: 12px; color: #34d399; align-items: center; justify-content: space-between;">
@@ -4804,25 +4802,63 @@ async function loadLiveChallengeData(challengeId) {
     document.removeEventListener('contextmenu', window._boardroomContextGuard);
     document.addEventListener('contextmenu', window._boardroomContextGuard);
 
-    // Anti-screenshot & defocus concealment
+    // Anti-screenshot, defocus concealment & clipboard purge
     document.body.classList.add('boardroom-active');
-    const onWindowBlur = () => { document.body.classList.add('app-blurred'); };
-    const onWindowFocus = () => { document.body.classList.remove('app-blurred'); };
+    const onWindowBlur = () => { 
+      document.body.classList.add('app-blurred'); 
+    };
+    const onWindowFocus = () => { 
+      document.body.classList.remove('app-blurred'); 
+    };
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        document.body.classList.add('app-blurred');
+      } else if (document.hasFocus()) {
+        document.body.classList.remove('app-blurred');
+      }
+    };
     window.addEventListener('blur', onWindowBlur);
     window.addEventListener('focus', onWindowFocus);
+    document.addEventListener('visibilitychange', onVisibilityChange);
 
-    // Prevent screenshot / print key shortcuts (PrintScreen, Ctrl+P, Ctrl+S)
+    // Function to trigger screenshot blackout and immediately purge clipboard
+    const triggerScreenshotShield = () => {
+      document.body.classList.add('app-blurred');
+      // Instantly overwrite clipboard so Windows/macOS cannot hold the captured screenshot
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        try { navigator.clipboard.writeText('').catch(() => {}); } catch(e) {}
+      }
+      api.toast('Screen capture of confidential boardroom dilemma is strictly prohibited.', 'warning');
+      setTimeout(() => {
+        if (document.hasFocus() && !document.hidden) {
+          document.body.classList.remove('app-blurred');
+        }
+      }, 2000);
+    };
+
+    // Prevent screenshot / print key shortcuts (PrintScreen, Ctrl+P, Ctrl+S, Win+Shift+S)
     const onKeyDownGuard = (ev) => {
       if ((ev.ctrlKey || ev.metaKey) && (ev.key === 'p' || ev.key === 'P' || ev.key === 's' || ev.key === 'S')) {
         ev.preventDefault();
         api.toast('Saving or printing confidential boardroom dilemma is restricted.', 'warning');
       }
-      if (ev.key === 'PrintScreen') {
+      if (ev.key === 'PrintScreen' || ev.keyCode === 44 || ev.code === 'PrintScreen' ||
+          (ev.shiftKey && (ev.metaKey || ev.ctrlKey) && (ev.key === 's' || ev.key === 'S'))) {
         ev.preventDefault();
-        api.toast('Screen capture of confidential dilemma is restricted.', 'warning');
+        triggerScreenshotShield();
       }
     };
-    window.addEventListener('keydown', onKeyDownGuard);
+
+    // PrintScreen keyup — on Windows, PrtScn fires keyup when released; purge clipboard instantly
+    const onKeyUpGuard = (ev) => {
+      if (ev.key === 'PrintScreen' || ev.keyCode === 44 || ev.code === 'PrintScreen') {
+        ev.preventDefault();
+        triggerScreenshotShield();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDownGuard, true);
+    window.addEventListener('keyup', onKeyUpGuard, true);
 
     // Store guard ref for cleanup when navigating away
     if (!window._boardroomGuards) window._boardroomGuards = [];
@@ -4831,7 +4867,9 @@ async function loadLiveChallengeData(challengeId) {
       cut: _boardroomCopyGuard,
       blur: onWindowBlur,
       focus: onWindowFocus,
-      keydown: onKeyDownGuard
+      visibility: onVisibilityChange,
+      keydown: onKeyDownGuard,
+      keyup: onKeyUpGuard,
     });
     // ── End boardroom integrity ──────────────────────────────────────
   } catch (e) {}
@@ -4965,12 +5003,9 @@ async function loadChallengeReportData(challengeId) {
         <div class="panel" style="text-align: center; padding: 48px 24px;">
           <div style="font-size: 38px; margin-bottom: 12px;">⚖️</div>
           <h2>Under Executive Review &amp; Sign-off</h2>
-          <p style="color: var(--muted); max-width: 520px; margin: 8px auto 14px; font-size: 13.5px; line-height: 1.6;">
+          <p style="color: var(--muted); max-width: 520px; margin: 8px auto 20px; font-size: 13.5px; line-height: 1.6;">
             Your executive memo has been received and is currently undergoing quality review and sign-off by the Institutional Adjudication Administrator. Final scores and payout will unlock immediately upon verification.
           </p>
-          <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; padding: 10px 14px; font-size: 12px; color: var(--text); max-width: 520px; margin: 0 auto 20px; line-height: 1.5; text-align: left;">
-            <b style="color: #f87171;">Strict Grading Standard:</b> Unrelated text, spam, or gibberish receives a strict <b>0/100</b>. Points are earned from 0 upwards: Financial Mechanics (40%), Downside Risk Controls (30%), Macro Precedent (20%), and Executive Communication (10%).
-          </div>
           <button class="btn btn-primary" onclick="handleRefreshReport(this, '${challengeId}')">Refresh Adjudication Status ↺</button>
         </div>
       `;

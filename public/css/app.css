@@ -641,23 +641,52 @@ h1, h2, h3, h4, .brand, .stat {
 
 /* Screenshot & screen capture deterrent: print concealment + defocus protection */
 @media print {
-  .boardroom-no-select, #live-challenge-content {
+  html, body, #live-challenge-content, .boardroom-no-select {
     display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
   }
 }
 
-body.boardroom-active.app-blurred .boardroom-no-select {
-  filter: blur(12px) grayscale(100%);
-  user-select: none;
-  pointer-events: none;
-  opacity: 0.15;
-  transition: filter 0.2s ease, opacity 0.2s ease;
+/* Fullscreen privacy shield when window loses focus, Snipping tool opens, or screen print is triggered */
+body.boardroom-active.app-blurred::after {
+  content: '🔒 Confidential Boardroom Strategy Session Protected — Window Defocused or Capture Detected';
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 17, 30, 0.98);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fbbf24;
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+  padding: 24px;
+  letter-spacing: 0.5px;
+  pointer-events: all;
 }
 
-/* Screenshot deterrent: subtle filter on scenario box when not focused */
-.boardroom-scenario-protected {
-  -webkit-user-select: none;
-  user-select: none;
+body.boardroom-active.app-blurred #live-challenge-content,
+body.boardroom-active.app-blurred .boardroom-no-select,
+body.boardroom-active.app-blurred .panel {
+  filter: blur(30px) grayscale(100%) !important;
+  user-select: none !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+/* Screenshot deterrent: disable text selection and dragging */
+.boardroom-scenario-protected,
+.boardroom-no-select {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
 }
 
 /* Voice-to-Text & Speech Dictation Styling */
