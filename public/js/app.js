@@ -2035,6 +2035,12 @@ function renderAppShell(innerHtml) {
             <small>LEVEL ${levelNumStr} · ${userXp.toLocaleString()} XP</small>
             <div class="progress-bar"><i style="width: ${levelPct}%;"></i></div>
           </div>
+          <button class="nav-item" onclick="openFeedbackModal()" style="margin-bottom: 2px;">
+            <span class="nav-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </span>
+            <span class="text">Send Feedback</span>
+          </button>
           <button class="nav-item" onclick="handleLogout()">
             <span class="nav-icon">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -2115,6 +2121,11 @@ function renderAppShell(innerHtml) {
             <!-- Desktop PWA Install Button -->
             <button class="btn btn-secondary btn-sm pwa-install-trigger" onclick="triggerPwaInstall()" title="Install EconSim Workstation App" style="font-size: 11.5px; padding: 5px 10px; display: inline-flex; align-items: center; gap: 4px; font-weight: 600; border-color: rgba(16, 185, 129, 0.4); color: var(--jade);">
               <span>📲</span> Install App
+            </button>
+
+            <!-- Desktop Feedback Button -->
+            <button class="btn btn-secondary btn-sm" onclick="openFeedbackModal()" title="Share Feedback or Suggestions" style="font-size: 11.5px; padding: 5px 10px; display: inline-flex; align-items: center; gap: 4px; font-weight: 600;">
+              <span>💬</span> Feedback
             </button>
 
             <!-- Notifications Dropdown Container -->
@@ -2257,6 +2268,16 @@ function renderAppShell(innerHtml) {
             <button class="nav-item ${state.page === 'settings' ? 'active' : ''}" onclick="navigate('settings'); closeMobileDrawer();">
               <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0-.33-1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
               <span class="text">Platform Settings</span>
+            </button>
+
+            <div class="sidebar-label" style="margin-top: 18px;">COMMUNITY &amp; FEEDBACK</div>
+            <button class="nav-item" onclick="openExpertScenarioSubmissionModal(); closeMobileDrawer();">
+              <span class="nav-icon" style="font-size: 16px;">🎓</span>
+              <span class="text">Submit Real-World Scenario</span>
+            </button>
+            <button class="nav-item" onclick="openFeedbackModal(); closeMobileDrawer();">
+              <span class="nav-icon" style="font-size: 16px;">💬</span>
+              <span class="text">Send Feedback &amp; Ideas</span>
             </button>
 
             <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.08); display: flex; flex-direction: column; gap: 10px;">
@@ -2491,6 +2512,26 @@ function renderBoardroom() {
       <p style="color: #cbd5e1; font-size: 13.5px; max-width: 780px;">
         To ensure competitive integrity, scenario parameters and historical parallels remain strictly confidential until the live strategy session commences.
       </p>
+    </div>
+
+    <!-- Call for Real-World Scenarios Banner -->
+    <div class="panel" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(56, 189, 248, 0.08) 100%); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 12px; padding: 20px 22px; margin-bottom: 24px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+        <div style="max-width: 640px;">
+          <div style="display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--jade); letter-spacing: 0.05em; margin-bottom: 6px;">
+            <span>🎓</span> REAL-WORLD SCENARIO INGESTION
+          </div>
+          <h3 style="font-size: 17px; font-weight: 800; margin-bottom: 6px; color: var(--text);">
+            Are you an Industry Leader, CFO, or Macroeconomist?
+          </h3>
+          <p style="font-size: 13px; color: var(--muted); line-height: 1.5; margin: 0;">
+            Upload a real corporate dilemma you navigated, the decision made, and the historical outcome. Our system packages it into standard Boardroom format, strictly verified by Institutional Administrators before going live.
+          </p>
+        </div>
+        <button class="btn btn-primary" onclick="openExpertScenarioSubmissionModal()" style="padding: 10px 18px; font-weight: 700; font-size: 13px; white-space: nowrap;">
+          Contribute Real Case ✍️
+        </button>
+      </div>
     </div>
 
     <h2>Open Lobby Challenges</h2>
@@ -6168,6 +6209,369 @@ async function handleLogout() {
   state.user = null;
   navigate('welcome');
 }
+
+// =============================================================
+// USER FEEDBACK & SUGGESTIONS MODAL
+// =============================================================
+let currentFeedbackRating = 5;
+
+function openFeedbackModal() {
+  let existing = document.getElementById('user-feedback-modal');
+  if (existing) existing.remove();
+
+  currentFeedbackRating = 5;
+  const userEmail = state.user?.email || '';
+
+  const modalHtml = `
+    <div id="user-feedback-modal" onclick="if(event.target === this) closeFeedbackModal()" style="position: fixed; inset: 0; background: rgba(5, 8, 15, 0.88); backdrop-filter: blur(8px); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 16px;">
+      <div style="background: var(--card-bg, #0f1e33); border: 1px solid var(--line, #1c314f); border-radius: 16px; max-width: 520px; width: 100%; max-height: calc(100vh - 32px); display: flex; flex-direction: column; box-shadow: 0 24px 48px rgba(0,0,0,0.6); overflow: hidden; animation: fadeIn 0.2s ease;">
+        <div style="padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 36px; height: 36px; border-radius: 8px; background: linear-gradient(135deg, var(--jade), #10b981); display: flex; align-items: center; justify-content: center; font-size: 18px;">💬</div>
+            <div>
+              <h3 style="font-size: 16px; font-weight: 800; color: var(--text); margin: 0;">Share Feedback &amp; Ideas</h3>
+              <p style="font-size: 12px; color: var(--muted); margin: 2px 0 0;">Help shape EconSim's intelligence and simulation experience</p>
+            </div>
+          </div>
+          <button type="button" class="btn-link" onclick="closeFeedbackModal()" style="font-size: 20px; color: var(--muted); cursor: pointer; padding: 4px;">✕</button>
+        </div>
+
+        <form onsubmit="handleSubmitFeedback(event)" style="padding: 20px 22px; overflow-y: auto;">
+          <!-- Star Rating -->
+          <div style="margin-bottom: 16px; text-align: center;">
+            <label style="display: block; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; margin-bottom: 6px;">How is your experience with EconSim?</label>
+            <div class="star-rating-group" style="justify-content: center;">
+              <button type="button" class="star-rating-btn active" data-rating="1" onclick="setFeedbackRating(1)">★</button>
+              <button type="button" class="star-rating-btn active" data-rating="2" onclick="setFeedbackRating(2)">★</button>
+              <button type="button" class="star-rating-btn active" data-rating="3" onclick="setFeedbackRating(3)">★</button>
+              <button type="button" class="star-rating-btn active" data-rating="4" onclick="setFeedbackRating(4)">★</button>
+              <button type="button" class="star-rating-btn active" data-rating="5" onclick="setFeedbackRating(5)">★</button>
+            </div>
+            <div id="feedback-rating-label" style="font-size: 11px; color: #fbbf24; font-weight: 700; margin-top: 4px;">5 / 5 · Excellent</div>
+          </div>
+
+          <!-- Category Selector -->
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label style="font-size: 12px; font-weight: 700; color: var(--text);">Category</label>
+            <select class="select" id="feedback-category" style="width: 100%;">
+              <option value="general">💡 General Feedback / Idea</option>
+              <option value="bug">🐞 Bug Report / Glitch</option>
+              <option value="feature">⚡ Feature Request</option>
+              <option value="boardroom">🏛️ Boardroom Arena Dilemma</option>
+              <option value="markets">📈 Predictor Market Contracts</option>
+              <option value="wallet">💳 Wallet / Deposits / Payouts</option>
+              <option value="ui_ux">📱 UI / Mobile Experience</option>
+            </select>
+          </div>
+
+          <!-- Message Textarea -->
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label style="font-size: 12px; font-weight: 700; color: var(--text);">Your Message / Findings</label>
+            <textarea class="input" id="feedback-message" rows="4" style="width: 100%; line-height: 1.5; resize: vertical;" placeholder="Tell us what worked well, what was confusing, or what you would love to see improved..." required minlength="5"></textarea>
+          </div>
+
+          <!-- Optional Email -->
+          <div class="form-group" style="margin-bottom: 18px;">
+            <label style="font-size: 12px; font-weight: 700; color: var(--text);">Contact Email <small style="color: var(--muted); font-weight: normal;">(optional, for follow-up)</small></label>
+            <input class="input" type="email" id="feedback-email" value="${userEmail}" placeholder="you@example.com">
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-full" id="btn-submit-feedback" style="padding: 12px; font-weight: 700;">
+            Submit Feedback 🚀
+          </button>
+        </form>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function closeFeedbackModal() {
+  const el = document.getElementById('user-feedback-modal');
+  if (el) el.remove();
+}
+
+function setFeedbackRating(n) {
+  currentFeedbackRating = n;
+  const labels = {
+    1: '1 / 5 · Poor',
+    2: '2 / 5 · Fair',
+    3: '3 / 5 · Good',
+    4: '4 / 5 · Very Good',
+    5: '5 / 5 · Excellent'
+  };
+  const labelEl = document.getElementById('feedback-rating-label');
+  if (labelEl) labelEl.textContent = labels[n] || `${n} / 5`;
+
+  const btns = document.querySelectorAll('.star-rating-btn');
+  btns.forEach(btn => {
+    const val = parseInt(btn.getAttribute('data-rating'), 10);
+    if (val <= n) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+}
+
+async function handleSubmitFeedback(e) {
+  e.preventDefault();
+  const category = document.getElementById('feedback-category')?.value || 'general';
+  const message = document.getElementById('feedback-message')?.value?.trim();
+  const email = document.getElementById('feedback-email')?.value?.trim();
+
+  if (!message || message.length < 5) {
+    api.toast('Please enter at least 5 characters of feedback.', 'warning');
+    return;
+  }
+
+  const btn = document.getElementById('btn-submit-feedback');
+  const origText = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Submitting...';
+  }
+
+  try {
+    const res = await api.post('/feedback', {
+      category,
+      rating: currentFeedbackRating,
+      message,
+      contact_email: email || undefined,
+      page_url: window.location.href,
+      user_agent: navigator.userAgent
+    });
+    api.toast(res.message || 'Thank you! Your feedback has been received.', 'success');
+    closeFeedbackModal();
+  } catch (err) {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = origText;
+    }
+  }
+}
+
+// =============================================================
+// REAL-WORLD EXPERT SCENARIO SUBMISSION MODAL
+// =============================================================
+function openExpertScenarioSubmissionModal() {
+  let existing = document.getElementById('expert-scenario-modal-user');
+  if (existing) existing.remove();
+
+  const defaultName = state.user?.display_name || '';
+  const defaultEmail = state.user?.email || '';
+
+  const modalHtml = `
+    <div id="expert-scenario-modal-user" onclick="if(event.target === this) closeExpertScenarioSubmissionModal()" style="position: fixed; inset: 0; background: rgba(5, 8, 15, 0.92); backdrop-filter: blur(10px); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 16px;">
+      <div style="background: var(--card-bg, #0f1e33); border: 1px solid var(--line, #1c314f); border-radius: 16px; max-width: 680px; width: 100%; max-height: calc(100vh - 32px); display: flex; flex-direction: column; box-shadow: 0 24px 48px rgba(0,0,0,0.7); overflow: hidden; animation: fadeIn 0.2s ease;">
+        <div style="padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 36px; height: 36px; border-radius: 8px; background: linear-gradient(135deg, #10b981, #0284c7); display: flex; align-items: center; justify-content: center; font-size: 18px;">🎓</div>
+            <div>
+              <h3 style="font-size: 16px; font-weight: 800; color: var(--text); margin: 0;">Contribute Real-World Dilemma</h3>
+              <p style="font-size: 12px; color: var(--muted); margin: 2px 0 0;">Ingested &amp; packaged into boardroom arena challenges with executive attribution</p>
+            </div>
+          </div>
+          <button type="button" class="btn-link" onclick="closeExpertScenarioSubmissionModal()" style="font-size: 20px; color: var(--muted); cursor: pointer; padding: 4px;">✕</button>
+        </div>
+
+        <form onsubmit="handleSubmitExpertScenario(event)" style="padding: 20px 22px; overflow-y: auto;">
+          <!-- Trust & Verification Notice -->
+          <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; font-size: 12px; line-height: 1.5; color: var(--text);">
+            <b style="color: var(--jade);">🛡️ Administrator Verification:</b> Your submission will be synthesized and packaged into standard Boardroom single-objective format. An Institutional Administrator must inspect and verify the quantitative case before it goes live into Boardroom matchmaking. Approved contributors receive attribution and <b>+500 XP</b>.
+          </div>
+
+          <!-- Section 1: Executive Credentials -->
+          <div style="font-size: 11.5px; font-weight: 800; text-transform: uppercase; color: var(--jade); letter-spacing: 0.05em; margin-bottom: 10px;">
+            1. Executive Contributor Credentials
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+            <div class="form-group">
+              <label style="font-size: 11.5px;">Your Name / Public Byline</label>
+              <input class="input" type="text" id="exp-sub-name" value="${defaultName}" placeholder="e.g. Dr. Ngozi Balogun" required>
+            </div>
+            <div class="form-group">
+              <label style="font-size: 11.5px;">Executive Role / Experience</label>
+              <input class="input" type="text" id="exp-sub-role" placeholder="e.g. Former CFO / Head of Risk / Founder" required>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;">
+            <div class="form-group">
+              <label style="font-size: 11.5px;">Organization / Firm <small style="color:var(--muted);">(optional)</small></label>
+              <input class="input" type="text" id="exp-sub-org" placeholder="e.g. Tier-1 Commercial Bank / Fintech">
+            </div>
+            <div class="form-group">
+              <label style="font-size: 11.5px;">Verification Email</label>
+              <input class="input" type="email" id="exp-sub-email" value="${defaultEmail}" placeholder="you@organization.com" required>
+            </div>
+          </div>
+
+          <!-- Section 2: Dilemma & Numbers -->
+          <div style="font-size: 11.5px; font-weight: 800; text-transform: uppercase; color: var(--jade); letter-spacing: 0.05em; margin-bottom: 10px;">
+            2. The Strategic Dilemma &amp; Quantitative Figures
+          </div>
+          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-bottom: 12px;">
+            <div class="form-group">
+              <label style="font-size: 11.5px;">Case Title</label>
+              <input class="input" type="text" id="exp-sub-title" placeholder="e.g. Managing ₦40B FX Exposure During Sudden CBN Float" required minlength="10">
+            </div>
+            <div class="form-group">
+              <label style="font-size: 11.5px;">Industry Sector</label>
+              <select class="select" id="exp-sub-industry" required>
+                <option value="1">Monetary Policy</option>
+                <option value="2">Equities</option>
+                <option value="3">Energy</option>
+                <option value="4">Agriculture</option>
+                <option value="5" selected>FX &amp; Reserves</option>
+                <option value="6">Fintech</option>
+                <option value="7">Manufacturing</option>
+                <option value="8">Telecoms &amp; Digital</option>
+                <option value="9">Real Estate &amp; Infra</option>
+                <option value="10">FMCG &amp; Retail</option>
+                <option value="11">Aviation &amp; Logistics</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label style="font-size: 11.5px;">The Situation / Dilemma Background</label>
+            <textarea class="input" id="exp-sub-dilemma" rows="3" placeholder="Describe the operational crisis or crossroad. What macro shock or commercial constraint precipitated the decision?" required minlength="60"></textarea>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label style="font-size: 11.5px;">Key Quantitative Figures / Balance Sheet Metrics</label>
+            <input class="input" type="text" id="exp-sub-metrics" placeholder="e.g. Monthly Burn: ₦15M, FX Obligations: $450k, Cash Runway: 5 months">
+            <small style="color: var(--muted); font-size: 10.5px;">Provide concrete numbers that strategists must balance in their calculations.</small>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label style="font-size: 11.5px;">Decision Pathways Considered</label>
+            <textarea class="input" id="exp-sub-options" rows="2" placeholder="e.g. Option A: Liquidate treasury reserves immediately; Option B: Negotiate 90-day supplier forbearance at 15% interest penalty." required minlength="20"></textarea>
+          </div>
+
+          <!-- Section 3: Decision & Historical Outcome -->
+          <div style="font-size: 11.5px; font-weight: 800; text-transform: uppercase; color: var(--jade); letter-spacing: 0.05em; margin-bottom: 10px;">
+            3. Actual Decision &amp; Real-World Historical Outcome
+          </div>
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label style="font-size: 11.5px;">What Decision Did You / The Board Actually Make?</label>
+            <textarea class="input" id="exp-sub-actual-decision" rows="2" placeholder="Detail the concrete decision and execution pathway chosen." required minlength="15"></textarea>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label style="font-size: 11.5px;">Real-World Outcome (30 to 180 Days Later)</label>
+            <textarea class="input" id="exp-sub-actual-outcome" rows="3" placeholder="What actually transpired in the real world? Financial impact, EBITDA swing, liquidity survival, or lessons." required minlength="25"></textarea>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-bottom: 18px;">
+            <div class="form-group">
+              <label style="font-size: 11.5px;">Key Strategic Lesson Learned <small style="color:var(--muted);">(optional)</small></label>
+              <input class="input" type="text" id="exp-sub-lessons" placeholder="The single most crucial executive takeaway">
+            </div>
+            <div class="form-group">
+              <label style="font-size: 11.5px;">Difficulty Rating</label>
+              <select class="select" id="exp-sub-difficulty">
+                <option value="beginner">Beginner</option>
+                <option value="intermediate" selected>Intermediate</option>
+                <option value="advanced">Advanced</option>
+              </select>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-full" id="btn-submit-expert-scenario" style="padding: 12px; font-weight: 700; background: var(--jade); border-color: var(--jade);">
+            Submit for Administrator Verification 🚀
+          </button>
+        </form>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function closeExpertScenarioSubmissionModal() {
+  const el = document.getElementById('expert-scenario-modal-user');
+  if (el) el.remove();
+}
+
+async function handleSubmitExpertScenario(e) {
+  e.preventDefault();
+
+  const name = document.getElementById('exp-sub-name')?.value?.trim();
+  const role = document.getElementById('exp-sub-role')?.value?.trim();
+  const org = document.getElementById('exp-sub-org')?.value?.trim();
+  const email = document.getElementById('exp-sub-email')?.value?.trim();
+  const title = document.getElementById('exp-sub-title')?.value?.trim();
+  const industryId = parseInt(document.getElementById('exp-sub-industry')?.value, 10) || 5;
+  const dilemma = document.getElementById('exp-sub-dilemma')?.value?.trim();
+  const rawMetrics = document.getElementById('exp-sub-metrics')?.value?.trim();
+  const options = document.getElementById('exp-sub-options')?.value?.trim();
+  const decision = document.getElementById('exp-sub-actual-decision')?.value?.trim();
+  const outcome = document.getElementById('exp-sub-actual-outcome')?.value?.trim();
+  const lessons = document.getElementById('exp-sub-lessons')?.value?.trim();
+  const difficulty = document.getElementById('exp-sub-difficulty')?.value || 'intermediate';
+
+  // Parse metrics string into key-value map if formatted with commas/colons
+  let metricsMap = {};
+  if (rawMetrics) {
+    const parts = rawMetrics.split(/[,|;]/);
+    parts.forEach(part => {
+      const kv = part.split(':');
+      if (kv.length === 2) {
+        metricsMap[kv[0].trim()] = kv[1].trim();
+      } else if (part.trim()) {
+        metricsMap[`metric_${Object.keys(metricsMap).length + 1}`] = part.trim();
+      }
+    });
+  }
+
+  const btn = document.getElementById('btn-submit-expert-scenario');
+  const origText = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Synthesizing & Ingesting...';
+  }
+
+  try {
+    const res = await api.post('/expert/scenarios', {
+      contributor_name: name,
+      contributor_role: role,
+      organization: org || undefined,
+      contributor_email: email,
+      industry_id: industryId,
+      title: title,
+      scenario_dilemma: dilemma,
+      key_metrics: Object.keys(metricsMap).length ? metricsMap : undefined,
+      decision_options: options,
+      actual_decision_made: decision,
+      actual_outcome_result: outcome,
+      lessons_learned: lessons || undefined,
+      difficulty: difficulty
+    });
+
+    api.toast(res.message || 'Real-world scenario uploaded! Awaiting administrator verification.', 'success');
+    sendSystemNotification(
+      '🎓 Real-World Scenario Ingested',
+      `"${title}" has been packaged and submitted to institutional administrators for verification.`,
+      'boardroom'
+    );
+    closeExpertScenarioSubmissionModal();
+  } catch (err) {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = origText;
+    }
+  }
+}
+
+window.openFeedbackModal = openFeedbackModal;
+window.closeFeedbackModal = closeFeedbackModal;
+window.setFeedbackRating = setFeedbackRating;
+window.handleSubmitFeedback = handleSubmitFeedback;
+window.openExpertScenarioSubmissionModal = openExpertScenarioSubmissionModal;
+window.closeExpertScenarioSubmissionModal = closeExpertScenarioSubmissionModal;
+window.handleSubmitExpertScenario = handleSubmitExpertScenario;
 
 // Startup
 window.addEventListener('DOMContentLoaded', initApp);

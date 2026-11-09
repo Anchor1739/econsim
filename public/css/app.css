@@ -2276,5 +2276,29 @@ body:not(.theme-dark) .skeleton-shimmer {
   }
 }
 
+/* Star Rating Component */
+.star-rating-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.star-rating-btn {
+  background: transparent;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: var(--muted);
+  transition: transform 0.15s ease, color 0.15s ease;
+  padding: 2px;
+}
+
+.star-rating-btn:hover,
+.star-rating-btn.active {
+  color: #fbbf24;
+  transform: scale(1.18);
+}
+
+
 
 

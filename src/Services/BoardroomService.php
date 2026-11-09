@@ -177,6 +177,7 @@ class BoardroomService
                 'commitment' => $commitmentAmount,
                 'duration' => $durationMinutes,
                 'scheduled_at' => $formattedScheduledAt,
+                'scheduled_at_iso' => gmdate('Y-m-d\TH:i:s\Z', $scheduledTs),
                 'seconds_until_start' => max(0, $scheduledTs - time()),
                 'message' => 'Challenge created and published to lobby. Scenario is sealed.',
             ];

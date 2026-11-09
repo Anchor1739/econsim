@@ -15,6 +15,8 @@ use App\Controllers\BoardroomController;
 use App\Controllers\ProfileController;
 use App\Controllers\AdminController;
 use App\Controllers\PaymentController;
+use App\Controllers\FeedbackController;
+use App\Controllers\ExpertScenarioController;
 
 Env::load();
 
@@ -135,6 +137,11 @@ if (str_starts_with($path, '/api/')) {
     $router->post('/api/webhooks/flutterwave', [PaymentController::class, 'flutterwaveWebhook']);
     $router->post('/api/webhooks/korapay', [PaymentController::class, 'korapayWebhook']);
 
+    // User Feedback & Expert Scenario Contribution Routes
+    $router->post('/api/feedback', [FeedbackController::class, 'submit']);
+    $router->post('/api/expert/scenarios', [ExpertScenarioController::class, 'submit']);
+    $router->get('/api/expert/my-submissions', [ExpertScenarioController::class, 'mySubmissions']);
+
     // Obfuscated Engine Operations API (/api/a/...)
     $router->get('/api/a/auth/verify', [AdminController::class, 'verifyAuth']);
     $router->post('/api/a/auth/verify', [AdminController::class, 'verifyAuth']);
@@ -151,6 +158,13 @@ if (str_starts_with($path, '/api/')) {
     $router->get('/api/a/boardroom/grading-desk', [AdminController::class, 'getBoardroomGradingDesk']);
     $router->post('/api/a/boardroom/grading-mode', [AdminController::class, 'setBoardroomGradingMode']);
     $router->post('/api/a/boardroom/adjudicate', [AdminController::class, 'adjudicateBoardroomSubmission']);
+    $router->get('/api/a/feedback', [AdminController::class, 'getFeedbacks']);
+    $router->patch('/api/a/feedback/{id}', [AdminController::class, 'updateFeedback']);
+    $router->post('/api/a/feedback/{id}', [AdminController::class, 'updateFeedback']);
+    $router->get('/api/a/expert/scenarios', [AdminController::class, 'getExpertScenarios']);
+    $router->get('/api/a/expert/scenarios/{id}', [AdminController::class, 'getExpertScenarioDetails']);
+    $router->post('/api/a/expert/scenarios/{id}/approve', [AdminController::class, 'approveExpertScenario']);
+    $router->post('/api/a/expert/scenarios/{id}/reject', [AdminController::class, 'rejectExpertScenario']);
 
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $router->dispatch($method, $uri);

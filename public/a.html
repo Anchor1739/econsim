@@ -1034,6 +1034,147 @@
         </div>
       </div>
 
+
+      <!-- ======================================================== -->
+      <!-- USER FEEDBACK & SUGGESTIONS DESK                         -->
+      <!-- ======================================================== -->
+      <div class="panel" style="margin-bottom: 32px;" id="feedback-desk-panel">
+        <div class="panel-header" style="align-items: flex-start;">
+          <div>
+            <div class="panel-title">
+              <span>💬</span> User Feedback &amp; Suggestions Desk
+            </div>
+            <div class="panel-subtitle">Direct bug reports, feature requests, and UX sentiment from strategists</div>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <select class="form-control" id="feedback-filter-category" onchange="loadFeedbackDeskData()" style="padding: 5px 8px; font-size: 11px; width: auto;">
+              <option value="">All Categories</option>
+              <option value="general">General</option>
+              <option value="bug">Bugs</option>
+              <option value="feature">Features</option>
+              <option value="boardroom">Boardroom</option>
+              <option value="markets">Predictor</option>
+              <option value="wallet">Wallet</option>
+              <option value="ui_ux">UI / UX</option>
+            </select>
+            <button class="btn btn-secondary" style="font-size: 11px; padding: 5px 11px;" onclick="loadFeedbackDeskData()" title="Refresh feedback">
+              Refresh Feedback ↺
+            </button>
+          </div>
+        </div>
+
+        <!-- Feedback Mini Stats -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px;">
+          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px;">
+            <div style="color: var(--text-muted); font-size: 11px; text-transform: uppercase; font-weight: 600;">Total Feedback</div>
+            <div id="fb-stat-total" style="font-size: 22px; font-weight: 800; font-family: var(--font-mono); color: var(--text);">0</div>
+            <div style="font-size: 11px; color: var(--text-muted);">All submissions</div>
+          </div>
+          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px;">
+            <div style="color: var(--text-muted); font-size: 11px; text-transform: uppercase; font-weight: 600;">New / Unreviewed</div>
+            <div id="fb-stat-new" style="font-size: 22px; font-weight: 800; font-family: var(--font-mono); color: #fbbf24;">0</div>
+            <div style="font-size: 11px; color: var(--text-muted);">Needs attention</div>
+          </div>
+          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px;">
+            <div style="color: var(--text-muted); font-size: 11px; text-transform: uppercase; font-weight: 600;">Average Rating</div>
+            <div id="fb-stat-rating" style="font-size: 22px; font-weight: 800; font-family: var(--font-mono); color: #34d399;">5.0 ★</div>
+            <div style="font-size: 11px; color: var(--text-muted);">User satisfaction</div>
+          </div>
+          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px;">
+            <div style="color: var(--text-muted); font-size: 11px; text-transform: uppercase; font-weight: 600;">Resolved</div>
+            <div id="fb-stat-resolved" style="font-size: 22px; font-weight: 800; font-family: var(--font-mono); color: var(--accent);">0</div>
+            <div style="font-size: 11px; color: var(--text-muted);">Completed tickets</div>
+          </div>
+        </div>
+
+        <!-- Filter Status Buttons -->
+        <div style="display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap;" id="feedback-status-tabs">
+          <button class="btn btn-secondary active-filter" data-status="" onclick="setFeedbackFilterStatus('', this)" style="padding: 4px 10px; font-size: 11px;">All</button>
+          <button class="btn btn-secondary" data-status="new" onclick="setFeedbackFilterStatus('new', this)" style="padding: 4px 10px; font-size: 11px;">New</button>
+          <button class="btn btn-secondary" data-status="reviewed" onclick="setFeedbackFilterStatus('reviewed', this)" style="padding: 4px 10px; font-size: 11px;">Reviewed</button>
+          <button class="btn btn-secondary" data-status="resolved" onclick="setFeedbackFilterStatus('resolved', this)" style="padding: 4px 10px; font-size: 11px;">Resolved</button>
+        </div>
+
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>User / Email</th>
+                <th>Category &amp; Rating</th>
+                <th>Message</th>
+                <th>Context / Page</th>
+                <th>Status</th>
+                <th style="text-align: right;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="feedback-table-body">
+              <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">Loading user feedbacks...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- REAL-WORLD EXPERT SCENARIO INGESTION DESK                -->
+      <!-- ======================================================== -->
+      <div class="panel" style="margin-bottom: 32px;" id="expert-scenarios-panel">
+        <div class="panel-header" style="align-items: flex-start;">
+          <div>
+            <div class="panel-title">
+              <span>🎓</span> Real-World Expert Scenario Ingestion &amp; Verification
+            </div>
+            <div class="panel-subtitle">Executive dilemma submissions, decisions, and real-world outcomes awaiting institutional verification</div>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <button class="btn btn-secondary" style="font-size: 11px; padding: 5px 11px;" onclick="loadExpertScenarioDeskData()" title="Refresh submissions">
+              Refresh Submissions ↺
+            </button>
+          </div>
+        </div>
+
+        <!-- Ingestion Stats -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px;">
+          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px;">
+            <div style="color: var(--text-muted); font-size: 11px; text-transform: uppercase; font-weight: 600;">Total Ingested</div>
+            <div id="exp-stat-total" style="font-size: 22px; font-weight: 800; font-family: var(--font-mono); color: var(--text);">0</div>
+            <div style="font-size: 11px; color: var(--text-muted);">All submissions</div>
+          </div>
+          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px;">
+            <div style="color: var(--text-muted); font-size: 11px; text-transform: uppercase; font-weight: 600;">Pending Verification</div>
+            <div id="exp-stat-pending" style="font-size: 22px; font-weight: 800; font-family: var(--font-mono); color: #fbbf24;">0</div>
+            <div style="font-size: 11px; color: var(--text-muted);">Strict review required</div>
+          </div>
+          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px;">
+            <div style="color: var(--text-muted); font-size: 11px; text-transform: uppercase; font-weight: 600;">Approved &amp; Live</div>
+            <div id="exp-stat-approved" style="font-size: 22px; font-weight: 800; font-family: var(--font-mono); color: #34d399;">0</div>
+            <div style="font-size: 11px; color: var(--text-muted);">In Boardroom rotation</div>
+          </div>
+          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px;">
+            <div style="color: var(--text-muted); font-size: 11px; text-transform: uppercase; font-weight: 600;">Rejected</div>
+            <div id="exp-stat-rejected" style="font-size: 22px; font-weight: 800; font-family: var(--font-mono); color: #f87171;">0</div>
+            <div style="font-size: 11px; color: var(--text-muted);">Unverified / Incomplete</div>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Contributor / Executive</th>
+                <th>Scenario Title &amp; Sector</th>
+                <th>Decision Options</th>
+                <th>Outcome Excerpt</th>
+                <th>Status</th>
+                <th style="text-align: right;">Verification Action</th>
+              </tr>
+            </thead>
+            <tbody id="expert-scenarios-table">
+              <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">Loading expert scenario submissions...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
 <!-- Real Funding Stream Audit Ledger -->
       <div class="panel" style="margin-bottom: 32px;">
         <div class="panel-header">
@@ -1279,6 +1420,109 @@
     </div>
   </div>
 
+
+  <!-- Expert Scenario Inspection & Packaging Verification Modal -->
+  <div id="expert-scenario-modal" onclick="if(event.target === this) closeExpertScenarioModal()" style="display: none; position: fixed; inset: 0; background: rgba(5, 8, 15, 0.94); backdrop-filter: blur(12px); z-index: 120; align-items: center; justify-content: center; padding: 16px;">
+    <div style="max-width: 880px; width: 100%; max-height: 94vh; overflow-y: auto; background: var(--surface-card); border: 1px solid var(--border); border-radius: 14px; padding: 24px; box-shadow: 0 24px 48px rgba(0,0,0,0.8);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
+        <h3 style="color: white; font-size: 17px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+          <span>🔍</span> Verify &amp; Package Real-World Expert Scenario
+        </h3>
+        <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="closeExpertScenarioModal()">✕ Close</button>
+      </div>
+
+      <input type="hidden" id="exp-modal-id">
+
+      <!-- Contributor Credentials Badge -->
+      <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <div>
+          <span style="font-size: 10.5px; text-transform: uppercase; font-weight: 700; color: #34d399; letter-spacing: 0.5px;">EXECUTIVE CONTRIBUTOR</span>
+          <div style="font-size: 14px; font-weight: 800; color: white;" id="exp-modal-contributor-name">-</div>
+          <div style="font-size: 12px; color: var(--text-muted);" id="exp-modal-contributor-role">-</div>
+        </div>
+        <div style="text-align: right;">
+          <span id="exp-modal-sector-badge" style="background: var(--surface); border: 1px solid var(--border); padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; color: var(--accent);">SECTOR</span>
+          <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 4px;" id="exp-modal-email">-</div>
+        </div>
+      </div>
+
+      <!-- Raw Dilemma & Financial Metrics -->
+      <div style="margin-bottom: 16px;">
+        <label style="font-size: 11.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; display: block; margin-bottom: 6px;">
+          Scenario Title
+        </label>
+        <input type="text" id="exp-modal-title" class="form-control" style="font-weight: 700; font-size: 14px; margin-bottom: 14px;">
+
+        <label style="font-size: 11.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; display: block; margin-bottom: 6px;">
+          Corporate Dilemma &amp; Economic Context
+        </label>
+        <div id="exp-modal-dilemma" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; font-size: 12.5px; line-height: 1.6; color: var(--text); max-height: 140px; overflow-y: auto; white-space: pre-wrap; margin-bottom: 14px;"></div>
+
+        <!-- Key Metrics Cards Container -->
+        <label style="font-size: 11.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; display: block; margin-bottom: 6px;">
+          Key Quantitative Figures / Balance Sheet Metrics
+        </label>
+        <div id="exp-modal-metrics-container" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px;"></div>
+
+        <!-- Decision Pathways & Historical Outcome Grid -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px;">
+            <div style="font-size: 11px; font-weight: 700; color: #fbbf24; text-transform: uppercase; margin-bottom: 4px;">Decision Pathways Considered</div>
+            <div id="exp-modal-options" style="font-size: 12px; line-height: 1.5; color: var(--text); max-height: 120px; overflow-y: auto; white-space: pre-wrap;"></div>
+          </div>
+          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px;">
+            <div style="font-size: 11px; font-weight: 700; color: #34d399; text-transform: uppercase; margin-bottom: 4px;">Actual Decision Implemented</div>
+            <div id="exp-modal-decision-made" style="font-size: 12px; line-height: 1.5; color: var(--text); max-height: 120px; overflow-y: auto; white-space: pre-wrap;"></div>
+          </div>
+        </div>
+
+        <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 14px;">
+          <div style="font-size: 11px; font-weight: 700; color: var(--accent); text-transform: uppercase; margin-bottom: 4px;">Real-World Historical Outcome &amp; Consequences</div>
+          <div id="exp-modal-outcome" style="font-size: 12.5px; line-height: 1.5; color: var(--text); max-height: 100px; overflow-y: auto; white-space: pre-wrap;"></div>
+          <div id="exp-modal-lessons" style="font-size: 11.5px; color: var(--text-muted); font-style: italic; margin-top: 6px; border-top: 1px solid var(--border); padding-top: 6px;"></div>
+        </div>
+      </div>
+
+      <!-- Live Packaged Boardroom Scenario Preview -->
+      <div style="background: rgba(56, 189, 248, 0.04); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <span style="font-size: 11.5px; font-weight: 700; color: var(--accent); text-transform: uppercase;">
+            📦 Live Boardroom Dilemma Preview (What Challengers Will See)
+          </span>
+          <span style="font-size: 11px; color: var(--text-muted);">Standard 4-Pillar Rubric</span>
+        </div>
+        <div id="exp-modal-preview-body" style="font-size: 12px; line-height: 1.5; color: var(--text); max-height: 140px; overflow-y: auto; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 6px; font-family: monospace; white-space: pre-wrap;"></div>
+      </div>
+
+      <!-- Admin Sign-off Form -->
+      <div style="border-top: 1px solid var(--border); padding-top: 14px; margin-bottom: 14px;">
+        <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 12px; margin-bottom: 12px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="font-size: 11.5px;">Scenario Difficulty</label>
+            <select id="exp-modal-difficulty" class="form-control" style="font-size: 12px;">
+              <option value="beginner">Beginner</option>
+              <option value="intermediate" selected>Intermediate</option>
+              <option value="advanced">Advanced</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="font-size: 11.5px;">Administrator Verification Notes</label>
+            <input type="text" id="exp-modal-admin-notes" class="form-control" placeholder="Optional notes or feedback..." style="font-size: 12px;">
+          </div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div style="display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap;">
+        <button class="btn btn-secondary" onclick="closeExpertScenarioModal()">Cancel</button>
+        <button class="btn btn-danger" onclick="handleRejectExpertScenario()">Reject Submission ✕</button>
+        <button class="btn btn-primary" id="btn-approve-expert-scenario" onclick="handleApproveExpertScenario()" style="background: var(--jade); border-color: var(--jade); font-weight: 700;">
+          Approve &amp; Publish Live to Boardroom 🚀
+        </button>
+      </div>
+    </div>
+  </div>
+
 <div class="toast-container" id="toast-container"></div>
 
   <script>
@@ -1405,6 +1649,8 @@
         renderMarkets(markets?.data);
         renderFundingStream(funding?.data);
         loadBoardroomDeskData();
+        loadFeedbackDeskData();
+        loadExpertScenarioDeskData();
       } catch (err) {
         console.error(err);
       }
@@ -1841,6 +2087,8 @@
         await apiRequest('/a/boardroom/grading-mode', 'POST', { mode: newMode });
         toast(`Boardroom grading mode switched to: ${newMode === 'admin_review' ? 'Admin Review & Approval' : 'Autonomous AI'}`, 'success');
         loadBoardroomDeskData();
+        loadFeedbackDeskData();
+        loadExpertScenarioDeskData();
       } catch (err) {
         toast('Failed to change grading mode: ' + err.message, 'error');
       }
@@ -1943,12 +2191,318 @@
         toast(res.message || 'Adjudication published and challenge settled!', 'success');
         closeBoardroomModal();
         loadBoardroomDeskData();
+        loadFeedbackDeskData();
+        loadExpertScenarioDeskData();
       } catch (err) {
         toast('Adjudication failed: ' + err.message, 'error');
       }
     }
 
     checkInitialAuth();
-  </script>
+  
+    // ========================================================
+    // FEEDBACK DESK CONTROLLER
+    // ========================================================
+    let currentFeedbackStatusFilter = '';
+    let currentFeedbackItems = [];
+
+    function setFeedbackFilterStatus(status, btnEl) {
+      currentFeedbackStatusFilter = status;
+      const tabs = document.querySelectorAll('#feedback-status-tabs button');
+      tabs.forEach(t => t.classList.remove('active-filter'));
+      if (btnEl) btnEl.classList.add('active-filter');
+      loadFeedbackDeskData();
+    }
+
+    async function loadFeedbackDeskData() {
+      const catEl = document.getElementById('feedback-filter-category');
+      const cat = catEl ? catEl.value : '';
+      const tbody = document.getElementById('feedback-table-body');
+      if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;"><span class="spinner"></span> Loading feedbacks...</td></tr>';
+
+      try {
+        const query = new URLSearchParams();
+        if (currentFeedbackStatusFilter) query.set('status', currentFeedbackStatusFilter);
+        if (cat) query.set('category', cat);
+
+        const res = await apiRequest(`/a/feedback?\${query.toString()}`);
+        const data = res?.data || {};
+        currentFeedbackItems = data.items || [];
+
+        // Update stats
+        const stats = data.stats || {};
+        const statTotal = document.getElementById('fb-stat-total');
+        const statNew = document.getElementById('fb-stat-new');
+        const statRating = document.getElementById('fb-stat-rating');
+        const statResolved = document.getElementById('fb-stat-resolved');
+
+        if (statTotal) statTotal.innerText = stats.total || 0;
+        if (statNew) statNew.innerText = stats.new || 0;
+        if (statRating) statRating.innerText = stats.average_rating ? `\${stats.average_rating} ★` : '5.0 ★';
+        if (statResolved) statResolved.innerText = stats.resolved || 0;
+
+        renderFeedbackTable(currentFeedbackItems);
+      } catch (err) {
+        if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #f87171; padding: 24px;">Failed to load feedback: \${err.message}</td></tr>`;
+      }
+    }
+
+    function renderFeedbackTable(items) {
+      const tbody = document.getElementById('feedback-table-body');
+      if (!tbody) return;
+
+      if (!items || !items.length) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">No feedbacks match current filters.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = items.map((item, idx) => {
+        let stars = '';
+        if (item.rating) {
+          stars = '★'.repeat(item.rating) + '☆'.repeat(5 - item.rating);
+        }
+
+        let statusBadge = `<span style="background: rgba(251, 191, 36, 0.15); color: #fbbf24; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700;">NEW</span>`;
+        if (item.status === 'reviewed') {
+          statusBadge = `<span style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700;">REVIEWED</span>`;
+        } else if (item.status === 'resolved') {
+          statusBadge = `<span style="background: rgba(16, 185, 129, 0.15); color: #34d399; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700;">RESOLVED</span>`;
+        } else if (item.status === 'archived') {
+          statusBadge = `<span style="background: rgba(107, 114, 128, 0.15); color: #9ca3af; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700;">ARCHIVED</span>`;
+        }
+
+        return `
+          <tr>
+            <td>
+              <div style="font-weight: 700; color: white;">\${item.user_name || 'Guest Strategist'}</div>
+              <div style="font-size: 11px; color: var(--text-muted);">\${item.contact_email || item.user_email || 'No email provided'}</div>
+            </td>
+            <td>
+              <span style="background: var(--surface); border: 1px solid var(--border); padding: 2px 6px; border-radius: 4px; font-size: 10.5px; text-transform: uppercase; font-weight: 700; color: var(--accent);">\${item.category}</span>
+              \${stars ? `<div style="color: #fbbf24; font-size: 11px; margin-top: 3px;">\${stars}</div>` : ''}
+            </td>
+            <td style="max-width: 320px;">
+              <div style="font-size: 12.5px; color: var(--text); line-height: 1.4; word-break: break-word;">\${escapeHtml(item.message)}</div>
+              \${item.admin_notes ? `<div style="font-size: 11px; color: #34d399; margin-top: 4px;"><b>Admin Note:</b> \${escapeHtml(item.admin_notes)}</div>` : ''}
+            </td>
+            <td>
+              <div style="font-size: 11px; color: var(--text-muted); font-family: monospace;">\${item.page_url ? item.page_url.replace(/https?:\\/\\/[^/]+/, '') : '/'}</div>
+              <div style="font-size: 10.5px; color: var(--text-muted); margin-top: 2px;">\${(item.created_at || '').slice(0, 16)}</div>
+            </td>
+            <td>\${statusBadge}</td>
+            <td style="text-align: right; white-space: nowrap;">
+              \${item.status === 'new' ? `
+                <button class="btn btn-secondary" style="font-size: 10.5px; padding: 3px 8px;" onclick="handleUpdateFeedbackStatus('\${item.id}', 'reviewed')">Reviewed ✓</button>
+              ` : ''}
+              \${item.status !== 'resolved' ? `
+                <button class="btn btn-primary" style="font-size: 10.5px; padding: 3px 8px;" onclick="handleUpdateFeedbackStatus('\${item.id}', 'resolved')">Resolve ⚡</button>
+              ` : `
+                <button class="btn btn-secondary" style="font-size: 10.5px; padding: 3px 8px;" onclick="handleUpdateFeedbackStatus('\${item.id}', 'archived')">Archive</button>
+              `}
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    async function handleUpdateFeedbackStatus(feedbackId, newStatus) {
+      const note = (newStatus === 'resolved') ? prompt('Optional resolution note for records:', '') : null;
+      try {
+        await apiRequest(`/a/feedback/\${feedbackId}`, 'POST', {
+          status: newStatus,
+          admin_notes: note || undefined
+        });
+        toast(`Feedback status updated to \${newStatus}`, 'success');
+        loadFeedbackDeskData();
+      } catch (err) {
+        toast('Failed to update feedback: ' + err.message, 'error');
+      }
+    }
+
+    // ========================================================
+    // EXPERT SCENARIOS VERIFICATION CONTROLLER
+    // ========================================================
+    let currentExpertSubmissions = [];
+
+    async function loadExpertScenarioDeskData() {
+      const tbody = document.getElementById('expert-scenarios-table');
+      if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;"><span class="spinner"></span> Loading expert submissions...</td></tr>';
+
+      try {
+        const res = await apiRequest('/a/expert/scenarios');
+        const data = res?.data || {};
+        currentExpertSubmissions = data.items || [];
+
+        // Update stats
+        const stats = data.stats || {};
+        const statTotal = document.getElementById('exp-stat-total');
+        const statPending = document.getElementById('exp-stat-pending');
+        const statApproved = document.getElementById('exp-stat-approved');
+        const statRejected = document.getElementById('exp-stat-rejected');
+
+        if (statTotal) statTotal.innerText = stats.total || 0;
+        if (statPending) statPending.innerText = stats.pending || 0;
+        if (statApproved) statApproved.innerText = stats.approved || 0;
+        if (statRejected) statRejected.innerText = stats.rejected || 0;
+
+        renderExpertScenariosTable(currentExpertSubmissions);
+      } catch (err) {
+        if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #f87171; padding: 24px;">Failed to load expert submissions: \${err.message}</td></tr>`;
+      }
+    }
+
+    function renderExpertScenariosTable(items) {
+      const tbody = document.getElementById('expert-scenarios-table');
+      if (!tbody) return;
+
+      if (!items || !items.length) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">No expert scenarios submitted yet.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = items.map((s, idx) => {
+        let statusBadge = `<span style="background: rgba(251, 191, 36, 0.15); color: #fbbf24; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700;">PENDING REVIEW</span>`;
+        if (s.status === 'approved') {
+          statusBadge = `<span style="background: rgba(16, 185, 129, 0.15); color: #34d399; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700;">APPROVED &amp; LIVE 🚀</span>`;
+        } else if (s.status === 'rejected') {
+          statusBadge = `<span style="background: rgba(239, 68, 68, 0.15); color: #f87171; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700;">REJECTED</span>`;
+        }
+
+        return `
+          <tr>
+            <td>
+              <div style="font-weight: 700; color: white;">\${escapeHtml(s.contributor_name)}</div>
+              <div style="font-size: 11px; color: var(--text-muted);">\${escapeHtml(s.contributor_role)}\${s.organization ? ` · \${escapeHtml(s.organization)}` : ''}</div>
+              <div style="font-size: 10.5px; color: var(--text-muted);">\${escapeHtml(s.contributor_email)}</div>
+            </td>
+            <td>
+              <div style="font-weight: 700; color: white; max-width: 260px;">\${escapeHtml(s.title)}</div>
+              <span style="background: var(--surface); border: 1px solid var(--border); padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; color: var(--accent);">\${s.industry_name}</span>
+            </td>
+            <td style="max-width: 200px; font-size: 11.5px; color: var(--text-muted);">
+              \${escapeHtml((s.decision_options || '').slice(0, 100))}...
+            </td>
+            <td style="max-width: 200px; font-size: 11.5px; color: var(--text-muted);">
+              \${escapeHtml((s.actual_outcome_result || '').slice(0, 100))}...
+            </td>
+            <td>\${statusBadge}</td>
+            <td style="text-align: right; white-space: nowrap;">
+              <button class="btn btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="openExpertScenarioModal(\${idx})">
+                Inspect &amp; Package 🔍
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function openExpertScenarioModal(index) {
+      const s = currentExpertSubmissions[index];
+      if (!s) return;
+
+      document.getElementById('exp-modal-id').value = s.id;
+      document.getElementById('exp-modal-contributor-name').innerText = s.contributor_name;
+      document.getElementById('exp-modal-contributor-role').innerText = `${s.contributor_role}${s.organization ? ` · ${s.organization}` : ''}`;
+      document.getElementById('exp-modal-email').innerText = s.contributor_email;
+      document.getElementById('exp-modal-sector-badge').innerText = (s.industry_name || 'SECTOR').toUpperCase();
+
+      document.getElementById('exp-modal-title').value = s.title;
+      document.getElementById('exp-modal-dilemma').innerText = s.scenario_dilemma;
+      document.getElementById('exp-modal-options').innerText = s.decision_options;
+      document.getElementById('exp-modal-decision-made').innerText = s.actual_decision_made;
+      document.getElementById('exp-modal-outcome').innerText = s.actual_outcome_result;
+      document.getElementById('exp-modal-lessons').innerText = s.lessons_learned ? `Takeaway: ${s.lessons_learned}` : '';
+
+      // Metrics cards
+      const mContainer = document.getElementById('exp-modal-metrics-container');
+      if (mContainer) {
+        if (s.key_metrics && typeof s.key_metrics === 'object' && Object.keys(s.key_metrics).length) {
+          mContainer.innerHTML = Object.entries(s.key_metrics).map(([k, v]) => `
+            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font-size: 11.5px;">
+              <span style="color: var(--text-muted); text-transform: capitalize;">\${k.replace(/[_-]/g, ' ')}:</span>
+              <b style="color: #34d399; margin-left: 4px;">\${escapeHtml(String(v))}</b>
+            </div>
+          `).join('');
+        } else {
+          mContainer.innerHTML = '<span style="font-size: 11px; color: var(--text-muted); font-style: italic;">No specific metric cards provided.</span>';
+        }
+      }
+
+      // Live Boardroom Packaging preview
+      const preview = s.packaged_preview || {};
+      document.getElementById('exp-modal-preview-body').innerText = preview.confidential_body || s.scenario_dilemma;
+      document.getElementById('exp-modal-difficulty').value = s.difficulty || 'intermediate';
+      document.getElementById('exp-modal-admin-notes').value = s.admin_review_notes || '';
+
+      const btnApprove = document.getElementById('btn-approve-expert-scenario');
+      if (btnApprove) {
+        if (s.status === 'approved') {
+          btnApprove.disabled = true;
+          btnApprove.innerText = 'Already Approved & Live ✓';
+        } else {
+          btnApprove.disabled = false;
+          btnApprove.innerText = 'Approve & Publish Live to Boardroom 🚀';
+        }
+      }
+
+      document.getElementById('expert-scenario-modal').style.display = 'flex';
+    }
+
+    function closeExpertScenarioModal() {
+      document.getElementById('expert-scenario-modal').style.display = 'none';
+    }
+
+    async function handleApproveExpertScenario() {
+      const id = document.getElementById('exp-modal-id').value;
+      const title = document.getElementById('exp-modal-title').value.trim();
+      const difficulty = document.getElementById('exp-modal-difficulty').value;
+      const notes = document.getElementById('exp-modal-admin-notes').value.trim();
+
+      const btn = document.getElementById('btn-approve-expert-scenario');
+      if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Publishing...'; }
+
+      try {
+        const res = await apiRequest(`/a/expert/scenarios/\${id}/approve`, 'POST', {
+          title: title,
+          difficulty: difficulty,
+          admin_notes: notes || undefined
+        });
+        toast(res.message || 'Scenario approved and published to live Boardroom arena!', 'success');
+        closeExpertScenarioModal();
+        loadExpertScenarioDeskData();
+      } catch (err) {
+        toast('Approval failed: ' + err.message, 'error');
+        if (btn) { btn.disabled = false; btn.innerText = 'Approve & Publish Live to Boardroom 🚀'; }
+      }
+    }
+
+    async function handleRejectExpertScenario() {
+      const id = document.getElementById('exp-modal-id').value;
+      const notes = document.getElementById('exp-modal-admin-notes').value.trim() || prompt('Reason for rejection:', 'Does not meet institutional quantitative verification threshold.');
+      if (!notes) return;
+
+      try {
+        await apiRequest(`/a/expert/scenarios/\${id}/reject`, 'POST', {
+          admin_notes: notes
+        });
+        toast('Scenario submission rejected.', 'info');
+        closeExpertScenarioModal();
+        loadExpertScenarioDeskData();
+      } catch (err) {
+        toast('Rejection failed: ' + err.message, 'error');
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+</script>
 </body>
 </html>

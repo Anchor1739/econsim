@@ -80,6 +80,22 @@ try {
                 echo "✓ Added 'input_method' column to boardroom_submissions.\n";
             }
         }
+
+        // Apply feedback and expert scenario submissions tables
+        $fbSchemaFile = dirname(__DIR__) . '/database/002_feedback_and_expert_scenarios.sql';
+        if (file_exists($fbSchemaFile)) {
+            $fbSql = file_get_contents($fbSchemaFile);
+            $cleanFbSql = preg_replace('/--.*$/m', '', $fbSql);
+            $cleanFbSql = preg_replace('#/\*.*?\*/#s', '', (string)$cleanFbSql);
+            $fbStatements = array_filter(
+                array_map('trim', explode(';', (string)$cleanFbSql)),
+                fn($stmt) => !empty($stmt)
+            );
+            foreach ($fbStatements as $stmt) {
+                $pdo->exec($stmt);
+            }
+            echo "✓ Verified & ensured 'user_feedbacks' and 'expert_scenario_submissions' tables.\n";
+        }
     } catch (\Throwable $e) {}
 
     // Auto-run seed

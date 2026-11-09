@@ -726,4 +726,92 @@ Respond ONLY with valid JSON:
             'explanation' => $finalExplanation,
         ], 'Submission adjudicated and settled successfully.');
     }
+
+    public function getFeedbacks(): void
+    {
+        $this->requireAdmin();
+        $status = $_GET['status'] ?? null;
+        $category = $_GET['category'] ?? null;
+        $limit = min(100, max(1, (int)($_GET['limit'] ?? 50)));
+        $offset = max(0, (int)($_GET['offset'] ?? 0));
+
+        try {
+            $res = \App\Services\FeedbackService::getFeedbacks($status, $category, $limit, $offset);
+            Response::success($res);
+        } catch (Throwable $e) {
+            Response::error($e->getMessage(), 500);
+        }
+    }
+
+    public function updateFeedback(string $id): void
+    {
+        $admin = $this->requireAdmin();
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+        $status = $body['status'] ?? 'reviewed';
+        $notes = $body['admin_notes'] ?? null;
+
+        try {
+            $res = \App\Services\FeedbackService::updateStatus($id, $status, $admin['id'] ?? null, $notes);
+            Response::success($res, 'Feedback updated successfully.');
+        } catch (Throwable $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
+
+    public function getExpertScenarios(): void
+    {
+        $this->requireAdmin();
+        $status = $_GET['status'] ?? null;
+        $limit = min(100, max(1, (int)($_GET['limit'] ?? 50)));
+        $offset = max(0, (int)($_GET['offset'] ?? 0));
+
+        try {
+            $res = \App\Services\ExpertScenarioService::getSubmissions($status, $limit, $offset);
+            Response::success($res);
+        } catch (Throwable $e) {
+            Response::error($e->getMessage(), 500);
+        }
+    }
+
+    public function getExpertScenarioDetails(string $id): void
+    {
+        $this->requireAdmin();
+        try {
+            $res = \App\Services\ExpertScenarioService::getSubmissionById($id);
+            if (!$res) {
+                Response::error('Submission not found', 404);
+                return;
+            }
+            Response::success($res);
+        } catch (Throwable $e) {
+            Response::error($e->getMessage(), 500);
+        }
+    }
+
+    public function approveExpertScenario(string $id): void
+    {
+        $admin = $this->requireAdmin();
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+
+        try {
+            $res = \App\Services\ExpertScenarioService::approveAndPublish($id, $admin['id'] ?? 'system-admin', $body);
+            Response::success($res, $res['message']);
+        } catch (Throwable $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
+
+    public function rejectExpertScenario(string $id): void
+    {
+        $admin = $this->requireAdmin();
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+        $notes = (string)($body['admin_notes'] ?? 'Scenario rejected during administrator review.');
+
+        try {
+            $res = \App\Services\ExpertScenarioService::rejectSubmission($id, $admin['id'] ?? 'system-admin', $notes);
+            Response::success($res, 'Scenario submission rejected.');
+        } catch (Throwable $e) {
+            Response::error($e->getMessage(), 400);
+        }
+    }
 }
