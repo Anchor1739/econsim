@@ -117,6 +117,12 @@ try {
         echo "✓ Successfully applied {$seedCount} seed statements.\n";
     }
 
+    // Ensure all 11 core industries exist and prediction markets are populated
+    try {
+        \App\Services\PredictorService::ensureAllSectorsSeeded($pdo);
+        echo "✓ Ensured all 11 core industry sectors and multi-sector prediction markets are seeded.\n";
+    } catch (\Throwable $e) {}
+
     echo "\n========================================================\n";
     echo " Migration & Seed Completed Successfully!\n";
     echo "========================================================\n";

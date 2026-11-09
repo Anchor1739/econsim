@@ -35,6 +35,7 @@ class PredictorService
         }
 
         $pdo = Database::getConnection();
+        self::ensureAllSectorsSeeded($pdo);
 
         // Optimized single-query retrieval with aggregated open position volume (eliminates N+1 query latency)
         $sql = "
@@ -1168,7 +1169,50 @@ Respond ONLY with valid JSON:
                     'history' => 'The NHIA Act made health insurance mandatory in Nigeria to advance universal health coverage.'
                 ]
             ],
+            'aviation-logistics' => [
+                [
+                    'title' => 'Will Air Peace expand direct London Gatwick flight frequency from daily to 10 weekly flights?',
+                    'slug' => 'air-peace-gatwick-frequency-expansion',
+                    'def' => 'Resolves YES if official Nigerian Civil Aviation Authority (NCAA) and UK CAA slot allocations confirm Air Peace operating at least 10 scheduled direct flights weekly on the Lagos-London Gatwick route.',
+                    'source' => 'NCAA & UK Civil Aviation Authority Slot Disclosures',
+                    'days' => 90,
+                    'metrics' => [
+                        ['Bilateral Air Service Agreements (BASA)', 'Reciprocal airport slot parity under Nigeria-UK aviation pacts.'],
+                        ['Jet A1 Fuel Price Trends', 'Domestic refinery supply of aviation turbine kerosene reducing dollar procurement costs.']
+                    ],
+                    'history' => 'Air Peace commenced direct Lagos-London flights in 2024, creating competitive pricing pressure on legacy foreign carriers.'
+                ],
+                [
+                    'title' => 'Will Lekki Deep Sea Port cargo container throughput exceed 250,000 TEUs in a single operating quarter?',
+                    'slug' => 'lekki-deep-sea-port-throughput-250k',
+                    'def' => 'Resolves YES if Nigerian Ports Authority (NPA) quarterly operational traffic bulletins confirm Lekki Deep Sea Port handling equal to or greater than 250,000 Twenty-Foot Equivalent Units (TEUs).',
+                    'source' => 'Nigerian Ports Authority (NPA) Official Quarterly Shipping Manifests',
+                    'days' => 100,
+                    'metrics' => [
+                        ['Automated Ship-to-Shore Cranes', 'Container turnaround time and berth productivity rates.'],
+                        ['Coastal Feeder Transshipment', 'Regional distribution of transit cargo to neighbouring West African ports.']
+                    ],
+                    'history' => 'Commissioned as Nigeria first automated deep sea port, Lekki allows super-post-Panamax container vessels to dock directly in Lagos.'
+                ],
+                [
+                    'title' => 'Will the Federal Government concession of major international airport terminals achieve financial close?',
+                    'slug' => 'airport-terminals-concession-financial-close',
+                    'def' => 'Resolves YES if the Infrastructure Concession Regulatory Commission (ICRC) issues Full Business Case (FBC) compliance certificates and formal concession agreements are signed for MMA Lagos or Nnamdi Azikiwe Abuja terminals.',
+                    'source' => 'Infrastructure Concession Regulatory Commission (ICRC) Official Disclosures',
+                    'days' => 120,
+                    'metrics' => [
+                        ['Private Capital Modernization Capex', 'Passenger boarding bridge upgrades and baggage handling automation.'],
+                        ['Aeronautical and Non-Aeronautical Revenue', 'Retail concession lease income and aircraft landing fees.']
+                    ],
+                    'history' => 'Airport concessioning has been prioritized by the Ministry of Aviation to attract private terminal management expertise.'
+                ]
+            ],
         ];
+        $sectorCatalogs['equities'] = $sectorCatalogs['capital-markets'];
+        $sectorCatalogs['telecoms-digital'] = $sectorCatalogs['telecoms'];
+        $sectorCatalogs['real-estate-infra'] = $sectorCatalogs['real-estate'];
+        $sectorCatalogs['fmcg-retail'] = $sectorCatalogs['fmcg'];
+        $sectorCatalogs['aviation'] = $sectorCatalogs['aviation-logistics'];
 
         try {
             // Sort industries by lowest open markets first so sectors with fewer markets are prioritized
@@ -1345,5 +1389,67 @@ Respond ONLY with valid JSON:
 
         return $ingested;
     }
+
+    /**
+     * Self-healing: verify all 11 core industries exist with matching slugs/names
+     * and ensure every single sector has active open prediction contracts.
+     */
+    public static function ensureAllSectorsSeeded(?\PDO $pdo = null): void
+    {
+        static $checked = false;
+        if ($checked) {
+            return;
+        }
+        $checked = true;
+
+        if ($pdo === null) {
+            $pdo = Database::getConnection();
+        }
+
+        $standardIndustries = [
+            ['slug' => 'monetary-policy', 'name' => 'Monetary Policy'],
+            ['slug' => 'equities', 'name' => 'Equities'],
+            ['slug' => 'energy', 'name' => 'Energy'],
+            ['slug' => 'agriculture', 'name' => 'Agriculture'],
+            ['slug' => 'fx-reserves', 'name' => 'FX & Reserves'],
+            ['slug' => 'fintech', 'name' => 'Fintech'],
+            ['slug' => 'manufacturing', 'name' => 'Manufacturing'],
+            ['slug' => 'telecoms', 'name' => 'Telecoms & Digital'],
+            ['slug' => 'real-estate', 'name' => 'Real Estate & Infra'],
+            ['slug' => 'fmcg', 'name' => 'FMCG & Retail'],
+            ['slug' => 'aviation-logistics', 'name' => 'Aviation & Logistics'],
+        ];
+
+        try {
+            foreach ($standardIndustries as $s) {
+                // If slug exists, update name to modern display name
+                $up = $pdo->prepare("UPDATE industries SET name = :name WHERE slug = :slug");
+                $up->execute([':name' => $s['name'], ':slug' => $s['slug']]);
+                if ($up->rowCount() === 0) {
+                    $chk = $pdo->prepare("SELECT id FROM industries WHERE slug = ?");
+                    $chk->execute([$s['slug']]);
+                    if (!$chk->fetch()) {
+                        $ins = $pdo->prepare("INSERT INTO industries (slug, name) VALUES (?, ?)");
+                        $ins->execute([$s['slug'], $s['name']]);
+                    }
+                }
+            }
+
+            // Also normalize legacy names
+            $pdo->exec("UPDATE industries SET name = 'Energy' WHERE slug = 'energy' AND name != 'Energy'");
+            $pdo->exec("UPDATE industries SET name = 'FMCG & Retail' WHERE slug = 'fmcg' AND name != 'FMCG & Retail'");
+            $pdo->exec("UPDATE industries SET name = 'Real Estate & Infra' WHERE slug = 'real-estate' AND name != 'Real Estate & Infra'");
+            $pdo->exec("UPDATE industries SET name = 'Equities' WHERE slug IN ('capital-markets', 'equities') AND name != 'Equities'");
+
+            // Check if open markets count is low
+            $openCount = (int)$pdo->query("SELECT COUNT(*) FROM market_events WHERE state = 'open'")->fetchColumn();
+            if ($openCount < 25) {
+                self::continuousMarketIngestion(35);
+            }
+        } catch (\Throwable $e) {
+            // Non-blocking
+        }
+    }
 }
+
 

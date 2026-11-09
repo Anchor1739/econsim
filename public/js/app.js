@@ -3882,17 +3882,36 @@ async function loadPredictorData() {
   } catch (e) {}
 }
 
+function normalizeSectorName(name) {
+  if (!name) return '';
+  const s = name.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]/g, '');
+  if (s.includes('monetary') || s.includes('cbn') || s.includes('interest')) return 'monetary-policy';
+  if (s.includes('equit') || s.includes('capitalmarket') || s.includes('stock') || s.includes('ngx')) return 'equities';
+  if (s.includes('energy') || s.includes('oil') || s.includes('gas') || s.includes('power') || s.includes('crude')) return 'energy';
+  if (s.includes('agri') || s.includes('farm') || s.includes('food')) return 'agriculture';
+  if (s.includes('fx') || s.includes('reserve') || s.includes('forex') || s.includes('currency') || s.includes('dollar')) return 'fx-reserves';
+  if (s.includes('fintech') || s.includes('bank') || s.includes('payment')) return 'fintech';
+  if (s.includes('manuf') || s.includes('industrial') || s.includes('cement')) return 'manufacturing';
+  if (s.includes('telecom') || s.includes('digital') || s.includes('tech')) return 'telecoms';
+  if (s.includes('realestate') || s.includes('infra') || s.includes('property')) return 'real-estate';
+  if (s.includes('fmcg') || s.includes('retail') || s.includes('consumer')) return 'fmcg';
+  if (s.includes('aviat') || s.includes('logist') || s.includes('freight') || s.includes('transport')) return 'aviation-logistics';
+  return s;
+}
+
 function renderMarketsFiltered() {
   const el = document.getElementById('markets-container');
   if (!el) return;
 
-  const filter = (state.marketFilter || 'All').toLowerCase();
-  const filtered = filter === 'all'
+  const rawFilter = state.marketFilter || 'All';
+  const normFilter = normalizeSectorName(rawFilter);
+
+  const filtered = (rawFilter.toLowerCase() === 'all' || !normFilter)
     ? state.markets
-    : state.markets.filter(m => 
-        (m.industry_name && m.industry_name.toLowerCase() === filter) || 
-        (m.industry_slug && m.industry_slug.toLowerCase() === filter)
-      );
+    : state.markets.filter(m => {
+        const mNorm = normalizeSectorName(m.industry_name) || normalizeSectorName(m.industry_slug);
+        return mNorm === normFilter;
+      });
 
   if (!filtered.length) {
     el.innerHTML = `
@@ -6342,8 +6361,8 @@ async function handleSubmitFeedback(e) {
       page_url: window.location.href,
       user_agent: navigator.userAgent
     });
-    api.toast(res.message || 'Thank you! Your feedback has been received.', 'success');
     closeFeedbackModal();
+    api.toast(res.message || 'Thank you! Your feedback has been received.', 'success');
   } catch (err) {
     if (btn) {
       btn.disabled = false;
@@ -6550,13 +6569,13 @@ async function handleSubmitExpertScenario(e) {
       difficulty: difficulty
     });
 
+    closeExpertScenarioSubmissionModal();
     api.toast(res.message || 'Real-world scenario uploaded! Awaiting administrator verification.', 'success');
     sendSystemNotification(
       '🎓 Real-World Scenario Ingested',
       `"${title}" has been packaged and submitted to institutional administrators for verification.`,
       'boardroom'
     );
-    closeExpertScenarioSubmissionModal();
   } catch (err) {
     if (btn) {
       btn.disabled = false;

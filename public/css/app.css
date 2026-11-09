@@ -725,17 +725,18 @@ body.boardroom-active.app-blurred .boardroom-no-select {
 /* Toasts */
 #toast {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
-  background: #0b1828;
+  bottom: 28px;
+  right: 28px;
+  background: #0f1e33;
   color: #ffffff;
   padding: 14px 22px;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 13.5px;
-  font-weight: 500;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  font-weight: 600;
+  border: 1px solid var(--jade);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
   display: none;
-  z-index: 1000;
+  z-index: 100000 !important;
 }
 
 /* Auth Screens */
@@ -2230,11 +2231,12 @@ body:not(.theme-dark) .skeleton-shimmer {
 /* Toast & Mobile Notification Dropdown Fixes */
 @media (max-width: 860px) {
   #toast {
-    bottom: 76px !important;
+    bottom: 84px !important;
     left: 16px !important;
     right: 16px !important;
     max-width: calc(100vw - 32px) !important;
     word-break: break-word !important;
+    z-index: 100000 !important;
   }
   #notif-dropdown-mobile {
     position: fixed !important;

@@ -50,3 +50,4 @@ CREATE TABLE IF NOT EXISTS expert_scenario_submissions (
     FOREIGN KEY (approved_scenario_id) REFERENCES boardroom_scenarios(id) ON DELETE SET NULL,
     FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
+
