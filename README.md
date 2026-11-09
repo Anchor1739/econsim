@@ -34,6 +34,7 @@ econsim/
 │   ├── evaluator.py                # Python batch evaluator using NVIDIA NIM
 │   └── requirements.txt            # Python dependencies (mysql-connector, requests)
 ├── bin/
+│   ├── production_audit_agent.php  # Autonomous end-to-end production audit & QA agent
 │   ├── migrate.php                 # CLI migration tool for Aiven MySQL
 │   └── seed.php                    # CLI seed data generator
 ├── database/
@@ -123,6 +124,16 @@ php bin/migrate.php
 php -S 0.0.0.0:8000 -t public
 ```
 Visit `http://localhost:8000` in your browser.
+
+### 6. Run the Autonomous Production Audit Agent
+Execute the built-in QA agent to verify all 44 PHP files, JS architecture, all 75 registered route handlers, view renderers, security guards, and database schemas:
+```bash
+# Full architectural and codebase audit:
+php bin/production_audit_agent.php
+
+# Include live production endpoint connectivity checks:
+php bin/production_audit_agent.php --remote
+```
 
 ---
 

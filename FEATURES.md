@@ -250,3 +250,4 @@ Accessible to designated administrator accounts at `/a` or `admin.html`:
 ---
 
 *EconSim is designed and maintained for institutional macroeconomic strategy and financial modeling.*
+
