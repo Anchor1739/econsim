@@ -520,19 +520,105 @@ class BoardroomService
 
         $subId = Security::uuid();
 
+        // ── AI-generated response detector ──────────────────────────────
+        $aiSuspected = 0;
+        $aiFlagReason = null;
+        $typingSeconds = null;
+
+        if (!empty($c['start_at'])) {
+            $startTs  = strtotime((string)$c['start_at']);
+            $typingSeconds = max(1, $now - $startTs);
+        }
+
+        $wordCount  = str_word_count($answerText);
+        $charCount  = mb_strlen($answerText);
+        $wpm        = $typingSeconds > 0 ? ($wordCount / ($typingSeconds / 60)) : 0;
+
+        // Signal 1: Typing speed way above human max (~80 wpm sustained) 
+        if ($wpm > 90 && $wordCount > 80) {
+            $aiSuspected = 1;
+            $aiFlagReason = "Typing speed: {$wpm} WPM for {$wordCount} words in {$typingSeconds}s";
+        }
+
+        // Signal 2: Markdown structure markers (AI formatting tells)
+        $markdownHits = 0;
+        if (preg_match('/^#{1,3}\s/m', $answerText))         $markdownHits++; // ## Headers
+        if (preg_match('/\*\*[^*]{3,}\*\*/', $answerText))   $markdownHits++; // **Bold**
+        if (preg_match('/^\d+\.\s.{30,}/m', $answerText))    $markdownHits++; // Numbered lists with long items
+        if (preg_match('/^[-•]\s.{20,}/m', $answerText))     $markdownHits++; // Bullet lists
+        if (preg_match('/:\s*\n[-•\d]/m', $answerText))      $markdownHits++; // Colon-then-list pattern
+
+        if ($markdownHits >= 3 && $wordCount > 120) {
+            $aiSuspected = 1;
+            $aiFlagReason = ($aiFlagReason ? $aiFlagReason . '; ' : '') . "AI formatting: {$markdownHits} markdown signals, {$wordCount} words";
+        }
+
+        // Signal 3: Long response in very short time (> 400 words in < 3 mins)
+        if ($wordCount > 400 && $typingSeconds !== null && $typingSeconds < 180) {
+            $aiSuspected = 1;
+            $aiFlagReason = ($aiFlagReason ? $aiFlagReason . '; ' : '') . "Volume anomaly: {$wordCount} words in {$typingSeconds}s";
+        }
+
+        // Signal 4: Perfectly structured executive memo sections (AI typical output)
+        $sectionKeywords = ['immediate', 'liquidity', 'runway', 'mitigation', 'contingency', 'strategic', 'operational', 'milestone', 'downside', 'financing'];
+        $sectionHits = 0;
+        foreach ($sectionKeywords as $kw) {
+            if (stripos($answerText, $kw) !== false) $sectionHits++;
+        }
+        if ($sectionHits >= 7 && $wordCount > 200 && ($typingSeconds !== null && $typingSeconds < 240)) {
+            $aiSuspected = 1;
+            $aiFlagReason = ($aiFlagReason ? $aiFlagReason . '; ' : '') . "Keyword density: {$sectionHits}/10 executive terms in {$typingSeconds}s";
+        }
+        // ── End AI detector ─────────────────────────────────────────────
+
+        // Ensure columns exist on boardroom_submissions (self-healing migration)
+        static $colsChecked = false;
+        if (!$colsChecked) {
+            try {
+                $check = $pdo->query("SHOW COLUMNS FROM boardroom_submissions LIKE 'ai_suspected'")->fetch();
+                if (!$check) {
+                    $pdo->exec("ALTER TABLE boardroom_submissions 
+                        ADD COLUMN ai_suspected TINYINT(1) NOT NULL DEFAULT 0,
+                        ADD COLUMN typing_duration_seconds INT DEFAULT NULL,
+                        ADD COLUMN ai_flag_reason VARCHAR(500) DEFAULT NULL");
+                }
+                $colsChecked = true;
+            } catch (\Throwable $e) {}
+        }
+
         $pdo->beginTransaction();
         try {
-            $insSub = $pdo->prepare(
-                "INSERT INTO boardroom_submissions (id, challenge_id, user_id, answer_text, submitted_at)
-                 VALUES (:id, :cid, :uid, :ans, NOW(3))
-                 ON DUPLICATE KEY UPDATE answer_text = VALUES(answer_text), submitted_at = NOW(3)"
-            );
-            $insSub->execute([
-                ':id' => $subId,
-                ':cid' => $challengeId,
-                ':uid' => $userId,
-                ':ans' => $answerText,
-            ]);
+            try {
+                $insSub = $pdo->prepare(
+                    "INSERT INTO boardroom_submissions (id, challenge_id, user_id, answer_text, submitted_at, ai_suspected, typing_duration_seconds, ai_flag_reason)
+                     VALUES (:id, :cid, :uid, :ans, NOW(3), :ai_suspected, :typing_sec, :ai_reason)
+                     ON DUPLICATE KEY UPDATE answer_text = VALUES(answer_text), submitted_at = NOW(3),
+                       ai_suspected = VALUES(ai_suspected), typing_duration_seconds = VALUES(typing_duration_seconds),
+                       ai_flag_reason = VALUES(ai_flag_reason)"
+                );
+                $insSub->execute([
+                    ':id'          => $subId,
+                    ':cid'         => $challengeId,
+                    ':uid'         => $userId,
+                    ':ans'         => $answerText,
+                    ':ai_suspected'=> $aiSuspected,
+                    ':typing_sec'  => $typingSeconds,
+                    ':ai_reason'   => $aiFlagReason,
+                ]);
+            } catch (\Throwable $e) {
+                // Graceful fallback to basic insert if column not yet present
+                $insSub = $pdo->prepare(
+                    "INSERT INTO boardroom_submissions (id, challenge_id, user_id, answer_text, submitted_at)
+                     VALUES (:id, :cid, :uid, :ans, NOW(3))
+                     ON DUPLICATE KEY UPDATE answer_text = VALUES(answer_text), submitted_at = NOW(3)"
+                );
+                $insSub->execute([
+                    ':id'  => $subId,
+                    ':cid' => $challengeId,
+                    ':uid' => $userId,
+                    ':ans' => $answerText,
+                ]);
+            }
 
             // Queue evaluation run for the Python NVIDIA NIM agent
             $runId = Security::uuid();

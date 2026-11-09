@@ -521,6 +521,24 @@ async function initApp() {
 }
 
 function navigate(page, params = {}) {
+  // ── Clean up boardroom copy/contextmenu/screenshot guards on navigation ──────
+  if (window._boardroomGuards && window._boardroomGuards.length) {
+    window._boardroomGuards.forEach(g => {
+      if (g.copy) document.removeEventListener('copy', g.copy);
+      if (g.cut) document.removeEventListener('cut', g.cut);
+      if (g.blur) window.removeEventListener('blur', g.blur);
+      if (g.focus) window.removeEventListener('focus', g.focus);
+      if (g.keydown) window.removeEventListener('keydown', g.keydown);
+    });
+    window._boardroomGuards = [];
+    document.body.classList.remove('boardroom-active', 'app-blurred');
+    // Restore right-click context menu when leaving boardroom
+    if (window._boardroomContextGuard) {
+      document.removeEventListener('contextmenu', window._boardroomContextGuard);
+      window._boardroomContextGuard = null;
+    }
+  }
+
   state.page = page;
   if (params.marketId) state.selectedMarketId = params.marketId;
   if (params.challengeId) state.currentChallengeId = params.challengeId;
@@ -4062,6 +4080,10 @@ async function handlePlaceForecast(e, eventId) {
     return;
   }
 
+  const btn = e.submitter || e.target?.querySelector('button[type="submit"]');
+  const origText = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Placing...'; }
+
   try {
     const res = await api.post(`/markets/${eventId}/forecast`, {
       outcome: chosenOutcome,
@@ -4079,7 +4101,9 @@ async function handlePlaceForecast(e, eventId) {
     );
     await loadWalletData();
     navigate('predictor');
-  } catch (err) {}
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.innerHTML = origText; }
+  }
 }
 
 function toggleCustomScheduleInput(val) {
@@ -4136,7 +4160,7 @@ async function loadBoardroomLobby() {
           ${c.has_opponent ? `
             <button class="btn btn-secondary btn-full" style="margin-top: auto; opacity: 0.85;" disabled>Match Locked (Full) 🔒</button>
           ` : `
-            <button class="btn btn-primary btn-full" style="margin-top: auto;" onclick="handleJoinChallenge('${c.id}')">Accept Challenge ↗</button>
+            <button class="btn btn-primary btn-full" style="margin-top: auto;" data-join-id="${c.id}" onclick="handleJoinChallenge('${c.id}', this)">Accept Challenge ↗</button>
           `}
         </div>
       `;
@@ -4178,6 +4202,10 @@ async function handleCreateChallenge(e) {
     scheduledAt = targetDate.toISOString().slice(0, 19).replace('T', ' ');
   }
 
+  const createBtn = e.submitter || e.target?.querySelector('button[type="submit"]');
+  const createBtnOrig = createBtn ? createBtn.innerHTML : '';
+  if (createBtn) { createBtn.disabled = true; createBtn.innerHTML = '<span class="spinner"></span> Creating...'; }
+
   try {
     const res = await api.post('/boardroom/create', {
       industry_id: industryId,
@@ -4195,10 +4223,17 @@ async function handleCreateChallenge(e) {
       'boardroom'
     );
     navigate('waiting_room', { challengeId: res.data.challenge_id });
-  } catch (err) {}
+  } catch (err) {
+    if (createBtn) { createBtn.disabled = false; createBtn.innerHTML = createBtnOrig; }
+  }
 }
 
-async function handleJoinChallenge(challengeId) {
+async function handleJoinChallenge(challengeId, btnEl) {
+  // Spinner + disable — works whether called with a btn ref or via onclick attr
+  const btn = btnEl || document.querySelector(`[data-join-id="${challengeId}"]`);
+  const origText = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Accepting...'; }
+
   try {
     const res = await api.post(`/boardroom/join/${challengeId}`);
     if (res.data?.state === 'scheduled' || (res.data?.seconds_until_start || 0) > 0) {
@@ -4222,7 +4257,9 @@ async function handleJoinChallenge(challengeId) {
       );
       navigate('live_challenge', { challengeId });
     }
-  } catch (err) {}
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.innerHTML = origText; }
+  }
 }
 
 async function loadWaitingRoomData(challengeId) {
@@ -4298,7 +4335,7 @@ async function loadWaitingRoomData(challengeId) {
 
             <!-- Institutional AI Benchmark Duel Option if no opponent yet -->
             ${!c.has_opponent ? `
-              <button class="btn btn-primary btn-full" onclick="handleStartBenchmarkDuel('${c.id}')" style="padding: 11px; font-weight: 700; font-size: 13px;">
+              <button class="btn btn-primary btn-full" onclick="handleStartBenchmarkDuel('${c.id}', this)" style="padding: 11px; font-weight: 700; font-size: 13px;">
                 Duel Institutional AI Benchmark 🤖
               </button>
               <div style="font-size: 11px; color: var(--muted); margin-top: 5px;">
@@ -4418,7 +4455,13 @@ function copyWaitingInviteUrl() {
   }
 }
 
-async function handleStartBenchmarkDuel(challengeId) {
+async function handleStartBenchmarkDuel(challengeId, btnEl) {
+  const btn = btnEl || document.activeElement;
+  const origText = btn ? btn.innerHTML : '';
+  if (btn && btn.tagName === 'BUTTON') {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Starting Duel...';
+  }
   if (window.waitingRoomPollInterval) clearInterval(window.waitingRoomPollInterval);
   try {
     await api.post(`/boardroom/start-demo/${challengeId}`);
@@ -4431,6 +4474,10 @@ async function handleStartBenchmarkDuel(challengeId) {
     );
     navigate('live_challenge', { challengeId });
   } catch (e) {
+    if (btn && btn.tagName === 'BUTTON') {
+      btn.disabled = false;
+      btn.innerHTML = origText;
+    }
     api.toast(e.message || 'Could not start duel', 'error');
   }
 }
@@ -4463,7 +4510,7 @@ async function loadLiveChallengeData(challengeId) {
       </div>
 
       <div class="two-col">
-        <div class="panel">
+        <div class="panel boardroom-no-select">
           <div class="eyebrow">CONFIDENTIAL CASE DILEMMA</div>
           <div style="font-size: 14.5px; line-height: 1.75; white-space: pre-line; margin-top: 10px; color: var(--text);">
             ${s.body}
@@ -4513,13 +4560,81 @@ async function loadLiveChallengeData(challengeId) {
           counterEl.style.color = words >= 40 ? 'var(--jade)' : 'var(--muted)';
         }
       });
+
+      // ── Boardroom integrity: prevent paste into answer textarea ──────
+      tx.addEventListener('paste', (ev) => {
+        ev.preventDefault();
+        api.toast('Paste is disabled in the boardroom. Please type your answer.', 'warning');
+      });
+      // ── Prevent drag-drop of text into textarea ─────────────────────
+      tx.addEventListener('drop', (ev) => { ev.preventDefault(); });
     }
+
+    // ── Boardroom integrity: prevent copy of scenario content ────────
+    const scenarioBox = document.querySelector('.boardroom-scenario-box, .sealed-scenario-panel, [data-boardroom-scenario]');
+    if (scenarioBox) {
+      scenarioBox.style.userSelect = 'none';
+      scenarioBox.style.webkitUserSelect = 'none';
+    }
+
+    // Block copy/cut on the whole page while in live challenge
+    const _boardroomCopyGuard = (ev) => {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed) return;
+      // Only block if selection is NOT inside the memo textarea
+      const anchorEl = sel.anchorNode?.parentElement;
+      if (anchorEl && tx && tx.contains(anchorEl)) return;
+      ev.preventDefault();
+    };
+    document.addEventListener('copy', _boardroomCopyGuard);
+    document.addEventListener('cut', _boardroomCopyGuard);
+    // Named contextmenu guard so it can be properly removed on navigate
+    if (!window._boardroomContextGuard) {
+      window._boardroomContextGuard = (ev) => { ev.preventDefault(); };
+    }
+    document.removeEventListener('contextmenu', window._boardroomContextGuard);
+    document.addEventListener('contextmenu', window._boardroomContextGuard);
+
+    // Anti-screenshot & defocus concealment
+    document.body.classList.add('boardroom-active');
+    const onWindowBlur = () => { document.body.classList.add('app-blurred'); };
+    const onWindowFocus = () => { document.body.classList.remove('app-blurred'); };
+    window.addEventListener('blur', onWindowBlur);
+    window.addEventListener('focus', onWindowFocus);
+
+    // Prevent screenshot / print key shortcuts (PrintScreen, Ctrl+P, Ctrl+S)
+    const onKeyDownGuard = (ev) => {
+      if ((ev.ctrlKey || ev.metaKey) && (ev.key === 'p' || ev.key === 'P' || ev.key === 's' || ev.key === 'S')) {
+        ev.preventDefault();
+        api.toast('Saving or printing confidential boardroom dilemma is restricted.', 'warning');
+      }
+      if (ev.key === 'PrintScreen') {
+        ev.preventDefault();
+        api.toast('Screen capture of confidential dilemma is restricted.', 'warning');
+      }
+    };
+    window.addEventListener('keydown', onKeyDownGuard);
+
+    // Store guard ref for cleanup when navigating away
+    if (!window._boardroomGuards) window._boardroomGuards = [];
+    window._boardroomGuards.push({
+      copy: _boardroomCopyGuard,
+      cut: _boardroomCopyGuard,
+      blur: onWindowBlur,
+      focus: onWindowFocus,
+      keydown: onKeyDownGuard
+    });
+    // ── End boardroom integrity ──────────────────────────────────────
   } catch (e) {}
 }
 
 async function handleSubmitMemo(e, challengeId) {
   e.preventDefault();
   const answer = document.getElementById('memo-answer').value;
+
+  const btn = e.submitter || e.target?.querySelector('button[type="submit"]');
+  const origText = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Submitting...'; }
 
   try {
     const res = await api.post(`/boardroom/submit/${challengeId}`, { answer });
@@ -4532,7 +4647,9 @@ async function handleSubmitMemo(e, challengeId) {
       'boardroom'
     );
     navigate('challenge_report', { challengeId });
-  } catch (err) {}
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.innerHTML = origText; }
+  }
 }
 
 async function loadChallengeReportData(challengeId) {
@@ -4550,7 +4667,7 @@ async function loadChallengeReportData(challengeId) {
           <p style="color: var(--muted); max-width: 520px; margin: 8px auto 20px; font-size: 13.5px; line-height: 1.6;">
             Your executive memo has been evaluated by our AI rubric and is currently undergoing quality review and sign-off by the Institutional Administrator. Final scores and payout will unlock immediately upon verification.
           </p>
-          <button class="btn btn-primary" onclick="loadChallengeReportData('${challengeId}')">Refresh Adjudication Status ↺</button>
+          <button class="btn btn-primary" onclick="handleRefreshReport(this, '${challengeId}')">Refresh Adjudication Status ↺</button>
         </div>
       `;
       return;
@@ -4564,7 +4681,7 @@ async function loadChallengeReportData(challengeId) {
           <p style="color: var(--muted); max-width: 520px; margin: 8px auto 20px;">
             Your executive memo has been recorded and submitted. The Strategic Adjudication Council is assessing your decision rationale and quantitative thesis.
           </p>
-          <button class="btn btn-primary" onclick="loadChallengeReportData('${challengeId}')">Check for Score ↺</button>
+          <button class="btn btn-primary" onclick="handleRefreshReport(this, '${challengeId}')">Check for Score ↺</button>
         </div>
       `;
       return;
@@ -4603,6 +4720,14 @@ async function loadChallengeReportData(challengeId) {
     `;
   } catch (e) {}
 }
+
+async function handleRefreshReport(btnEl, challengeId) {
+  const origText = btnEl ? btnEl.innerHTML : '';
+  if (btnEl) { btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner"></span> Checking...'; }
+  await loadChallengeReportData(challengeId);
+  // The report container re-renders with new content, so button is replaced — no restore needed
+}
+window.handleRefreshReport = handleRefreshReport;
 
 async function loadWalletData() {
   const el = document.getElementById('wallet-transactions-table');
@@ -4651,7 +4776,13 @@ async function loadWalletData() {
   } catch (e) {}
 }
 
-async function handleClaimGrant() {
+async function handleClaimGrant(btnEl) {
+  const btn = btnEl || document.querySelector('[onclick*="handleClaimGrant"]') || document.activeElement;
+  const origText = btn ? btn.innerHTML : '';
+  if (btn && btn.tagName === 'BUTTON') {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Claiming...';
+  }
   try {
     const res = await api.post('/wallet/claim-grant', {});
     api.toast(res.message || '₦500,000 demo capital credited!', 'success');
@@ -4667,6 +4798,10 @@ async function handleClaimGrant() {
       renderWalletPage();
     }
   } catch (err) {
+    if (btn && btn.tagName === 'BUTTON') {
+      btn.disabled = false;
+      btn.innerHTML = origText;
+    }
     api.toast(err.message || 'Unable to claim demo grant at this time.', 'info');
   }
 }
@@ -4699,6 +4834,10 @@ async function handleDepositSubmit(e) {
     return;
   }
 
+  const btn = e.submitter || e.target?.querySelector('button[type="submit"]');
+  const origText = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Initializing...'; }
+
   try {
     const res = await api.post('/funding/initialize', { amount: amt });
     if (res?.data?.checkout_url) {
@@ -4714,7 +4853,9 @@ async function handleDepositSubmit(e) {
         window.location.href = res.data.checkout_url;
       }, 700);
     }
-  } catch (e) {}
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.innerHTML = origText; }
+  }
 }
 
 async function handleWithdrawSubmit(e) {
@@ -4738,6 +4879,10 @@ async function handleWithdrawSubmit(e) {
     return;
   }
 
+  const btn = e.submitter || e.target?.querySelector('button[type="submit"]');
+  const origText = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Queuing...'; }
+
   try {
     const res = await api.post('/wallet/withdraw', {
       bank_name: bankName,
@@ -4755,7 +4900,9 @@ async function handleWithdrawSubmit(e) {
     );
     await loadWalletData();
     navigate('wallet');
-  } catch (err) {}
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.innerHTML = origText; }
+  }
 }
 
 async function loadLeaderboardData(tab = 'All') {
@@ -4821,6 +4968,10 @@ async function handleAskMentor(e) {
   const q = input.value.trim();
   if (!q) return;
 
+  const btn = e.submitter || e.target?.querySelector('button[type="submit"]');
+  const origText = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Consulting...'; }
+
   input.value = '';
 
   const thread = document.getElementById('mentor-chat-thread');
@@ -4848,6 +4999,7 @@ async function handleAskMentor(e) {
     state.mentorHistory.push({ q, a: res.data.answer, source: res.data.source });
     navigate('mentor');
   } catch (err) {
+    if (btn) { btn.disabled = false; btn.innerHTML = origText; }
     if (tempLoaderEl) {
       tempLoaderEl.innerHTML = `<span style="color: var(--red); font-size: 13px;">Unable to fetch mentor response. Please try again.</span>`;
     }
@@ -5509,7 +5661,7 @@ async function handleGenerateAiScenario(e) {
   const promptText = promptEl.value.trim();
   state.lab.isAiGenLoading = true;
   const btn = document.getElementById('btn-gen-ai-scenario');
-  if (btn) { btn.disabled = true; btn.textContent = 'Generating...'; }
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Generating...'; }
 
   try {
     const res = await api.post('/lab/generate', {
@@ -5535,7 +5687,7 @@ async function handleGenerateAiScenario(e) {
     api.toast('Failed to generate scenario: ' + (err.message || 'Error occurred'), 'error');
   } finally {
     state.lab.isAiGenLoading = false;
-    if (btn) { btn.disabled = false; btn.textContent = 'Synthesize Custom Shock'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Synthesize Custom Shock'; }
   }
 }
 
@@ -5615,6 +5767,10 @@ async function handleAuthSubmit(e, type) {
   const nameEl = document.getElementById('auth-name');
   const codeEl = document.getElementById('auth-code');
 
+  const btn = e.submitter || e.target?.querySelector('button[type="submit"]');
+  const origText = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Authenticating...'; }
+
   try {
     if (type === 'login' || type === 'welcome') {
       const res = await api.post('/auth/login', {
@@ -5657,7 +5813,9 @@ async function handleAuthSubmit(e, type) {
       api.toast('Password reset token dispatched.', 'info');
       navigate('login');
     }
-  } catch (err) {}
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.innerHTML = origText; }
+  }
 }
 
 function autoFillVerifyCode(code) {

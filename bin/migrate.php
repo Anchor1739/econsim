@@ -64,6 +64,15 @@ try {
             $pdo->exec("ALTER TABLE user_preferences ADD COLUMN fcm_token TEXT NULL AFTER seen_tours");
             echo "✓ Added 'fcm_token' column to user_preferences.\n";
         }
+
+        $aiCheck = $pdo->query("SHOW COLUMNS FROM boardroom_submissions LIKE 'ai_suspected'")->fetch();
+        if (!$aiCheck) {
+            $pdo->exec("ALTER TABLE boardroom_submissions 
+                ADD COLUMN ai_suspected TINYINT(1) NOT NULL DEFAULT 0,
+                ADD COLUMN typing_duration_seconds INT DEFAULT NULL,
+                ADD COLUMN ai_flag_reason VARCHAR(500) DEFAULT NULL");
+            echo "✓ Added 'ai_suspected' columns to boardroom_submissions.\n";
+        }
     } catch (\Throwable $e) {}
 
     // Auto-run seed

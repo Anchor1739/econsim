@@ -1203,6 +1203,9 @@
         <div id="adj-modal-scenario-body" style="font-size: 12.5px; color: var(--text-muted); line-height: 1.5; max-height: 100px; overflow-y: auto; background: rgba(0,0,0,0.2); padding: 8px 10px; border-radius: 6px;"></div>
       </div>
 
+      <!-- AI Suspect Alert -->
+      <div id="adj-modal-ai-alert" style="display: none; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 12.5px; color: #fca5a5;"></div>
+
       <!-- Strategist's Memo -->
       <div style="margin-bottom: 18px;">
         <label style="display: block; font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">Submitted Executive Memo</label>
@@ -1766,6 +1769,14 @@
             <td>
               <b>${item.scenario_title || 'Boardroom Dilemma'}</b><br>
               <span style="font-size: 11px; color: var(--accent);">${item.industry || 'Macroeconomics'}</span>
+              ${item.ai_suspected ? `
+                <div style="margin-top: 4px;">
+                  <span style="background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;" title="${item.ai_flag_reason || 'AI pattern flagged'}">
+                    ⚠️ AI SUSPECTED
+                  </span>
+                  ${item.typing_duration_seconds ? `<small style="color: #fca5a5; font-size: 10px; margin-left: 4px;">(${item.typing_duration_seconds}s duration)</small>` : ''}
+                </div>
+              ` : ''}
             </td>
             <td>
               <div style="font-size: 12px; color: var(--text-muted); max-width: 320px; line-height: 1.4;">${snippet}</div>
@@ -1838,6 +1849,16 @@
       document.getElementById('adj-modal-scenario-title').innerText = item.scenario_title || 'Executive Strategic Dilemma';
       document.getElementById('adj-modal-scenario-body').innerText = item.scenario_body || '';
       document.getElementById('adj-modal-memo').innerText = item.answer_text || '';
+
+      const aiAlert = document.getElementById('adj-modal-ai-alert');
+      if (aiAlert) {
+        if (item.ai_suspected) {
+          aiAlert.style.display = 'block';
+          aiAlert.innerHTML = `<strong>⚠️ AI-Generated Response Suspected:</strong> ${item.ai_flag_reason || 'Synthetic structure or anomalous typing speed'}${item.typing_duration_seconds ? ` · Time to submit: ${item.typing_duration_seconds}s` : ''}`;
+        } else {
+          aiAlert.style.display = 'none';
+        }
+      }
 
       const scores = item.proposed_ai_scores || { financial_mechanics: 0, risk_management: 0, historical_alignment: 0, communication: 0, total: 0 };
       document.getElementById('adj-ai-proposed-total').innerText = `${scores.total || 0} / 100`;

@@ -79,6 +79,19 @@ const api = {
     this.toastTimer = setTimeout(() => {
       toastEl.style.display = 'none';
     }, 3200);
+  },
+
+  setButtonLoading(btn, loadingText = 'Loading...') {
+    if (!btn) return () => {};
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.classList.add('is-loading');
+    btn.innerHTML = `<span class="spinner"></span> ${loadingText}`;
+    return () => {
+      btn.disabled = false;
+      btn.classList.remove('is-loading');
+      btn.innerHTML = originalText;
+    };
   }
 };
 

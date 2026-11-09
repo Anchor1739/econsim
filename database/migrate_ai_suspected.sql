@@ -1,0 +1,4 @@
+ALTER TABLE boardroom_submissions 
+  ADD COLUMN IF NOT EXISTS ai_suspected TINYINT(1) NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS typing_duration_seconds INT DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS ai_flag_reason VARCHAR(500) DEFAULT NULL;
