@@ -381,12 +381,32 @@ class BoardroomService
                 $isWinner = ($hostId === $winnerUserId);
                 $returnMinor = $isWinner ? ($heldMinor * 2) : 0;
                 LedgerService::settleCommitment($hostId, $heldMinor, $returnMinor, 'boardroom_resolution', $challengeId, "br_settle_host_{$challengeId}", $mode);
+
+                // Notify host
+                $title = $isWinner ? '🏆 Boardroom Victory!' : '🏛️ Boardroom Match Settled';
+                $msg = $isWinner
+                    ? "Congratulations! Your executive memorandum scored high enough to claim victory. Payout has settled."
+                    : ($winnerUserId === 'benchmark_ai'
+                        ? "Match concluded. Your memo scored below the 70-point Institutional Benchmark standard."
+                        : "Match concluded. Your opponent's executive memorandum claimed victory in this round.");
+                try {
+                    NotificationService::dispatch($hostId, $title, $msg, 'live_challenge', $challengeId, 'boardroom');
+                } catch (\Throwable $e) {}
             }
 
             if ($opponentId) {
                 $isWinner = ($opponentId === $winnerUserId);
                 $returnMinor = $isWinner ? ($heldMinor * 2) : 0;
                 LedgerService::settleCommitment($opponentId, $heldMinor, $returnMinor, 'boardroom_resolution', $challengeId, "br_settle_opp_{$challengeId}", $mode);
+
+                // Notify opponent
+                $title = $isWinner ? '🏆 Boardroom Victory!' : '🏛️ Boardroom Match Settled';
+                $msg = $isWinner
+                    ? "Congratulations! Your executive memorandum scored high enough to claim victory. Payout has settled."
+                    : "Match concluded. Your opponent's executive memorandum claimed victory in this round.";
+                try {
+                    NotificationService::dispatch($opponentId, $title, $msg, 'live_challenge', $challengeId, 'boardroom');
+                } catch (\Throwable $e) {}
             }
 
             $up = $pdo->prepare("UPDATE boardroom_challenges SET state = 'settled' WHERE id = ?");
@@ -413,6 +433,7 @@ class BoardroomService
         $up = $pdo->prepare(
             "UPDATE boardroom_challenges 
              SET state = 'live', start_at = NOW(3), 
+                 scheduled_at = NOW(3),
                  deadline_at = DATE_ADD(NOW(3), INTERVAL duration_minutes MINUTE)
              WHERE id = ? AND host_id = ?"
         );
@@ -1208,6 +1229,36 @@ Respond ONLY with valid JSON in this exact structure:
 
         if (empty($rows)) {
             $pdo->prepare("UPDATE boardroom_challenges SET state = 'settled' WHERE id = ?")->execute([$challengeId]);
+            return;
+        }
+
+        // Check if this was a solo match against Institutional AI Benchmark (no human opponent)
+        $chgStmt = $pdo->prepare("SELECT host_id, opponent_id FROM boardroom_challenges WHERE id = ?");
+        $chgStmt->execute([$challengeId]);
+        $chg = $chgStmt->fetch();
+        $isSoloBenchmark = empty($chg['opponent_id']);
+
+        if ($isSoloBenchmark) {
+            $userScore = (float)$rows[0]['total_score'];
+            // 70/100 passing bar
+            if ($userScore >= 70.0) {
+                // Award Conqueror XP bonus
+                try {
+                    $xp = $pdo->prepare(
+                        "INSERT IGNORE INTO xp_events (id, user_id, xp, reason, source_key, created_at)
+                         VALUES (:id, :uid, 250, 'Conquered Institutional AI Benchmark (Score >= 70)', :skey, NOW(3))"
+                    );
+                    $xp->execute([
+                        ':id' => Security::uuid(),
+                        ':uid' => $rows[0]['user_id'],
+                        ':skey' => "xp_benchmark_win_{$challengeId}",
+                    ]);
+                } catch (\Throwable $e) {}
+
+                self::settleChallenge($challengeId, $rows[0]['user_id'], "Surpassed Institutional AI Benchmark (Scored {$userScore}/100)");
+            } else {
+                self::settleChallenge($challengeId, 'benchmark_ai', "Fell short of Institutional Benchmark standard (Scored {$userScore}/100, needed 70)");
+            }
             return;
         }
 

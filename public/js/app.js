@@ -69,18 +69,52 @@ function formatNotifTime(timestamp) {
   if (diffDays === 1) return 'Yesterday';
   if (diffDays < 7) return `${diffDays}d ago`;
 
-  return new Date(timestamp).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });
+  const d = parseUtcDate(timestamp);
+  return d ? d.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' }) : '–';
+}
+
+function parseUtcDate(dateStr) {
+  if (!dateStr) return null;
+  if (dateStr instanceof Date) return dateStr;
+  let s = String(dateStr).trim();
+  if (!s.endsWith('Z') && !s.includes('+') && !s.includes('T')) {
+    s = s.replace(' ', 'T') + 'Z';
+  } else if (!s.endsWith('Z') && !s.includes('+') && s.includes('T')) {
+    s = s + 'Z';
+  }
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? new Date(dateStr) : d;
+}
+
+function getUserTimezoneLabel() {
+  try {
+    const shortTz = new Date().toLocaleTimeString('en-us', { timeZoneName: 'short' }).split(' ')[2] || '';
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    if (shortTz && tz) {
+      return `${shortTz} · ${tz.replace('_', ' ')}`;
+    }
+    return shortTz || (tz ? tz.replace('_', ' ') : 'Local Time');
+  } catch(e) {
+    return 'Local Time';
+  }
+}
+
+function formatLocalTime(isoOrDateStr, options = { hour: '2-digit', minute: '2-digit' }) {
+  const d = parseUtcDate(isoOrDateStr);
+  if (!d || isNaN(d.getTime())) return '';
+  return d.toLocaleTimeString([], options);
 }
 
 function formatNotifExactTime(timestamp) {
   if (!timestamp) return '';
   try {
-    return new Date(timestamp).toLocaleString('en-GB', {
+    const d = parseUtcDate(timestamp);
+    return d ? d.toLocaleString('en-GB', {
       hour: '2-digit',
       minute: '2-digit',
       day: 'numeric',
       month: 'short'
-    });
+    }) : '';
   } catch (e) {
     return '';
   }
@@ -4200,8 +4234,9 @@ async function loadBoardroomLobby() {
 
       // Timezone-accurate local scheduled time display
       const scheduledIso = c.scheduled_at_iso || (c.scheduled_at ? c.scheduled_at.replace(' ', 'T') + 'Z' : null);
-      const scheduledDate = scheduledIso ? new Date(scheduledIso) : null;
+      const scheduledDate = parseUtcDate(scheduledIso || c.scheduled_at);
       const localTimeStr = scheduledDate ? scheduledDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Soon';
+      const userTz = getUserTimezoneLabel();
 
       // Detect if current user created this challenge or is already participant
       const isCurrentUserHost = Boolean(c.is_host || (state.user && (state.user.id === c.host_id || state.user.display_name === c.host)));
@@ -4245,7 +4280,7 @@ async function loadBoardroomLobby() {
           <div style="font-size: 12px; color: var(--muted); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; background: var(--bg); padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border);">
             <span>⏰ Match Time:</span>
             <b style="color: ${isScheduledFuture ? 'var(--jade)' : '#fbbf24'};">
-              ${localTimeStr} (${isScheduledFuture ? `in ${minsLeft}m` : 'Starting Now'})
+              ${localTimeStr} <small style="font-size: 10px; color: var(--muted); font-weight: normal;">(${userTz})</small> (${isScheduledFuture ? `in ${minsLeft}m` : 'Starting Now'})
             </b>
           </div>
           ${actionBtn}
@@ -4304,7 +4339,7 @@ async function handleCreateChallenge(e) {
     api.toast(res.message, 'success');
     sendSystemNotification(
       '🏛️ Boardroom Challenge Created',
-      `Challenge #${res.data?.challenge_id || ''} scheduled for ${new Date(scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Waiting for challenger.`,
+      `Challenge #${res.data?.challenge_id || ''} scheduled for ${formatLocalTime(scheduledAt)} (${getUserTimezoneLabel()}). Waiting for challenger.`,
       'waiting_room',
       res.data?.challenge_id,
       'boardroom'
@@ -4369,12 +4404,11 @@ async function loadWaitingRoomData(challengeId) {
     const inviteUrl = window.location.origin + '/?page=live_challenge&challengeId=' + c.id;
 
     // Timezone-accurate local target time and wall-clock calculation
-    const scheduledIso = c.scheduled_at_iso || (c.scheduled_at ? c.scheduled_at.replace(' ', 'T') + 'Z' : null);
-    const targetDate = scheduledIso 
-      ? new Date(scheduledIso) 
-      : new Date(Date.now() + (parseInt(c.seconds_until_start, 10) || 0) * 1000);
+    const targetDate = parseUtcDate(c.scheduled_at_iso || c.scheduled_at) 
+      || new Date(Date.now() + (parseInt(c.seconds_until_start, 10) || 0) * 1000);
     const targetEndMs = targetDate.getTime();
     const scheduledTimeFormatted = targetDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const userTzLabel = getUserTimezoneLabel();
 
     function getSecondsRemaining() {
       return Math.max(0, Math.floor((targetEndMs - Date.now()) / 1000));
@@ -4405,7 +4439,7 @@ async function loadWaitingRoomData(challengeId) {
                 ${formatCountdown(getSecondsRemaining())}
               </div>
               <div style="font-size: 11.5px; color: var(--muted); margin-top: 4px;">
-                Scheduled for ${scheduledTimeFormatted}. Scenario auto-unlocks at 00:00.
+                Scheduled for <b>${scheduledTimeFormatted}</b> (${userTzLabel}). Scenario auto-unlocks at 00:00.
               </div>
             </div>
 
@@ -4436,13 +4470,32 @@ async function loadWaitingRoomData(challengeId) {
               </div>
             </div>
 
-            <!-- Institutional AI Benchmark Duel Option if no opponent yet -->
+            <!-- Institutional AI Benchmark Duel Explanatory Card -->
             ${!c.has_opponent ? `
-              <button class="btn btn-primary btn-full" onclick="handleStartBenchmarkDuel('${c.id}', this)" style="padding: 11px; font-weight: 700; font-size: 13px;">
-                Duel Institutional AI Benchmark 🤖
-              </button>
-              <div style="font-size: 11px; color: var(--muted); margin-top: 5px;">
-                Can't wait? Test your executive strategy immediately against our Institutional Benchmark model.
+              <div style="background: rgba(16, 185, 129, 0.05); border: 1px dashed rgba(16, 185, 129, 0.35); border-radius: 12px; padding: 16px; margin-top: 14px; text-align: left;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 22px;">🤖</span>
+                    <div>
+                      <b style="font-size: 13.5px; color: #fff;">Solo Benchmark Duel Mode</b>
+                      <div style="font-size: 11px; color: var(--muted);">Play immediately vs Institutional Model</div>
+                    </div>
+                  </div>
+                  <span style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 4px; border: 1px solid rgba(56, 189, 248, 0.3);">NO WAITING</span>
+                </div>
+                <p style="font-size: 12px; color: var(--text); line-height: 1.5; margin: 0 0 10px;">
+                  Waiting for an opponent in the lobby? You can unseal the confidential strategy case right now and test your executive prowess directly against the Institutional Benchmark standard.
+                </p>
+                <div style="background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 11.5px; line-height: 1.6; color: var(--text-muted);">
+                  <div style="font-weight: 700; color: #34d399; margin-bottom: 5px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">📋 How Benchmark Duels Work:</div>
+                  <div style="margin-bottom: 4px;">• <b>The Dilemma:</b> You receive the identical confidential <b>${c.industry}</b> scenario assigned to this room.</div>
+                  <div style="margin-bottom: 4px;">• <b>The Standard:</b> Evaluated across Financial Mechanics (40%), Downside Risk Controls (30%), Macro Precedent (20%), and Executive Communication (10%).</div>
+                  <div style="margin-bottom: 4px;">• <b>The Passing Bar (70/100):</b> The Institutional Model benchmarks at <b>70/100</b>. Score 70 or above to conquer the benchmark and win the challenge.</div>
+                  <div>• <b>The Stakes:</b> Beat the benchmark to claim your capital payout and XP reward. If your executive memo scores below 70, the benchmark model prevails.</div>
+                </div>
+                <button class="btn btn-primary btn-full" onclick="handleStartBenchmarkDuel('${c.id}', this)" style="padding: 12px; font-weight: 700; font-size: 13px; background: linear-gradient(135deg, #059669, #0284c7); border: none; box-shadow: 0 2px 8px rgba(5, 150, 105, 0.3);">
+                  Unseal Scenario &amp; Duel Benchmark 🤖
+                </button>
               </div>
             ` : ''}
           </div>
@@ -4465,7 +4518,7 @@ async function loadWaitingRoomData(challengeId) {
             </div>
             <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--line); padding-bottom: 8px;">
               <span style="color: var(--muted);">Scheduled Match Time:</span>
-              <b>${scheduledTimeFormatted}</b>
+              <b>${scheduledTimeFormatted} <small style="color: var(--muted); font-size: 11px; font-weight: normal;">(${userTzLabel})</small></b>
             </div>
             <div style="display: flex; justify-content: space-between;">
               <span style="color: var(--muted);">Match Status:</span>
