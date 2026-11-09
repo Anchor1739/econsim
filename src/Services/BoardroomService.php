@@ -504,12 +504,32 @@ class BoardroomService
         $subStmt->execute([$challengeId, $userId]);
         $userSub = $subStmt->fetch();
 
+        // Fetch all submissions for opponent presence & status
+        $allSubsStmt = $pdo->prepare("SELECT user_id FROM boardroom_submissions WHERE challenge_id = ?");
+        $allSubsStmt->execute([$challengeId]);
+        $submittedUserIds = $allSubsStmt->fetchAll(\PDO::FETCH_COLUMN) ?: [];
+
+        $hostSubmitted = in_array($c['host_id'], $submittedUserIds, true);
+        $opponentSubmitted = !empty($c['opponent_id']) && in_array($c['opponent_id'], $submittedUserIds, true);
+
+        $deadlineTs = !empty($c['deadline_at']) ? strtotime((string)$c['deadline_at']) : 0;
+        $secondsRemaining = max(0, $deadlineTs - $now);
+
+        // If time has expired and challenge is still 'live', transition to 'evaluating'
+        if ($c['state'] === 'live' && $deadlineTs > 0 && $now >= $deadlineTs) {
+            $up = $pdo->prepare("UPDATE boardroom_challenges SET state = 'evaluating' WHERE id = ? AND state = 'live'");
+            $up->execute([$challengeId]);
+            $c['state'] = 'evaluating';
+        }
+
         return [
             'id' => $c['id'],
             'state' => $c['state'],
             'industry' => $c['industry_name'],
             'host_name' => $c['host_name'],
+            'host_id' => $c['host_id'],
             'opponent_name' => $c['opponent_name'] ?? null,
+            'opponent_id' => $c['opponent_id'] ?? null,
             'has_opponent' => !empty($c['opponent_id']),
             'opponent_ready' => !empty($c['opponent_id']),
             'commitment' => (int)($c['commitment_minor'] / 100),
@@ -519,10 +539,15 @@ class BoardroomService
             'is_scheduled_waiting' => ($secondsUntilStart > 0 && !in_array($c['state'], ['evaluating', 'settled', 'disputed'], true)),
             'start_at' => $c['start_at'],
             'deadline_at' => $c['deadline_at'],
+            'deadline_at_iso' => $deadlineTs > 0 ? gmdate('Y-m-d\TH:i:s\Z', $deadlineTs) : null,
+            'seconds_remaining' => $secondsRemaining,
             'duration_minutes' => (int)$c['duration_minutes'],
             'is_host' => $isHost,
             'is_opponent' => $isOpponent,
             'has_submitted' => (bool)$userSub,
+            'host_submitted' => $hostSubmitted,
+            'opponent_submitted' => $opponentSubmitted,
+            'total_submissions' => count($submittedUserIds),
             'user_submission' => $userSub ? $userSub['answer_text'] : null,
             'scenario' => $isLiveOrCompleted ? [
                 'title' => $c['scenario_title'],
@@ -708,9 +733,21 @@ class BoardroomService
                 ':rubric' => $rubricSnapshot,
             ]);
 
-            // Update challenge state to evaluating
-            $upC = $pdo->prepare("UPDATE boardroom_challenges SET state = 'evaluating' WHERE id = ?");
-            $upC->execute([$challengeId]);
+            // Check how many participants exist in this challenge
+            $totalParticipants = !empty($c['opponent_id']) ? 2 : 1;
+
+            // Count how many unique submissions have been recorded for this challenge
+            $subCountStmt = $pdo->prepare("SELECT COUNT(DISTINCT user_id) FROM boardroom_submissions WHERE challenge_id = ?");
+            $subCountStmt->execute([$challengeId]);
+            $subsRecorded = (int)$subCountStmt->fetchColumn();
+
+            // If solo match against AI benchmark, or if BOTH human participants have submitted:
+            if ($totalParticipants === 1 || $subsRecorded >= $totalParticipants) {
+                $upC = $pdo->prepare("UPDATE boardroom_challenges SET state = 'evaluating' WHERE id = ?");
+                $upC->execute([$challengeId]);
+            } else {
+                // Keep challenge live so opponent can submit before deadline expires!
+            }
 
             // Award XP
             $xpId = Security::uuid();
@@ -768,6 +805,33 @@ class BoardroomService
                 'status' => 'pending',
                 'message' => 'Evaluation in progress. The Strategic Adjudication Council is assessing your memo.',
             ];
+        }
+
+        // Check if this is a 2-player match and the opponent has not yet submitted
+        $cStmt = $pdo->prepare("SELECT host_id, opponent_id, deadline_at, state, duration_minutes FROM boardroom_challenges WHERE id = ?");
+        $cStmt->execute([$challengeId]);
+        $chg = $cStmt->fetch();
+
+        $hasOpponent = !empty($chg['opponent_id']);
+        if ($hasOpponent && $chg['state'] === 'live') {
+            $subCount = (int)$pdo->query("SELECT COUNT(DISTINCT user_id) FROM boardroom_submissions WHERE challenge_id = '{$challengeId}'")->fetchColumn();
+            $now = time();
+            $deadlineTs = !empty($chg['deadline_at']) ? strtotime((string)$chg['deadline_at']) : 0;
+            $secondsRemaining = max(0, $deadlineTs - $now);
+
+            // If opponent hasn't submitted and deadline hasn't expired
+            if ($subCount < 2 && $secondsRemaining > 0) {
+                return [
+                    'status' => 'waiting_for_opponent',
+                    'challenge_id' => $challengeId,
+                    'scenario_title' => $row['scenario_title'] ?? 'Strategic Memorandum',
+                    'industry' => $row['industry_name'] ?? 'Economics',
+                    'seconds_remaining' => $secondsRemaining,
+                    'deadline_at' => $chg['deadline_at'],
+                    'deadline_at_iso' => $deadlineTs > 0 ? gmdate('Y-m-d\TH:i:s\Z', $deadlineTs) : null,
+                    'message' => 'Your memorandum is securely submitted. Awaiting opponent submission or response window deadline.',
+                ];
+            }
         }
 
         // Auto-adjudicate instantly on demand if still queued (zero-delay user experience)

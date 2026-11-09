@@ -581,6 +581,9 @@ function navigate(page, params = {}) {
 
   if (window.waitingCountdownInterval) clearInterval(window.waitingCountdownInterval);
   if (window.waitingRoomPollInterval) clearInterval(window.waitingRoomPollInterval);
+  if (window.liveDeadlineInterval) clearInterval(window.liveDeadlineInterval);
+  if (window.oppWaitingInterval) clearInterval(window.oppWaitingInterval);
+  if (window.oppReportPoll) clearInterval(window.oppReportPoll);
   if (window._waitingWakeHandler) {
     document.removeEventListener('visibilitychange', window._waitingWakeHandler);
     window.removeEventListener('focus', window._waitingWakeHandler);
@@ -4665,6 +4668,11 @@ async function loadLiveChallengeData(challengeId) {
     const el = document.getElementById('live-challenge-content');
     if (!el) return;
 
+    if (c.has_submitted) {
+      navigate('challenge_report', { challengeId: c.id });
+      return;
+    }
+
     if (c.is_scheduled_waiting || !c.scenario) {
       api.toast('Confidential dilemma is sealed until the scheduled match time arrives.', 'info');
       navigate('waiting_room', { challengeId: c.id });
@@ -4672,6 +4680,22 @@ async function loadLiveChallengeData(challengeId) {
     }
 
     const s = c.scenario;
+
+    // Response Window Deadline Wall-Clock Calculation
+    const deadlineIso = c.deadline_at_iso || (c.deadline_at ? c.deadline_at.replace(' ', 'T') + 'Z' : null);
+    const deadlineDate = parseUtcDate(deadlineIso || c.deadline_at) 
+      || new Date(Date.now() + (parseInt(c.seconds_remaining, 10) || (c.duration_minutes * 60)) * 1000);
+    const deadlineEndMs = deadlineDate.getTime();
+
+    function getSecondsRemaining() {
+      return Math.max(0, Math.floor((deadlineEndMs - Date.now()) / 1000));
+    }
+
+    function formatCountdown(sec) {
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
 
     el.innerHTML = `
       <div class="page-head">
@@ -4682,6 +4706,38 @@ async function loadLiveChallengeData(challengeId) {
           </div>
           <h1>${s.title}</h1>
           <p>Read the executive dilemma carefully and submit your structured strategy memo.</p>
+        </div>
+      </div>
+
+      <!-- Prominent Response Window Deadline Bar -->
+      <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 12px; padding: 12px 18px; margin-bottom: 18px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 26px;">⏱️</span>
+          <div>
+            <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: var(--jade); letter-spacing: 0.5px;">
+              RESPONSE WINDOW COUNTDOWN
+            </div>
+            <div style="font-size: 12px; color: var(--muted);">
+              Auto-submits your draft when timer reaches 00:00
+            </div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <div id="live-deadline-timer" style="font-size: 28px; font-weight: 900; font-family: monospace; color: var(--text); letter-spacing: 2px; background: var(--bg); padding: 5px 16px; border-radius: 8px; border: 1px solid var(--border); min-width: 110px; text-align: center;">
+            ${formatCountdown(getSecondsRemaining())}
+          </div>
+          ${c.has_opponent ? `
+            <div style="background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; font-size: 12px;">
+              <span style="color: var(--muted);">Opponent Status: </span>
+              <b style="color: ${c.opponent_submitted ? 'var(--jade)' : '#fbbf24'};">
+                ${c.opponent_submitted ? '● Submitted Memo ✓' : '⏳ Drafting Strategy...'}
+              </b>
+            </div>
+          ` : `
+            <div style="background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 6px 12px; font-size: 12px; color: #38bdf8; font-weight: 700;">
+              🤖 Solo Benchmark Duel
+            </div>
+          `}
         </div>
       </div>
 
@@ -4872,6 +4928,73 @@ async function loadLiveChallengeData(challengeId) {
       keyup: onKeyUpGuard,
     });
     // ── End boardroom integrity ──────────────────────────────────────
+
+    // Live ticking countdown for response window
+    if (window.liveDeadlineInterval) clearInterval(window.liveDeadlineInterval);
+    let notified2m = false;
+    let notified1m = false;
+
+    window.liveDeadlineInterval = setInterval(() => {
+      const sec = getSecondsRemaining();
+      const timerEl = document.getElementById('live-deadline-timer');
+      if (timerEl) {
+        timerEl.textContent = formatCountdown(sec);
+
+        if (sec <= 120 && sec > 60) {
+          timerEl.style.borderColor = '#fbbf24';
+          timerEl.style.color = '#fbbf24';
+          if (!notified2m) {
+            notified2m = true;
+            api.toast('2 minutes remaining in response window!', 'warning');
+          }
+        } else if (sec <= 60 && sec > 0) {
+          timerEl.style.borderColor = '#ef4444';
+          timerEl.style.color = '#ef4444';
+          if (!notified1m) {
+            notified1m = true;
+            api.toast('Final 60 seconds! Wrap up your strategy memorandum.', 'warning');
+          }
+        }
+      }
+
+      // Zero-hour expiry: auto-submit!
+      if (sec <= 0) {
+        clearInterval(window.liveDeadlineInterval);
+        api.toast('Response window expired! Auto-submitting your strategic memorandum...', 'info');
+        const form = document.querySelector('#live-challenge-content form');
+        const answerBox = document.getElementById('memo-answer');
+        if (form && answerBox) {
+          if (answerBox.value.trim().length < 40 && answerBox.value.trim().length > 0) {
+            answerBox.value = answerBox.value.trim() + " - Concluded at response window deadline.";
+          } else if (answerBox.value.trim().length === 0) {
+            answerBox.value = "Zero-hour deadline reached without strategy memorandum.";
+          }
+          form.requestSubmit();
+        }
+      }
+    }, 1000);
+
+    // Heartbeat poll every 5s in 2-player match to detect opponent submission
+    if (c.has_opponent) {
+      if (window.liveMatchHeartbeat) clearInterval(window.liveMatchHeartbeat);
+      window.liveMatchHeartbeat = setInterval(async () => {
+        if (state.page !== 'live_challenge' || state.currentChallengeId !== challengeId) {
+          clearInterval(window.liveMatchHeartbeat);
+          return;
+        }
+        try {
+          const pollRes = await api.get(`/boardroom/challenge/${challengeId}`);
+          if (pollRes?.data?.opponent_submitted) {
+            const oppStatusEl = document.querySelector('#live-challenge-content b');
+            if (oppStatusEl && !oppStatusEl.textContent.includes('Submitted')) {
+              oppStatusEl.textContent = '● Submitted Memo ✓';
+              oppStatusEl.style.color = 'var(--jade)';
+              api.toast('Your opponent has locked in their executive memorandum!', 'info');
+            }
+          }
+        } catch(e) {}
+      }, 5000);
+    }
   } catch (e) {}
 }
 
@@ -4961,6 +5084,10 @@ async function handleSubmitMemo(e, challengeId) {
   e.preventDefault();
   const answer = document.getElementById('memo-answer').value;
 
+  // Clear live deadline interval when submitted
+  if (window.liveDeadlineInterval) clearInterval(window.liveDeadlineInterval);
+  if (window.liveMatchHeartbeat) clearInterval(window.liveMatchHeartbeat);
+
   // Stop voice dictation if running
   if (window.VoiceEngine && window.VoiceEngine.isRecording) {
     window.VoiceEngine.stop();
@@ -4997,6 +5124,77 @@ async function loadChallengeReportData(challengeId) {
     const r = res.data;
     const el = document.getElementById('challenge-report-content');
     if (!el) return;
+
+    if (r.status === 'waiting_for_opponent') {
+      const deadlineIso = r.deadline_at_iso || (r.deadline_at ? r.deadline_at.replace(' ', 'T') + 'Z' : null);
+      const deadlineDate = parseUtcDate(deadlineIso || r.deadline_at) || new Date(Date.now() + (r.seconds_remaining || 300) * 1000);
+      const deadlineEndMs = deadlineDate.getTime();
+
+      function getOppSecondsRemaining() {
+        return Math.max(0, Math.floor((deadlineEndMs - Date.now()) / 1000));
+      }
+
+      function formatCountdown(sec) {
+        const m = Math.floor(sec / 60);
+        const s = sec % 60;
+        return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      }
+
+      el.innerHTML = `
+        <div class="panel" style="text-align: center; padding: 48px 24px;">
+          <div style="font-size: 40px; margin-bottom: 12px;">⏳</div>
+          <h2>Memorandum Locked &amp; Submitted ✓</h2>
+          <p style="color: var(--muted); max-width: 520px; margin: 8px auto 18px; font-size: 13.5px; line-height: 1.6;">
+            Your executive strategy has been recorded into the secure vault. Waiting for your opponent to complete their submission or the response window to expire.
+          </p>
+          <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 12px; padding: 18px; max-width: 360px; margin: 0 auto 20px;">
+            <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: var(--jade); letter-spacing: 0.5px; margin-bottom: 4px;">
+              RESPONSE WINDOW REMAINING
+            </div>
+            <div id="opp-countdown-timer" style="font-size: 34px; font-weight: 900; font-family: monospace; color: var(--text); letter-spacing: 2px;">
+              ${formatCountdown(getOppSecondsRemaining())}
+            </div>
+            <div style="font-size: 11px; color: var(--muted); margin-top: 6px;">
+              Evaluation and scoring begin automatically the instant both participants submit, or when time hits 00:00.
+            </div>
+          </div>
+          <button class="btn btn-secondary" onclick="loadChallengeReportData('${challengeId}')">Refresh Adjudication Status ↺</button>
+        </div>
+      `;
+
+      if (window.oppWaitingInterval) clearInterval(window.oppWaitingInterval);
+      window.oppWaitingInterval = setInterval(() => {
+        const sec = getOppSecondsRemaining();
+        const timerEl = document.getElementById('opp-countdown-timer');
+        if (timerEl) {
+          timerEl.textContent = formatCountdown(sec);
+        }
+        if (sec <= 0) {
+          clearInterval(window.oppWaitingInterval);
+          loadChallengeReportData(challengeId);
+        }
+      }, 1000);
+
+      // Heartbeat poll every 4s to detect opponent submission
+      if (window.oppReportPoll) clearInterval(window.oppReportPoll);
+      window.oppReportPoll = setInterval(async () => {
+        if (state.page !== 'challenge_report' || state.currentChallengeId !== challengeId) {
+          clearInterval(window.oppReportPoll);
+          if (window.oppWaitingInterval) clearInterval(window.oppWaitingInterval);
+          return;
+        }
+        try {
+          const checkRes = await api.get(`/boardroom/report/${challengeId}`);
+          if (checkRes?.data?.status !== 'waiting_for_opponent') {
+            clearInterval(window.oppReportPoll);
+            if (window.oppWaitingInterval) clearInterval(window.oppWaitingInterval);
+            loadChallengeReportData(challengeId);
+          }
+        } catch(e) {}
+      }, 4000);
+
+      return;
+    }
 
     if (r.status === 'pending_review') {
       el.innerHTML = `
