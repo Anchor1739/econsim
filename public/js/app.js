@@ -532,12 +532,12 @@ async function initApp() {
 
       syncServerNotifications();
       if (!window.serverNotifInterval) {
-        window.serverNotifInterval = setInterval(syncServerNotifications, 12000);
-      }
-      if (!window.cronWorkerInterval) {
-        window.cronWorkerInterval = setInterval(() => {
-          api.get('/cron/worker').catch(() => {});
-        }, 60000);
+        window.serverNotifInterval = setInterval(() => {
+          if (!document.hidden) syncServerNotifications();
+        }, 15000);
+        document.addEventListener('visibilitychange', () => {
+          if (!document.hidden && state.user) syncServerNotifications();
+        });
       }
 
       navigate(targetPage || 'dashboard', { marketId: targetMarketId, challengeId: targetChallengeId });
@@ -584,10 +584,21 @@ function navigate(page, params = {}) {
   if (window.liveDeadlineInterval) clearInterval(window.liveDeadlineInterval);
   if (window.oppWaitingInterval) clearInterval(window.oppWaitingInterval);
   if (window.oppReportPoll) clearInterval(window.oppReportPoll);
+  if (window.liveMatchHeartbeat) clearInterval(window.liveMatchHeartbeat);
   if (window._waitingWakeHandler) {
     document.removeEventListener('visibilitychange', window._waitingWakeHandler);
     window.removeEventListener('focus', window._waitingWakeHandler);
     window._waitingWakeHandler = null;
+  }
+  if (window._liveWakeHandler) {
+    document.removeEventListener('visibilitychange', window._liveWakeHandler);
+    window.removeEventListener('focus', window._liveWakeHandler);
+    window._liveWakeHandler = null;
+  }
+  if (window._oppWakeHandler) {
+    document.removeEventListener('visibilitychange', window._oppWakeHandler);
+    window.removeEventListener('focus', window._oppWakeHandler);
+    window._oppWakeHandler = null;
   }
 
   state.page = page;
@@ -767,7 +778,7 @@ function saveNotificationsToStorage() {
 }
 
 async function syncServerNotifications() {
-  if (!state.user) return;
+  if (!state.user || document.hidden) return;
   try {
     const res = await api.get('/notifications');
     if (res?.data?.notifications) {
@@ -4322,11 +4333,11 @@ async function handleCreateChallenge(e) {
       api.toast('Please select a custom scheduled date and time.', 'warning');
       return;
     }
-    scheduledAt = new Date(customVal).toISOString().slice(0, 19).replace('T', ' ');
+    scheduledAt = new Date(customVal).toISOString();
   } else {
     const offsetMins = parseInt(scheduleOffset, 10) || 10;
     const targetDate = new Date(Date.now() + offsetMins * 60 * 1000);
-    scheduledAt = targetDate.toISOString().slice(0, 19).replace('T', ' ');
+    scheduledAt = targetDate.toISOString();
   }
 
   const createBtn = e.submitter || e.target?.querySelector('button[type="submit"]');
@@ -4593,6 +4604,7 @@ async function loadWaitingRoomData(challengeId) {
     // Heartbeat poll every 3s to detect opponent join or match start
     if (window.waitingRoomPollInterval) clearInterval(window.waitingRoomPollInterval);
     window.waitingRoomPollInterval = setInterval(async () => {
+      if (document.hidden) return;
       if (state.page !== 'waiting_room' || state.currentChallengeId !== challengeId) {
         clearInterval(window.waitingRoomPollInterval);
         if (window.waitingCountdownInterval) clearInterval(window.waitingCountdownInterval);
@@ -4752,7 +4764,25 @@ async function loadLiveChallengeData(challengeId) {
             <div style="margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--line);">
               <div class="eyebrow" style="color: var(--jade);">MACRO REFERENCE CONTEXT</div>
               <div style="font-size: 13px; color: var(--muted); margin-top: 6px; line-height: 1.6;">
-                ${s.reference_case.historical_case || s.reference_case.notes || JSON.stringify(s.reference_case)}
+                ${(() => {
+                  let ref = s.reference_case;
+                  if (typeof ref === 'string') {
+                    try { ref = JSON.parse(ref); } catch (e) { return escapeHtml(ref); }
+                  }
+                  if (ref && typeof ref === 'object') {
+                    if (ref.company || ref.precedent) {
+                      return `
+                        <div style="margin-bottom: 4px;"><strong style="color: var(--text);">Entity / Sector:</strong> ${escapeHtml(ref.company || '')}</div>
+                        <div><strong style="color: var(--text);">Historical Precedent:</strong> ${escapeHtml(ref.precedent || '')}</div>
+                      `;
+                    }
+                    if (ref.historical_case || ref.notes) {
+                      return escapeHtml(ref.historical_case || ref.notes);
+                    }
+                    return Object.entries(ref).map(([k, v]) => `<div><strong style="color: var(--text);">${escapeHtml(k)}:</strong> ${escapeHtml(typeof v === 'object' ? JSON.stringify(v) : String(v))}</div>`).join('');
+                  }
+                  return escapeHtml(String(ref || ''));
+                })()}
               </div>
             </div>
           ` : ''}
@@ -4931,10 +4961,14 @@ async function loadLiveChallengeData(challengeId) {
 
     // Live ticking countdown for response window
     if (window.liveDeadlineInterval) clearInterval(window.liveDeadlineInterval);
+    if (window._liveWakeHandler) {
+      document.removeEventListener('visibilitychange', window._liveWakeHandler);
+      window.removeEventListener('focus', window._liveWakeHandler);
+    }
     let notified2m = false;
     let notified1m = false;
 
-    window.liveDeadlineInterval = setInterval(() => {
+    const tickLiveTimer = () => {
       const sec = getSecondsRemaining();
       const timerEl = document.getElementById('live-deadline-timer');
       if (timerEl) {
@@ -4960,6 +4994,10 @@ async function loadLiveChallengeData(challengeId) {
       // Zero-hour expiry: auto-submit!
       if (sec <= 0) {
         clearInterval(window.liveDeadlineInterval);
+        if (window._liveWakeHandler) {
+          document.removeEventListener('visibilitychange', window._liveWakeHandler);
+          window.removeEventListener('focus', window._liveWakeHandler);
+        }
         api.toast('Response window expired! Auto-submitting your strategic memorandum...', 'info');
         const form = document.querySelector('#live-challenge-content form');
         const answerBox = document.getElementById('memo-answer');
@@ -4972,12 +5010,22 @@ async function loadLiveChallengeData(challengeId) {
           form.requestSubmit();
         }
       }
-    }, 1000);
+    };
+
+    tickLiveTimer();
+    window.liveDeadlineInterval = setInterval(tickLiveTimer, 1000);
+
+    window._liveWakeHandler = () => {
+      if (!document.hidden) tickLiveTimer();
+    };
+    document.addEventListener('visibilitychange', window._liveWakeHandler);
+    window.addEventListener('focus', window._liveWakeHandler);
 
     // Heartbeat poll every 5s in 2-player match to detect opponent submission
     if (c.has_opponent) {
       if (window.liveMatchHeartbeat) clearInterval(window.liveMatchHeartbeat);
       window.liveMatchHeartbeat = setInterval(async () => {
+        if (document.hidden) return;
         if (state.page !== 'live_challenge' || state.currentChallengeId !== challengeId) {
           clearInterval(window.liveMatchHeartbeat);
           return;
@@ -5084,9 +5132,14 @@ async function handleSubmitMemo(e, challengeId) {
   e.preventDefault();
   const answer = document.getElementById('memo-answer').value;
 
-  // Clear live deadline interval when submitted
+  // Clear live deadline interval and wake listeners when submitted
   if (window.liveDeadlineInterval) clearInterval(window.liveDeadlineInterval);
   if (window.liveMatchHeartbeat) clearInterval(window.liveMatchHeartbeat);
+  if (window._liveWakeHandler) {
+    document.removeEventListener('visibilitychange', window._liveWakeHandler);
+    window.removeEventListener('focus', window._liveWakeHandler);
+    window._liveWakeHandler = null;
+  }
 
   // Stop voice dictation if running
   if (window.VoiceEngine && window.VoiceEngine.isRecording) {
@@ -5163,7 +5216,12 @@ async function loadChallengeReportData(challengeId) {
       `;
 
       if (window.oppWaitingInterval) clearInterval(window.oppWaitingInterval);
-      window.oppWaitingInterval = setInterval(() => {
+      if (window._oppWakeHandler) {
+        document.removeEventListener('visibilitychange', window._oppWakeHandler);
+        window.removeEventListener('focus', window._oppWakeHandler);
+      }
+
+      const tickOppTimer = () => {
         const sec = getOppSecondsRemaining();
         const timerEl = document.getElementById('opp-countdown-timer');
         if (timerEl) {
@@ -5171,13 +5229,27 @@ async function loadChallengeReportData(challengeId) {
         }
         if (sec <= 0) {
           clearInterval(window.oppWaitingInterval);
+          if (window._oppWakeHandler) {
+            document.removeEventListener('visibilitychange', window._oppWakeHandler);
+            window.removeEventListener('focus', window._oppWakeHandler);
+          }
           loadChallengeReportData(challengeId);
         }
-      }, 1000);
+      };
+
+      tickOppTimer();
+      window.oppWaitingInterval = setInterval(tickOppTimer, 1000);
+
+      window._oppWakeHandler = () => {
+        if (!document.hidden) tickOppTimer();
+      };
+      document.addEventListener('visibilitychange', window._oppWakeHandler);
+      window.addEventListener('focus', window._oppWakeHandler);
 
       // Heartbeat poll every 4s to detect opponent submission
       if (window.oppReportPoll) clearInterval(window.oppReportPoll);
       window.oppReportPoll = setInterval(async () => {
+        if (document.hidden) return;
         if (state.page !== 'challenge_report' || state.currentChallengeId !== challengeId) {
           clearInterval(window.oppReportPoll);
           if (window.oppWaitingInterval) clearInterval(window.oppWaitingInterval);

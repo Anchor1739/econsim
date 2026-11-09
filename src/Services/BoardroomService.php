@@ -13,6 +13,8 @@ use RuntimeException;
 
 class BoardroomService
 {
+    private static int $lastNotificationDispatchTime = 0;
+
     public static function getLobbyChallenges(?string $industrySlug = null, ?string $currentUserId = null): array
     {
         $pdo = Database::getConnection();
@@ -1330,8 +1332,17 @@ Respond ONLY with valid JSON in this exact structure:
         self::settleChallenge($challengeId, $winnerId, "Scored {$rows[0]['total_score']}/100");
     }
 
-    public static function checkAndDispatchScheduledNotifications(): array
+    public static function checkAndDispatchScheduledNotifications(bool $force = false): array
     {
+        $now = time();
+        if (!$force && ($now - self::$lastNotificationDispatchTime < 20)) {
+            return [
+                '5min_warnings' => 0,
+                'started_alerts' => 0,
+            ];
+        }
+        self::$lastNotificationDispatchTime = $now;
+
         $pdo = Database::getConnection();
         $dispatched = [
             '5min_warnings' => 0,

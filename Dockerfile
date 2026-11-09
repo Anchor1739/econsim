@@ -26,8 +26,10 @@ COPY . .
 
 # Default port for Render (Render will inject $PORT)
 ENV PORT=10000
+# Enable multi-worker process pool for PHP CLI server to support concurrent device requests
+ENV PHP_CLI_SERVER_WORKERS=16
 EXPOSE 10000
 
-# Start PHP built-in server serving public/ front-controller
+# Start PHP built-in server serving public/ front-controller with multi-process concurrency
 CMD ["sh", "-c", "php -S 0.0.0.0:${PORT} -t public"]
 
