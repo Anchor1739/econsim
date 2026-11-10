@@ -1158,4 +1158,77 @@ Respond ONLY with valid JSON:
         ");
         Response::success($stmt->fetchAll());
     }
+
+    public function auditUserEscrow(): void
+    {
+        $this->requireAdmin();
+        $email = trim($_GET['email'] ?? 'hackerxy.united1@gmail.com');
+        $pdo = Database::getConnection();
+
+        $uStmt = $pdo->prepare("SELECT id, email, display_name, created_at FROM users WHERE email = ?");
+        $uStmt->execute([$email]);
+        $user = $uStmt->fetch(\PDO::FETCH_ASSOC);
+
+        if (!$user) {
+            Response::error("User not found: {$email}", 404);
+        }
+        $userId = $user['id'];
+
+        // Balances
+        $acctsStmt = $pdo->prepare("
+            SELECT a.id, a.mode, a.currency, a.kind, COALESCE(SUM(e.amount_minor), 0) AS balance_minor
+            FROM ledger_accounts a
+            LEFT JOIN ledger_entries e ON a.id = e.account_id
+            WHERE a.user_id = ?
+            GROUP BY a.id, a.mode, a.currency, a.kind
+        ");
+        $acctsStmt->execute([$userId]);
+        $accounts = $acctsStmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        // Held journal entries
+        $heldStmt = $pdo->prepare("
+            SELECT e.amount_minor, (e.amount_minor / 100) as amount, j.id as journal_id, j.event_type, j.reference_id, j.created_at, j.description
+            FROM ledger_entries e
+            JOIN ledger_accounts a ON e.account_id = a.id
+            JOIN ledger_journals j ON e.journal_id = j.id
+            WHERE a.user_id = ? AND a.kind = 'user_held'
+            ORDER BY j.created_at DESC
+        ");
+        $heldStmt->execute([$userId]);
+        $heldEntries = $heldStmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        // Active forecast positions
+        $posStmt = $pdo->prepare("
+            SELECT p.id, p.event_id, p.mode, p.selected_outcome, p.stake_minor, (p.stake_minor/100) as stake, p.status, p.created_at,
+                   m.title as market_title, m.state as market_state, m.resolution_date
+            FROM forecast_positions p
+            JOIN market_events m ON p.event_id = m.id
+            WHERE p.user_id = ?
+            ORDER BY p.created_at DESC
+        ");
+        $posStmt->execute([$userId]);
+        $positions = $posStmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        // Boardroom challenges
+        $brStmt = $pdo->prepare("
+            SELECT c.id, c.host_id, c.opponent_id, c.state, c.commitment_minor, (c.commitment_minor/100) as commitment,
+                   c.scheduled_at, c.start_at, c.deadline_at, c.created_at,
+                   i.name as industry_name,
+                   (SELECT COUNT(*) FROM boardroom_submissions s WHERE s.challenge_id = c.id) as submissions_count
+            FROM boardroom_challenges c
+            JOIN industries i ON c.industry_id = i.id
+            WHERE c.host_id = ? OR c.opponent_id = ?
+            ORDER BY c.created_at DESC
+        ");
+        $brStmt->execute([$userId, $userId]);
+        $challenges = $brStmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        Response::success([
+            'user' => $user,
+            'accounts' => $accounts,
+            'held_entries' => $heldEntries,
+            'positions' => $positions,
+            'challenges' => $challenges,
+        ]);
+    }
 }
