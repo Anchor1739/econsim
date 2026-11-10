@@ -572,6 +572,29 @@
       color: white;
     }
 
+    .btn:disabled,
+    .btn.is-loading {
+      opacity: 0.65;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border: 2px solid rgba(255, 255, 255, 0.25);
+      border-radius: 50%;
+      border-top-color: #ffffff;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle;
+      flex-shrink: 0;
+    }
+
     /* Form Fields */
     .form-group {
       margin-bottom: 14px;
@@ -1038,7 +1061,7 @@
             <h1>Platform Operations & Monetary Engine</h1>
             <p>High-level system health diagnostics, live double-entry liquidity pools, and quick workstation access.</p>
           </div>
-          <button class="btn btn-primary" onclick="loadAllAdminData()">
+          <button class="btn btn-primary" id="btn-refresh-diagnostics" onclick="loadAllAdminData(this)">
             Refresh Diagnostics ↺
           </button>
         </div>
@@ -1285,7 +1308,7 @@
             <button class="btn btn-secondary" id="btn-toggle-grading-mode" style="font-size: 11px; padding: 5px 11px;" onclick="handleToggleGradingMode()">
               Switch Mode ⇄
             </button>
-            <button class="btn btn-secondary" style="font-size: 11px; padding: 5px 11px;" onclick="loadBoardroomDeskData()" title="Refresh pending submissions">
+            <button class="btn btn-secondary" id="btn-refresh-boardroom-desk" style="font-size: 11px; padding: 5px 11px;" onclick="loadBoardroomDeskData(this)" title="Refresh pending submissions">
               Refresh Desk ↺
             </button>
           </div>
@@ -1398,7 +1421,7 @@
               <option value="wallet">Wallet</option>
               <option value="ui_ux">UI / UX</option>
             </select>
-            <button class="btn btn-secondary" style="font-size: 11px; padding: 5px 11px;" onclick="loadFeedbackDeskData()" title="Refresh feedback">
+            <button class="btn btn-secondary" id="btn-refresh-feedback-desk" style="font-size: 11px; padding: 5px 11px;" onclick="loadFeedbackDeskData(this)" title="Refresh feedback">
               Refresh Feedback ↺
             </button>
           </div>
@@ -1474,7 +1497,7 @@
             <div class="panel-subtitle">Executive dilemma submissions, decisions, and real-world outcomes awaiting institutional verification</div>
           </div>
           <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-            <button class="btn btn-secondary" style="font-size: 11px; padding: 5px 11px;" onclick="loadExpertScenarioDeskData()" title="Refresh submissions">
+            <button class="btn btn-secondary" id="btn-refresh-expert-desk" style="font-size: 11px; padding: 5px 11px;" onclick="loadExpertScenarioDeskData(this)" title="Refresh submissions">
               Refresh Submissions ↺
             </button>
           </div>
@@ -1624,7 +1647,7 @@
               <label>Resolution Criteria / Verification Definition</label>
               <textarea class="form-control" id="m-def" rows="3" placeholder="Explicit verifiable condition required for YES resolution..." required></textarea>
             </div>
-            <button type="submit" class="btn btn-primary" style="margin-top: 8px;">
+            <button type="submit" id="btn-publish-contract" class="btn btn-primary" style="margin-top: 8px;">
               Publish Verified Contract 🚀
             </button>
           </form>
@@ -1721,7 +1744,7 @@
               </div>
               <div class="panel-subtitle">Atomic distribution of forecast payouts</div>
             </div>
-            <button class="btn btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="handleRunPredictorCron()" title="Run real-time expiration checks and odds sync">Real-Time Sync ↺</button>
+            <button class="btn btn-secondary" id="btn-run-predictor-cron" style="font-size: 11px; padding: 4px 10px;" onclick="handleRunPredictorCron(this)" title="Run real-time expiration checks and odds sync">Real-Time Sync ↺</button>
           </div>
           <div class="table-responsive">
             <table>
@@ -1878,9 +1901,9 @@
       <!-- Action Buttons -->
       <div style="display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap;">
         <button class="btn btn-secondary" onclick="closeBoardroomModal()">Cancel</button>
-        <button class="btn btn-danger" onclick="submitAdjudication('reject_zero')">Reject (0/100 Nonsense) ❌</button>
-        <button class="btn btn-secondary" style="border-color: rgba(56, 189, 248, 0.5); color: var(--accent);" onclick="submitAdjudication('approve_ai')">Approve AI Grade ✓</button>
-        <button class="btn btn-primary" onclick="submitAdjudication('correct_ai')">Publish Corrected Grade 📝</button>
+        <button class="btn btn-danger" id="btn-adj-reject" onclick="submitAdjudication('reject_zero', this)">Reject (0/100 Nonsense) ❌</button>
+        <button class="btn btn-secondary" id="btn-adj-approve" style="border-color: rgba(56, 189, 248, 0.5); color: var(--accent);" onclick="submitAdjudication('approve_ai', this)">Approve AI Grade ✓</button>
+        <button class="btn btn-primary" id="btn-adj-correct" onclick="submitAdjudication('correct_ai', this)">Publish Corrected Grade 📝</button>
       </div>
     </div>
   </div>
@@ -1980,7 +2003,7 @@
       <!-- Actions -->
       <div style="display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap;">
         <button class="btn btn-secondary" onclick="closeExpertScenarioModal()">Cancel</button>
-        <button class="btn btn-danger" onclick="handleRejectExpertScenario()">Reject Submission ✕</button>
+        <button class="btn btn-danger" id="btn-reject-expert-scenario" onclick="handleRejectExpertScenario(this)">Reject Submission ✕</button>
         <button class="btn btn-primary" id="btn-approve-expert-scenario" onclick="handleApproveExpertScenario()" style="background: var(--jade); border-color: var(--jade); font-weight: 700;">
           Approve &amp; Publish Live to Boardroom 🚀
         </button>
@@ -2055,6 +2078,19 @@
       setTimeout(() => el.remove(), 4000);
     }
 
+    function setButtonLoading(btn, loadingText = 'Processing...') {
+      if (!btn) return () => {};
+      const origHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.classList.add('is-loading');
+      btn.innerHTML = `<span class="spinner"></span> ${loadingText}`;
+      return function restore() {
+        btn.disabled = false;
+        btn.classList.remove('is-loading');
+        btn.innerHTML = origHtml;
+      };
+    }
+
     async function apiRequest(endpoint, method = 'GET', body = null) {
       const headers = { 'Content-Type': 'application/json' };
       if (adminKey) {
@@ -2102,7 +2138,7 @@
       const key = input ? input.value.trim() : '';
       if (!key) return;
 
-      if (btn) btn.disabled = true;
+      const restore = setButtonLoading(btn, 'Authenticating...');
       adminKey = key;
       sessionStorage.setItem('econsim_a_key', key);
 
@@ -2121,7 +2157,7 @@
           input.focus();
         }
       } finally {
-        if (btn) btn.disabled = false;
+        restore();
       }
     }
 
@@ -2158,7 +2194,9 @@
       }
     }
 
-    async function loadAllAdminData() {
+    async function loadAllAdminData(btnEl) {
+      const btn = btnEl || document.getElementById('btn-refresh-diagnostics');
+      const restore = btn ? setButtonLoading(btn, 'Refreshing Diagnostics...') : () => {};
       try {
         const [feats, stats, ai, markets, funding] = await Promise.all([
           apiRequest('/a/features'),
@@ -2180,6 +2218,8 @@
         loadExpertScenarioDeskData();
       } catch (err) {
         console.error(err);
+      } finally {
+        restore();
       }
     }
 
@@ -2276,10 +2316,10 @@
               <span>Status: <code style="color: ${isEnabled ? '#34d399' : (isSandbox ? '#f59e0b' : '#8493ad')}">${p.status.toUpperCase()}</code></span>
             </div>
             <div style="display: flex; gap: 6px; flex-wrap: wrap; flex-shrink: 0;">
-              <button class="btn ${isEnabled ? 'btn-primary' : 'btn-secondary'}" style="padding: 4px 10px; font-size: 11px;" onclick="handleSwitchProvider('${p.slug}', 'enabled')">
+              <button class="btn ${isEnabled ? 'btn-primary' : 'btn-secondary'}" style="padding: 4px 10px; font-size: 11px;" onclick="handleSwitchProvider('${p.slug}', 'enabled', this)">
                 ${isEnabled ? 'Active ✓' : 'Set Active'}
               </button>
-              <button class="btn ${isSandbox ? 'btn-primary' : 'btn-secondary'}" style="padding: 4px 10px; font-size: 11px;" onclick="handleSwitchProvider('${p.slug}', 'sandbox')">
+              <button class="btn ${isSandbox ? 'btn-primary' : 'btn-secondary'}" style="padding: 4px 10px; font-size: 11px;" onclick="handleSwitchProvider('${p.slug}', 'sandbox', this)">
                 Sandbox
               </button>
             </div>
@@ -2323,9 +2363,9 @@
           <td style="font-size: 12px; color: var(--text-muted);">${m.source_name || 'Official Source'}</td>
           <td style="text-align: right;">
             <div style="display: inline-flex; gap: 6px; white-space: nowrap;">
-              <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px; border-color: rgba(56, 189, 248, 0.4); color: var(--accent);" onclick="handleAiAdjudicateMarket('${m.id}')">🤖 AI Verify</button>
-              <button class="btn btn-primary" style="padding: 4px 10px; font-size: 11px;" onclick="handleResolveMarket('${m.id}', 'yes')">Resolve YES</button>
-              <button class="btn btn-danger" style="padding: 4px 10px; font-size: 11px;" onclick="handleResolveMarket('${m.id}', 'no')">Resolve NO</button>
+              <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px; border-color: rgba(56, 189, 248, 0.4); color: var(--accent);" onclick="handleAiAdjudicateMarket('${m.id}', this)">🤖 AI Verify</button>
+              <button class="btn btn-primary" style="padding: 4px 10px; font-size: 11px;" onclick="handleResolveMarket('${m.id}', 'yes', this)">Resolve YES</button>
+              <button class="btn btn-danger" style="padding: 4px 10px; font-size: 11px;" onclick="handleResolveMarket('${m.id}', 'no', this)">Resolve NO</button>
             </div>
           </td>
         </tr>
@@ -2342,13 +2382,16 @@
       }
     }
 
-    async function handleSwitchProvider(slug, status) {
+    async function handleSwitchProvider(slug, status, btnEl) {
+      const restore = btnEl ? setButtonLoading(btnEl, 'Switching...') : () => {};
       try {
         await apiRequest('/a/providers/switch', 'POST', { slug, status });
         toast(`Provider '${slug}' updated to ${status}.`, 'success');
         loadAllAdminData();
       } catch (err) {
         toast(err.message, 'error');
+      } finally {
+        restore();
       }
     }
 
@@ -2365,6 +2408,8 @@
 
     async function handleCreateMarket(e) {
       e.preventDefault();
+      const btn = document.getElementById('btn-publish-contract') || e?.submitter;
+      const restore = btn ? setButtonLoading(btn, 'Publishing Contract...') : () => {};
       const title = document.getElementById('m-title').value.trim();
       const industry_id = parseInt(document.getElementById('m-industry').value, 10);
       const resolution_date = document.getElementById('m-date').value;
@@ -2385,6 +2430,8 @@
         loadAllAdminData();
       } catch (err) {
         toast(err.message, 'error');
+      } finally {
+        restore();
       }
     }
 
@@ -2392,11 +2439,7 @@
       const titleInput = document.getElementById('m-title');
       const indInput = document.getElementById('m-industry');
       const btn = document.getElementById('btn-ai-assist-market');
-      const origText = btn ? btn.innerHTML : '';
-      if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner"></span> Structuring with AI...';
-      }
+      const restore = setButtonLoading(btn, 'Structuring with AI...');
 
       try {
         const rawIdea = titleInput ? titleInput.value.trim() : '';
@@ -2424,10 +2467,7 @@
       } catch (err) {
         toast('AI structuring failed: ' + err.message, 'error');
       } finally {
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML = origText;
-        }
+        restore();
       }
     }
 
@@ -2440,11 +2480,7 @@
       const precInput = document.getElementById('sc-precedent');
 
       const btn = document.getElementById('btn-ai-assist-scenario');
-      const origText = btn ? btn.innerHTML : '';
-      if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner"></span> Architecting Scenario with AI...';
-      }
+      const restore = setButtonLoading(btn, 'Architecting Scenario with AI...');
 
       try {
         const rawIdea = (titleInput ? titleInput.value.trim() : '') || (bodyInput ? bodyInput.value.trim() : '');
@@ -2467,10 +2503,7 @@
       } catch (err) {
         toast('Scenario structuring failed: ' + err.message, 'error');
       } finally {
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML = origText;
-        }
+        restore();
       }
     }
 
@@ -2483,12 +2516,8 @@
       const company = document.getElementById('sc-company').value.trim();
       const precedent = document.getElementById('sc-precedent').value.trim();
 
-      const btn = document.getElementById('btn-submit-scenario');
-      const origText = btn ? btn.innerHTML : '';
-      if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner"></span> Publishing...';
-      }
+      const btn = document.getElementById('btn-submit-scenario') || e?.submitter;
+      const restore = setButtonLoading(btn, 'Publishing to Arena...');
 
       try {
         await apiRequest('/a/scenarios/create', 'POST', {
@@ -2509,10 +2538,7 @@
       } catch (err) {
         toast('Publishing failed: ' + err.message, 'error');
       } finally {
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML = origText;
-        }
+        restore();
       }
     }
 
@@ -2528,7 +2554,9 @@
       }
     }
 
-    async function handleRunPredictorCron() {
+    async function handleRunPredictorCron(btnEl) {
+      const btn = btnEl || document.getElementById('btn-run-predictor-cron');
+      const restore = btn ? setButtonLoading(btn, 'Sweeping Expirations...') : () => {};
       try {
         const res = await apiRequest('/cron/worker', 'GET');
         const d = res.data || {};
@@ -2538,23 +2566,29 @@
         loadAllAdminData();
       } catch (err) {
         toast('Sync failed: ' + err.message, 'error');
+      } finally {
+        restore();
       }
     }
 
-    async function handleResolveMarket(eventId, outcome) {
+    async function handleResolveMarket(eventId, outcome, btnEl) {
       if (!confirm(`Are you sure you want to resolve this contract as ${outcome.toUpperCase()}? This will execute double-entry ledger payouts immediately.`)) {
         return;
       }
+      const restore = btnEl ? setButtonLoading(btnEl, outcome === 'yes' ? 'Resolving YES...' : 'Resolving NO...') : () => {};
       try {
         const res = await apiRequest('/a/markets/resolve', 'POST', { event_id: eventId, outcome });
         toast(res.message || 'Market resolved and settled!', 'success');
         loadAllAdminData();
       } catch (err) {
         toast(err.message, 'error');
+      } finally {
+        restore();
       }
     }
 
-    async function handleAiAdjudicateMarket(eventId) {
+    async function handleAiAdjudicateMarket(eventId, btnEl) {
+      const restore = btnEl ? setButtonLoading(btnEl, 'Verifying...') : () => {};
       document.getElementById('ai-modal').style.display = 'flex';
       document.getElementById('ai-modal-loading').style.display = 'block';
       document.getElementById('ai-modal-content').style.display = 'none';
@@ -2579,12 +2613,19 @@
 
         const confirmBtn = document.getElementById('ai-modal-confirm-btn');
         confirmBtn.onclick = async () => {
-          closeAiModal();
-          await handleResolveMarket(eventId, isYes ? 'yes' : 'no');
+          const restoreConfirm = setButtonLoading(confirmBtn, 'Settling & Executing Payouts...');
+          try {
+            await handleResolveMarket(eventId, isYes ? 'yes' : 'no');
+            closeAiModal();
+          } finally {
+            restoreConfirm();
+          }
         };
       } catch (err) {
         toast('Failed to run AI Adjudication: ' + err.message, 'error');
         closeAiModal();
+      } finally {
+        restore();
       }
     }
 
@@ -2597,7 +2638,9 @@
     let currentGradingMode = 'ai';
     let currentPendingDeskItems = [];
 
-    async function loadBoardroomDeskData() {
+    async function loadBoardroomDeskData(btnEl) {
+      const btn = btnEl || document.getElementById('btn-refresh-boardroom-desk');
+      const restore = btn ? setButtonLoading(btn, 'Refreshing...') : () => {};
       try {
         const res = await apiRequest('/a/boardroom/grading-desk');
         const data = res?.data || {};
@@ -2610,6 +2653,8 @@
         renderBoardroomCorrectionsTable(data.recent_corrections);
       } catch (err) {
         console.error('Failed to load Boardroom desk data:', err);
+      } finally {
+        restore();
       }
     }
 
@@ -2749,6 +2794,8 @@
     }
 
     async function handleToggleGradingMode() {
+      const btn = document.getElementById('btn-toggle-grading-mode');
+      const restore = setButtonLoading(btn, 'Switching Mode...');
       const newMode = currentGradingMode === 'ai' ? 'admin_review' : 'ai';
       try {
         await apiRequest('/a/boardroom/grading-mode', 'POST', { mode: newMode });
@@ -2758,6 +2805,8 @@
         loadExpertScenarioDeskData();
       } catch (err) {
         toast('Failed to change grading mode: ' + err.message, 'error');
+      } finally {
+        restore();
       }
     }
 
@@ -2828,7 +2877,8 @@
       document.getElementById('adj-calc-total').innerText = total;
     }
 
-    async function submitAdjudication(action) {
+    async function submitAdjudication(action, btnEl) {
+      const restore = btnEl ? setButtonLoading(btnEl, 'Adjudicating & Settling...') : () => {};
       const runId = document.getElementById('adj-run-id').value;
       const challengeId = document.getElementById('adj-challenge-id').value;
       const submissionId = document.getElementById('adj-submission-id').value;
@@ -2862,6 +2912,8 @@
         loadExpertScenarioDeskData();
       } catch (err) {
         toast('Adjudication failed: ' + err.message, 'error');
+      } finally {
+        restore();
       }
     }
   
@@ -2879,7 +2931,9 @@
       loadFeedbackDeskData();
     }
 
-    async function loadFeedbackDeskData() {
+    async function loadFeedbackDeskData(btnEl) {
+      const btn = btnEl || document.getElementById('btn-refresh-feedback-desk');
+      const restore = btn ? setButtonLoading(btn, 'Refreshing Feedback...') : () => {};
       const catEl = document.getElementById('feedback-filter-category');
       const cat = catEl ? catEl.value : '';
       const tbody = document.getElementById('feedback-table-body');
@@ -2916,6 +2970,8 @@
         renderFeedbackTable(currentFeedbackItems);
       } catch (err) {
         if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #f87171; padding: 24px;">Failed to load feedback: ${err.message}</td></tr>`;
+      } finally {
+        restore();
       }
     }
 
@@ -2964,12 +3020,12 @@
             <td>${statusBadge}</td>
             <td style="text-align: right; white-space: nowrap;">
               ${item.status === 'new' ? `
-                <button class="btn btn-secondary" style="font-size: 10.5px; padding: 3px 8px;" onclick="handleUpdateFeedbackStatus('${item.id}', 'reviewed')">Reviewed ✓</button>
+                <button class="btn btn-secondary" style="font-size: 10.5px; padding: 3px 8px;" onclick="handleUpdateFeedbackStatus('${item.id}', 'reviewed', this)">Reviewed ✓</button>
               ` : ''}
               ${item.status !== 'resolved' ? `
-                <button class="btn btn-primary" style="font-size: 10.5px; padding: 3px 8px;" onclick="handleUpdateFeedbackStatus('${item.id}', 'resolved')">Resolve ⚡</button>
+                <button class="btn btn-primary" style="font-size: 10.5px; padding: 3px 8px;" onclick="handleUpdateFeedbackStatus('${item.id}', 'resolved', this)">Resolve ⚡</button>
               ` : `
-                <button class="btn btn-secondary" style="font-size: 10.5px; padding: 3px 8px;" onclick="handleUpdateFeedbackStatus('${item.id}', 'archived')">Archive</button>
+                <button class="btn btn-secondary" style="font-size: 10.5px; padding: 3px 8px;" onclick="handleUpdateFeedbackStatus('${item.id}', 'archived', this)">Archive</button>
               `}
             </td>
           </tr>
@@ -2977,8 +3033,9 @@
       }).join('');
     }
 
-    async function handleUpdateFeedbackStatus(feedbackId, newStatus) {
+    async function handleUpdateFeedbackStatus(feedbackId, newStatus, btnEl) {
       const note = (newStatus === 'resolved') ? prompt('Optional resolution note for records:', '') : null;
+      const restore = btnEl ? setButtonLoading(btnEl, 'Updating...') : () => {};
       try {
         await apiRequest(`/a/feedback/${feedbackId}`, 'POST', {
           status: newStatus,
@@ -2988,6 +3045,8 @@
         loadFeedbackDeskData();
       } catch (err) {
         toast('Failed to update feedback: ' + err.message, 'error');
+      } finally {
+        restore();
       }
     }
 
@@ -2996,7 +3055,9 @@
     // ========================================================
     let currentExpertSubmissions = [];
 
-    async function loadExpertScenarioDeskData() {
+    async function loadExpertScenarioDeskData(btnEl) {
+      const btn = btnEl || document.getElementById('btn-refresh-expert-desk');
+      const restore = btn ? setButtonLoading(btn, 'Refreshing Submissions...') : () => {};
       const tbody = document.getElementById('expert-scenarios-table');
       if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;"><span class="spinner"></span> Loading expert submissions...</td></tr>';
 
@@ -3027,6 +3088,8 @@
         renderExpertScenariosTable(currentExpertSubmissions);
       } catch (err) {
         if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #f87171; padding: 24px;">Failed to load expert submissions: ${err.message}</td></tr>`;
+      } finally {
+        restore();
       }
     }
 
@@ -3138,7 +3201,7 @@
       const notes = document.getElementById('exp-modal-admin-notes').value.trim();
 
       const btn = document.getElementById('btn-approve-expert-scenario');
-      if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Publishing...'; }
+      const restore = btn ? setButtonLoading(btn, 'Publishing to Arena...') : () => {};
 
       try {
         const res = await apiRequest(`/a/expert/scenarios/${id}/approve`, 'POST', {
@@ -3151,14 +3214,18 @@
         loadExpertScenarioDeskData();
       } catch (err) {
         toast('Approval failed: ' + err.message, 'error');
-        if (btn) { btn.disabled = false; btn.innerText = 'Approve & Publish Live to Boardroom 🚀'; }
+      } finally {
+        restore();
       }
     }
 
-    async function handleRejectExpertScenario() {
+    async function handleRejectExpertScenario(btnEl) {
       const id = document.getElementById('exp-modal-id').value;
       const notes = document.getElementById('exp-modal-admin-notes').value.trim() || prompt('Reason for rejection:', 'Does not meet institutional quantitative verification threshold.');
       if (!notes) return;
+
+      const btn = btnEl || document.getElementById('btn-reject-expert-scenario');
+      const restore = btn ? setButtonLoading(btn, 'Rejecting...') : () => {};
 
       try {
         await apiRequest(`/a/expert/scenarios/${id}/reject`, 'POST', {
@@ -3169,6 +3236,8 @@
         loadExpertScenarioDeskData();
       } catch (err) {
         toast('Rejection failed: ' + err.message, 'error');
+      } finally {
+        restore();
       }
     }
 

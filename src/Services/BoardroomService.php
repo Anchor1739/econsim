@@ -695,7 +695,7 @@ class BoardroomService
             throw new RuntimeException("Match has not started yet. The confidential dilemma unseals at {$startTimeFormatted}.");
         }
 
-        if ($c['state'] !== 'live') {
+        if (!in_array($c['state'], ['live', 'evaluating'], true)) {
             throw new RuntimeException("Challenge is not currently accepting submissions.");
         }
 
@@ -814,7 +814,163 @@ class BoardroomService
                 ]);
             }
 
-            // Queue evaluation run for the Python NVIDIA NIM agent
+            // Check how many participants exist in this challenge
+            $totalParticipants = !empty($c['opponent_id']) ? 2 : 1;
+
+            // Count how many unique submissions have been recorded for this challenge
+            $subCountStmt = $pdo->prepare("SELECT COUNT(DISTINCT user_id) FROM boardroom_submissions WHERE challenge_id = ?");
+            $subCountStmt->execute([$challengeId]);
+            $subsRecorded = (int)$subCountStmt->fetchColumn();
+
+            $runId = null;
+            $allParticipantsReady = ($totalParticipants === 1 || $subsRecorded >= $totalParticipants);
+
+            if ($allParticipantsReady) {
+                // Both participants have submitted (or solo benchmark match): transition challenge to evaluating
+                $upC = $pdo->prepare("UPDATE boardroom_challenges SET state = 'evaluating' WHERE id = ?");
+                $upC->execute([$challengeId]);
+
+                // Create or reuse evaluation run
+                $existingRun = $pdo->query("SELECT id FROM evaluation_runs WHERE challenge_id = '{$challengeId}' ORDER BY created_at DESC LIMIT 1")->fetchColumn();
+                if ($existingRun) {
+                    $runId = $existingRun;
+                } else {
+                    $runId = Security::uuid();
+                    $rubricSnapshot = json_encode([
+                        'financial_mechanics' => 40,
+                        'risk_management' => 30,
+                        'historical_alignment' => 20,
+                        'communication' => 10,
+                    ]);
+
+                    $activeModel = FeatureService::getActiveAiModel();
+                    $insRun = $pdo->prepare(
+                        "INSERT INTO evaluation_runs (id, challenge_id, model_id, rubric_version, rubric_snapshot, evaluation_state, created_at)
+                         VALUES (:id, :cid, :model, 'v1_40_30_20_10', :rubric, 'queued', NOW(3))"
+                    );
+                    $insRun->execute([
+                        ':id' => $runId,
+                        ':cid' => $challengeId,
+                        ':model' => $activeModel,
+                        ':rubric' => $rubricSnapshot,
+                    ]);
+                }
+            } else {
+                // First participant in a 1v1 match submitted!
+                // Keep challenge live so opponent can submit before response window deadline.
+                // Do NOT queue an evaluation run prematurely.
+            }
+
+            // Award XP
+            $xpId = Security::uuid();
+            $xp = $pdo->prepare(
+                "INSERT INTO xp_events (id, user_id, xp, reason, source_key, created_at)
+                 VALUES (:id, :uid, 100, 'Boardroom strategy memo submitted', :skey, NOW(3))"
+            );
+            $xp->execute([
+                ':id' => $xpId,
+                ':uid' => $userId,
+                ':skey' => "xp_boardroom_{$challengeId}_{$userId}",
+            ]);
+
+            $pdo->commit();
+
+            // If ready, auto-evaluate immediately for zero-delay user experience
+            if ($allParticipantsReady && $runId) {
+                try {
+                    self::evaluateSingleRun($runId);
+                } catch (\Throwable $e) {}
+            }
+
+            return [
+                'submission_id' => $subId,
+                'run_id' => $runId,
+                'status' => $allParticipantsReady ? 'queued' : 'waiting_for_opponent',
+                'message' => $allParticipantsReady
+                    ? 'Executive memo submitted successfully. Queued for strategic evaluation.'
+                    : 'Strategy memo received and locked. Awaiting opponent submission or response window deadline.',
+                'xp_awarded' => 100,
+            ];
+        } catch (\Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e;
+        }
+    }
+
+    public static function getReport(string $userId, string $challengeId): array
+    {
+        $pdo = Database::getConnection();
+
+        $cStmt = $pdo->prepare("
+            SELECT c.*, i.name AS industry_name, scn.title AS scenario_title
+            FROM boardroom_challenges c
+            JOIN industries i ON c.industry_id = i.id
+            JOIN boardroom_scenarios scn ON c.scenario_id = scn.id
+            WHERE c.id = ?
+        ");
+        $cStmt->execute([$challengeId]);
+        $chg = $cStmt->fetch();
+
+        if (!$chg) {
+            return [
+                'status' => 'not_found',
+                'message' => 'Challenge not found.',
+            ];
+        }
+
+        // Fetch user submission
+        $userSubStmt = $pdo->prepare("SELECT * FROM boardroom_submissions WHERE challenge_id = ? AND user_id = ?");
+        $userSubStmt->execute([$challengeId, $userId]);
+        $userSub = $userSubStmt->fetch();
+
+        if (!$userSub) {
+            return [
+                'status' => 'not_submitted',
+                'message' => 'No strategy memo submitted for this challenge yet.',
+            ];
+        }
+
+        $now = time();
+        $deadlineTs = !empty($chg['deadline_at']) ? strtotime((string)$chg['deadline_at']) : 0;
+        $secondsRemaining = max(0, $deadlineTs - $now);
+        $hasOpponent = !empty($chg['opponent_id']);
+
+        // Check if 2-player match and opponent hasn't submitted yet
+        if ($hasOpponent) {
+            $subCountStmt = $pdo->prepare("SELECT COUNT(DISTINCT user_id) FROM boardroom_submissions WHERE challenge_id = ?");
+            $subCountStmt->execute([$challengeId]);
+            $subsRecorded = (int)$subCountStmt->fetchColumn();
+
+            // If opponent hasn't submitted and deadline has not expired:
+            if ($subsRecorded < 2 && $secondsRemaining > 0) {
+                return [
+                    'status' => 'waiting_for_opponent',
+                    'challenge_id' => $challengeId,
+                    'scenario_title' => $chg['scenario_title'] ?? 'Strategic Memorandum',
+                    'industry' => $chg['industry_name'] ?? 'Economics',
+                    'seconds_remaining' => $secondsRemaining,
+                    'deadline_at' => $chg['deadline_at'],
+                    'deadline_at_iso' => $deadlineTs > 0 ? gmdate('Y-m-d\TH:i:s\Z', $deadlineTs) : null,
+                    'message' => 'Your memorandum is securely submitted. Awaiting opponent submission or response window deadline.',
+                ];
+            }
+
+            // If deadline expired while still live:
+            if ($subsRecorded < 2 && $secondsRemaining <= 0 && $chg['state'] === 'live') {
+                $upC = $pdo->prepare("UPDATE boardroom_challenges SET state = 'evaluating' WHERE id = ?");
+                $upC->execute([$challengeId]);
+                $chg['state'] = 'evaluating';
+            }
+        }
+
+        // Fetch or create evaluation run
+        $runStmt = $pdo->prepare("SELECT * FROM evaluation_runs WHERE challenge_id = ? ORDER BY created_at DESC LIMIT 1");
+        $runStmt->execute([$challengeId]);
+        $run = $runStmt->fetch();
+
+        if (!$run) {
             $runId = Security::uuid();
             $rubricSnapshot = json_encode([
                 'financial_mechanics' => 40,
@@ -834,137 +990,50 @@ class BoardroomService
                 ':model' => $activeModel,
                 ':rubric' => $rubricSnapshot,
             ]);
-
-            // Check how many participants exist in this challenge
-            $totalParticipants = !empty($c['opponent_id']) ? 2 : 1;
-
-            // Count how many unique submissions have been recorded for this challenge
-            $subCountStmt = $pdo->prepare("SELECT COUNT(DISTINCT user_id) FROM boardroom_submissions WHERE challenge_id = ?");
-            $subCountStmt->execute([$challengeId]);
-            $subsRecorded = (int)$subCountStmt->fetchColumn();
-
-            // If solo match against AI benchmark, or if BOTH human participants have submitted:
-            if ($totalParticipants === 1 || $subsRecorded >= $totalParticipants) {
-                $upC = $pdo->prepare("UPDATE boardroom_challenges SET state = 'evaluating' WHERE id = ?");
-                $upC->execute([$challengeId]);
-            } else {
-                // Keep challenge live so opponent can submit before deadline expires!
-            }
-
-            // Award XP
-            $xpId = Security::uuid();
-            $xp = $pdo->prepare(
-                "INSERT INTO xp_events (id, user_id, xp, reason, source_key, created_at)
-                 VALUES (:id, :uid, 100, 'Boardroom strategy memo submitted', :skey, NOW(3))"
-            );
-            $xp->execute([
-                ':id' => $xpId,
-                ':uid' => $userId,
-                ':skey' => "xp_boardroom_{$challengeId}_{$userId}",
-            ]);
-
-            $pdo->commit();
-
-            return [
-                'submission_id' => $subId,
-                'run_id' => $runId,
-                'status' => 'queued',
-                'message' => 'Executive memo submitted successfully. Queued for executive evaluation.',
-                'xp_awarded' => 100,
-            ];
-        } catch (\Throwable $e) {
-            if ($pdo->inTransaction()) {
-                $pdo->rollBack();
-            }
-            throw $e;
-        }
-    }
-
-    public static function getReport(string $userId, string $challengeId): array
-    {
-        $pdo = Database::getConnection();
-
-        $stmt = $pdo->prepare(
-            "SELECT r.id AS run_id, r.evaluation_state, r.completed_at,
-                    s.id AS submission_id, s.user_id, s.answer_text,
-                    sc.financial_mechanics, sc.risk_management, sc.historical_alignment, sc.communication,
-                    sc.explanation, sc.evidence,
-                    c.commitment_minor, i.name AS industry_name, scn.title AS scenario_title
-             FROM evaluation_runs r
-             JOIN boardroom_challenges c ON r.challenge_id = c.id
-             JOIN industries i ON c.industry_id = i.id
-             JOIN boardroom_scenarios scn ON c.scenario_id = scn.id
-             JOIN boardroom_submissions s ON c.id = s.challenge_id AND s.user_id = :uid
-             LEFT JOIN evaluation_scores sc ON r.id = sc.run_id AND s.id = sc.submission_id
-             WHERE c.id = :cid
-             ORDER BY r.created_at DESC LIMIT 1"
-        );
-        $stmt->execute([':uid' => $userId, ':cid' => $challengeId]);
-        $row = $stmt->fetch();
-
-        if (!$row) {
-            return [
-                'status' => 'pending',
-                'message' => 'Evaluation in progress. The Strategic Adjudication Council is assessing your memo.',
-            ];
+            $runStmt->execute([$challengeId]);
+            $run = $runStmt->fetch();
         }
 
-        // Check if this is a 2-player match and the opponent has not yet submitted
-        $cStmt = $pdo->prepare("SELECT host_id, opponent_id, deadline_at, state, duration_minutes FROM boardroom_challenges WHERE id = ?");
-        $cStmt->execute([$challengeId]);
-        $chg = $cStmt->fetch();
-
-        $hasOpponent = !empty($chg['opponent_id']);
-        if ($hasOpponent && $chg['state'] === 'live') {
-            $subCount = (int)$pdo->query("SELECT COUNT(DISTINCT user_id) FROM boardroom_submissions WHERE challenge_id = '{$challengeId}'")->fetchColumn();
-            $now = time();
-            $deadlineTs = !empty($chg['deadline_at']) ? strtotime((string)$chg['deadline_at']) : 0;
-            $secondsRemaining = max(0, $deadlineTs - $now);
-
-            // If opponent hasn't submitted and deadline hasn't expired
-            if ($subCount < 2 && $secondsRemaining > 0) {
-                return [
-                    'status' => 'waiting_for_opponent',
-                    'challenge_id' => $challengeId,
-                    'scenario_title' => $row['scenario_title'] ?? 'Strategic Memorandum',
-                    'industry' => $row['industry_name'] ?? 'Economics',
-                    'seconds_remaining' => $secondsRemaining,
-                    'deadline_at' => $chg['deadline_at'],
-                    'deadline_at_iso' => $deadlineTs > 0 ? gmdate('Y-m-d\TH:i:s\Z', $deadlineTs) : null,
-                    'message' => 'Your memorandum is securely submitted. Awaiting opponent submission or response window deadline.',
-                ];
-            }
-        }
-
-        // Auto-adjudicate instantly on demand if still queued (zero-delay user experience)
-        if ($row['evaluation_state'] === 'queued') {
+        // Auto-adjudicate instantly if queued
+        if ($run && $run['evaluation_state'] === 'queued') {
             try {
-                if (self::evaluateSingleRun($row['run_id'])) {
-                    $stmt->execute([':uid' => $userId, ':cid' => $challengeId]);
-                    $row = $stmt->fetch() ?: $row;
+                if (self::evaluateSingleRun($run['id'])) {
+                    $runStmt->execute([$challengeId]);
+                    $run = $runStmt->fetch() ?: $run;
                 }
             } catch (\Throwable $e) {}
         }
 
-        $isComplete = $row['evaluation_state'] === 'complete' && $row['financial_mechanics'] !== null;
+        // Fetch score for this user's submission
+        $scoreStmt = $pdo->prepare("
+            SELECT sc.*, s.answer_text
+            FROM evaluation_scores sc
+            JOIN boardroom_submissions s ON sc.submission_id = s.id
+            WHERE sc.run_id = ? AND s.user_id = ?
+            LIMIT 1
+        ");
+        $scoreStmt->execute([$run['id'] ?? '', $userId]);
+        $score = $scoreStmt->fetch();
+
+        $isComplete = $run && ($run['evaluation_state'] === 'complete' || $chg['state'] === 'settled') && $score && $score['financial_mechanics'] !== null;
         $totalScore = $isComplete
-            ? (float)$row['financial_mechanics'] + (float)$row['risk_management'] + (float)$row['historical_alignment'] + (float)$row['communication']
+            ? (float)$score['financial_mechanics'] + (float)$score['risk_management'] + (float)$score['historical_alignment'] + (float)$score['communication']
             : null;
 
         return [
-            'status' => $row['evaluation_state'],
-            'scenario_title' => $row['scenario_title'],
-            'industry' => $row['industry_name'],
-            'completed_at' => $row['completed_at'],
+            'status' => $run['evaluation_state'] ?? 'pending',
+            'scenario_title' => $chg['scenario_title'],
+            'industry' => $chg['industry_name'],
+            'completed_at' => $run['completed_at'] ?? null,
             'scores' => $isComplete ? [
-                'financial_mechanics' => (float)$row['financial_mechanics'],
-                'risk_management' => (float)$row['risk_management'],
-                'historical_alignment' => (float)$row['historical_alignment'],
-                'communication' => (float)$row['communication'],
+                'financial_mechanics' => (float)$score['financial_mechanics'],
+                'risk_management' => (float)$score['risk_management'],
+                'historical_alignment' => (float)$score['historical_alignment'],
+                'communication' => (float)$score['communication'],
                 'total' => round($totalScore, 1),
             ] : null,
-            'explanation' => $row['explanation'],
-            'evidence' => !empty($row['evidence']) ? json_decode((string)$row['evidence'], true) : null,
+            'explanation' => $score['explanation'] ?? null,
+            'evidence' => !empty($score['evidence']) ? json_decode((string)$score['evidence'], true) : null,
         ];
     }
 
@@ -972,13 +1041,9 @@ class BoardroomService
     {
         $pdo = Database::getConnection();
         $query = "
-            SELECT r.id AS run_id, r.challenge_id,
-                   s.id AS submission_id, s.user_id, s.answer_text,
-                   scn.title AS scenario_title, scn.confidential_body
+            SELECT DISTINCT r.id AS run_id, r.challenge_id
             FROM evaluation_runs r
             JOIN boardroom_challenges c ON r.challenge_id = c.id
-            JOIN boardroom_submissions s ON c.id = s.challenge_id
-            JOIN boardroom_scenarios scn ON c.scenario_id = scn.id
             WHERE r.evaluation_state = 'queued'
             ORDER BY r.created_at ASC
             LIMIT {$limit}
@@ -999,29 +1064,61 @@ class BoardroomService
     public static function evaluateSingleRun(string $runId): bool
     {
         $pdo = Database::getConnection();
-        $stmt = $pdo->prepare("
-            SELECT r.id AS run_id, r.challenge_id, r.model_id,
-                   s.id AS submission_id, s.user_id, s.answer_text,
+        $runStmt = $pdo->prepare("
+            SELECT r.id AS run_id, r.challenge_id, r.model_id, r.evaluation_state,
+                   c.host_id, c.opponent_id, c.state AS challenge_state, c.deadline_at,
                    scn.title AS scenario_title, scn.confidential_body
             FROM evaluation_runs r
             JOIN boardroom_challenges c ON r.challenge_id = c.id
-            JOIN boardroom_submissions s ON c.id = s.challenge_id
             JOIN boardroom_scenarios scn ON c.scenario_id = scn.id
             WHERE r.id = ? AND r.evaluation_state = 'queued'
             LIMIT 1
         ");
-        $stmt->execute([$runId]);
-        $row = $stmt->fetch();
-        if (!$row) {
+        $runStmt->execute([$runId]);
+        $run = $runStmt->fetch();
+        if (!$run) {
             return false;
         }
 
-        $scores = self::evaluateWithNvidiaNim(
-            $row['scenario_title'],
-            $row['confidential_body'],
-            $row['answer_text']
-        );
+        $challengeId = $run['challenge_id'];
+        $hasOpponent = !empty($run['opponent_id']);
+        $now = time();
+        $deadlineTs = !empty($run['deadline_at']) ? strtotime((string)$run['deadline_at']) : 0;
 
+        // Fetch all submissions for this challenge
+        $subStmt = $pdo->prepare("SELECT id, user_id, answer_text FROM boardroom_submissions WHERE challenge_id = ?");
+        $subStmt->execute([$challengeId]);
+        $submissions = $subStmt->fetchAll();
+
+        // If it's a 2-player match and only 1 submission exists and deadline has not expired yet:
+        // DO NOT evaluate yet! Opponent is still drafting!
+        if ($hasOpponent && count($submissions) < 2 && ($deadlineTs === 0 || $now < $deadlineTs)) {
+            return false;
+        }
+
+        // If it's a 2-player match and deadline has expired, but only 1 submitted:
+        // Auto-create a forfeit submission for the user who did not submit!
+        if ($hasOpponent && count($submissions) < 2 && $deadlineTs > 0 && $now >= $deadlineTs) {
+            $submittedUserIds = array_column($submissions, 'user_id');
+            $missingUserId = in_array($run['host_id'], $submittedUserIds, true) ? $run['opponent_id'] : $run['host_id'];
+            if ($missingUserId) {
+                $forfeitSubId = Security::uuid();
+                $forfeitAnswer = "Response window expired. Participant failed to submit executive memorandum within designated deadline.";
+                try {
+                    $insForfeit = $pdo->prepare("
+                        INSERT INTO boardroom_submissions (id, challenge_id, user_id, answer_text, submitted_at, input_method)
+                        VALUES (?, ?, ?, ?, NOW(3), 'forfeit_timeout')
+                        ON DUPLICATE KEY UPDATE answer_text = VALUES(answer_text)
+                    ");
+                    $insForfeit->execute([$forfeitSubId, $challengeId, $missingUserId, $forfeitAnswer]);
+                    // Re-fetch submissions
+                    $subStmt->execute([$challengeId]);
+                    $submissions = $subStmt->fetchAll();
+                } catch (\Throwable $e) {}
+            }
+        }
+
+        // Evaluate EACH submission in the challenge
         $insScore = $pdo->prepare("
             INSERT INTO evaluation_scores 
                 (run_id, submission_id, financial_mechanics, risk_management, historical_alignment, communication, explanation, evidence)
@@ -1035,18 +1132,55 @@ class BoardroomService
                 explanation = VALUES(explanation),
                 evidence = VALUES(evidence)
         ");
-        $insScore->execute([
-            ':rid' => $row['run_id'],
-            ':sid' => $row['submission_id'],
-            ':fm' => $scores['financial_mechanics'],
-            ':rm' => $scores['risk_management'],
-            ':ha' => $scores['historical_alignment'],
-            ':cm' => $scores['communication'],
-            ':exp' => $scores['explanation'],
-            ':ev' => json_encode($scores['evidence']),
-        ]);
 
-        // Check if admin review mode is enabled
+        $modelUsed = 'NVIDIA NIM';
+
+        foreach ($submissions as $sub) {
+            // Check if score already exists for this submission in this run
+            $chkScore = $pdo->prepare("SELECT 1 FROM evaluation_scores WHERE run_id = ? AND submission_id = ?");
+            $chkScore->execute([$run['run_id'], $sub['id']]);
+            if ($chkScore->fetchColumn()) {
+                continue;
+            }
+
+            // If forfeit
+            if (strpos($sub['answer_text'], 'Response window expired') !== false) {
+                $insScore->execute([
+                    ':rid' => $run['run_id'],
+                    ':sid' => $sub['id'],
+                    ':fm' => 0.0,
+                    ':rm' => 0.0,
+                    ':ha' => 0.0,
+                    ':cm' => 0.0,
+                    ':exp' => 'Forfeit: Memorandum was not submitted before the response window deadline.',
+                    ':ev' => json_encode(['Did not submit within designated deadline', 'Zero points awarded']),
+                ]);
+                continue;
+            }
+
+            $scores = self::evaluateWithNvidiaNim(
+                $run['scenario_title'],
+                $run['confidential_body'],
+                $sub['answer_text']
+            );
+
+            if (!empty($scores['model_used'])) {
+                $modelUsed = $scores['model_used'];
+            }
+
+            $insScore->execute([
+                ':rid' => $run['run_id'],
+                ':sid' => $sub['id'],
+                ':fm' => $scores['financial_mechanics'],
+                ':rm' => $scores['risk_management'],
+                ':ha' => $scores['historical_alignment'],
+                ':cm' => $scores['communication'],
+                ':exp' => $scores['explanation'],
+                ':ev' => json_encode($scores['evidence']),
+            ]);
+        }
+
+        // Check grading mode
         $gradingMode = 'ai';
         try {
             $modeSetting = $pdo->query("SELECT value FROM platform_settings WHERE `key` = 'boardroom_grading_mode' LIMIT 1")->fetchColumn();
@@ -1054,21 +1188,20 @@ class BoardroomService
         } catch (\Throwable $e) {}
 
         if ($gradingMode === 'admin_review') {
-            // Hold run in pending_review so admin can inspect, correct, and train AI
             $upRun = $pdo->prepare("UPDATE evaluation_runs SET evaluation_state = 'pending_review', model_id = :model WHERE id = :rid");
-            $upRun->execute([':model' => $scores['model_used'] ?? 'NVIDIA NIM', ':rid' => $row['run_id']]);
+            $upRun->execute([':model' => $modelUsed, ':rid' => $run['run_id']]);
 
             $upC = $pdo->prepare("UPDATE boardroom_challenges SET state = 'evaluating' WHERE id = ?");
-            $upC->execute([$row['challenge_id']]);
+            $upC->execute([$challengeId]);
             return true;
         }
 
         // Autonomous AI mode: complete immediately and settle challenge
         $upRun = $pdo->prepare("UPDATE evaluation_runs SET evaluation_state = 'complete', model_id = :model, completed_at = NOW(3) WHERE id = :rid");
-        $upRun->execute([':model' => $scores['model_used'] ?? 'NVIDIA NIM', ':rid' => $row['run_id']]);
+        $upRun->execute([':model' => $modelUsed, ':rid' => $run['run_id']]);
 
-        // Settle challenge and distribute escrowed pot
-        self::settleChallengeWithScores($row['challenge_id']);
+        // Settle challenge with all evaluated scores!
+        self::settleChallengeWithScores($challengeId);
 
         return true;
     }

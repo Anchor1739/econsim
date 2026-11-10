@@ -4894,7 +4894,7 @@ async function loadLiveChallengeData(challengeId) {
               <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; color: var(--muted); margin-top: 6px;">
                 <span>Min: 40 chars</span>
                 <div style="display: flex; align-items: center; gap: 8px;">
-                  <button type="button" id="btn-format-memo" class="btn btn-secondary" style="font-size: 10.5px; padding: 2px 8px; display: none;" onclick="autoFormatSpokenMemo()">✨ Format Spoken Memo</button>
+                  <button type="button" id="btn-format-memo" class="btn btn-secondary" style="font-size: 10.5px; padding: 2px 8px; display: none;" onclick="autoFormatSpokenMemo(this)">✨ Format Spoken Memo</button>
                   <span id="char-counter">0 words · 0 chars</span>
                 </div>
               </div>
@@ -5181,13 +5181,36 @@ function toggleBoardroomVoiceDictation() {
 }
 window.toggleBoardroomVoiceDictation = toggleBoardroomVoiceDictation;
 
-function autoFormatSpokenMemo() {
+async function autoFormatSpokenMemo(btnEl) {
+  const btn = btnEl || document.getElementById('btn-format-memo');
   const tx = document.getElementById('memo-answer');
-  if (!tx || !tx.value.trim()) return;
-  if (window.VoiceEngine) {
-    tx.value = window.VoiceEngine.formatAsExecutiveMemo(tx.value);
-    tx.dispatchEvent(new Event('input', { bubbles: true }));
-    api.toast('Memo structured into executive numbered points.', 'success');
+  if (!tx || !tx.value.trim()) {
+    api.toast('Please dictate or type strategy notes first before formatting.', 'info');
+    return;
+  }
+
+  const origHtml = btn ? btn.innerHTML : '✨ Format Spoken Memo';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner" style="width: 10px; height: 10px; margin-right: 4px;"></span> Formatting...';
+  }
+
+  // Provide smooth spinner feedback
+  await new Promise(r => setTimeout(r, 400));
+
+  try {
+    if (window.VoiceEngine) {
+      tx.value = window.VoiceEngine.formatAsExecutiveMemo(tx.value);
+      tx.dispatchEvent(new Event('input', { bubbles: true }));
+      api.toast('Memo structured into executive numbered points.', 'success');
+    }
+  } catch (err) {
+    api.toast('Formatting failed: ' + err.message, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = origHtml;
+    }
   }
 }
 window.autoFormatSpokenMemo = autoFormatSpokenMemo;
