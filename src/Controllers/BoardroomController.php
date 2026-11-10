@@ -42,9 +42,9 @@ class BoardroomController
                 $user['id'],
                 $industryId,
                 $stake,
+                $scheduledAt,
                 $duration,
-                $mode,
-                $scheduledAt
+                $mode
             );
             Response::success($res, 'Boardroom challenge published to lobby.', 201);
         } catch (Throwable $e) {

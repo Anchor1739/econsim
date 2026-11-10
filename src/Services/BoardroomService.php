@@ -79,10 +79,16 @@ class BoardroomService
         string $userId,
         int $industryId,
         int $commitmentAmount,
-        string $scheduledAt,
+        ?string $scheduledAt = null,
         int $durationMinutes = 15,
         string $mode = 'demo'
     ): array {
+        // Defensive parameter resilience: handle legacy inverted order gracefully
+        if (is_numeric($scheduledAt) && !empty($scheduledAt) && is_numeric($durationMinutes) === false) {
+            $tmp = $durationMinutes;
+            $durationMinutes = (int)$scheduledAt;
+            $scheduledAt = (string)$tmp;
+        }
         $normalizedMode = (strtolower($mode) === LedgerService::MODE_REAL) ? LedgerService::MODE_REAL : LedgerService::MODE_DEMO;
 
         if ($normalizedMode === LedgerService::MODE_REAL) {
