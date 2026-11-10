@@ -2269,13 +2269,14 @@
       if (!container || !feats) return;
 
       const meta = {
+        scenario_lab: { name: 'Scenario Lab (User Workspace)', desc: 'Toggle visibility of Scenario Lab in user navigation and dashboard' },
         real_mode: { name: 'Real Money Platform Mode', desc: 'Allows switching to real accounts across platform' },
         real_funding: { name: 'Live Gateway Deposits', desc: 'Permits processing real card/bank deposits via active gateway' },
         real_payouts: { name: 'Real Ledger Settlements', desc: 'Allows automated real-money payouts' },
         real_boardroom: { name: 'Real Boardroom Stakes', desc: 'Permits real-money executive challenge matches' }
       };
 
-      const displayCodes = ['real_mode', 'real_funding', 'real_payouts', 'real_boardroom'];
+      const displayCodes = ['scenario_lab', 'real_mode', 'real_funding', 'real_payouts', 'real_boardroom'];
       const featMap = {};
       feats.forEach(f => {
         featMap[f.code] = Boolean(parseInt(f.enabled, 10));

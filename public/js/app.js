@@ -555,6 +555,15 @@ async function initApp() {
 }
 
 function navigate(page, params = {}) {
+  // Guard Scenario Lab when disabled by admin
+  if (page === 'lab' && !state.features?.scenario_lab) {
+    api.toast('Scenario Lab is temporarily offline for maintenance.', 'info');
+    if (state.page !== 'dashboard') {
+      navigate('dashboard');
+    }
+    return;
+  }
+
   // ── Clean up boardroom copy/contextmenu/screenshot guards on navigation ──────
   if (window._boardroomGuards && window._boardroomGuards.length) {
     window._boardroomGuards.forEach(g => {
@@ -1993,6 +2002,7 @@ function renderNotifDropdownContent() {
 // App Shell Layout
 // -------------------------------------------------------------
 function renderAppShell(innerHtml) {
+  const isLabEnabled = Boolean(state.features?.scenario_lab);
   const navWorkspace = [
     { 
       id: 'dashboard', 
@@ -2019,11 +2029,11 @@ function renderAppShell(innerHtml) {
       label: 'AI Mentor', 
       icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 5.6L20 10l-4.4 4 1.4 6-5-3.2-5 3.2 1.4-6L4 10l5.6-2.4L12 2z"/></svg>` 
     },
-    { 
+    ...(isLabEnabled ? [{ 
       id: 'lab', 
       label: 'Scenario Lab', 
       icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.31L4.2 19.37A2 2 0 0 0 5.92 22h12.16a2 2 0 0 0 1.72-2.63L14 9.31V2"/></svg>` 
-    },
+    }] : []),
     { 
       id: 'leaderboard', 
       label: 'Leaderboard', 
@@ -2297,10 +2307,12 @@ function renderAppShell(innerHtml) {
               <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 5.6L20 10l-4.4 4 1.4 6-5-3.2-5 3.2 1.4-6L4 10l5.6-2.4L12 2z"/></svg></span>
               <span class="text">AI Mentor Masterclass</span>
             </button>
+            ${isLabEnabled ? `
             <button class="nav-item ${state.page === 'lab' ? 'active' : ''}" onclick="navigate('lab'); closeMobileDrawer();">
               <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 2v7.31L4.2 19.37A2 2 0 0 0 5.92 22h12.16a2 2 0 0 0 1.72-2.63L14 9.31V2"/></svg></span>
               <span class="text">Scenario Lab</span>
             </button>
+            ` : ''}
             <button class="nav-item ${state.page === 'leaderboard' ? 'active' : ''}" onclick="navigate('leaderboard'); closeMobileDrawer();">
               <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34c3.48-1.07 6-4.28 6-8.66V3H4v3c0 4.38 2.52 7.59 6 8.66z"/></svg></span>
               <span class="text">Leaderboard</span>
@@ -2421,9 +2433,11 @@ function renderDashboard() {
             <button class="btn btn-secondary btn-full" style="justify-content: flex-start;" onclick="navigate('mentor')">
               <span>✧</span> <b>Ask AI Mentor</b>: Monetary policy & runway
             </button>
+            ${isLabEnabled ? `
             <button class="btn btn-secondary btn-full" style="justify-content: flex-start;" onclick="navigate('lab')">
               <span>⚗</span> <b>Scenario Lab</b>: Test interest rate shocks
             </button>
+            ` : ''}
             <button class="btn btn-secondary btn-full" style="justify-content: flex-start;" onclick="navigate('leaderboard')">
               <span>♛</span> <b>Leaderboard</b>: Check learning rankings
             </button>
@@ -2851,7 +2865,13 @@ function renderWalletPage() {
     `}
 
     <div class="panel">
-      <h2>Ledger Journal Transactions (${currLabel})</h2>
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px; margin-bottom: 14px;">
+        <div>
+          <div class="eyebrow" style="color: var(--jade);">DOUBLE-ENTRY AUDIT TRAIL</div>
+          <h2 style="margin: 2px 0 4px;">Account Activity &amp; Transaction History (${currLabel})</h2>
+          <p style="color: var(--muted); font-size: 13px; margin: 0;">Audited record of all grants, match commitments, escrow allocations, and contract payouts.</p>
+        </div>
+      </div>
       <div id="wallet-transactions-table" class="table-responsive">
         ${renderTableSkeleton(4, 4)}
       </div>
@@ -5425,6 +5445,76 @@ async function handleRefreshReport(btnEl, challengeId) {
 }
 window.handleRefreshReport = handleRefreshReport;
 
+function formatLedgerActivity(eventType, kind, amount, serverDesc, serverAccount) {
+  const isAvailable = (kind === 'user_available');
+  const isHeld = (kind === 'user_held');
+
+  let title = serverDesc || 'Platform Activity';
+  let desc = isAvailable ? 'Available wallet capital' : 'Escrow allocation';
+  let icon = '⚡';
+  let badgeLabel = serverAccount || (isAvailable ? 'Available Balance' : (isHeld ? 'Escrow Hold' : 'Account'));
+  let badgeStyle = isAvailable 
+    ? 'background: rgba(16, 185, 129, 0.12); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);' 
+    : 'background: rgba(251, 191, 36, 0.12); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3);';
+
+  switch (eventType) {
+    case 'educational_grant':
+    case 'grant_disbursement':
+      title = 'Simulation Grant (Welcome Capital)';
+      desc = 'Initial educational funding credited to your wallet';
+      icon = '🎁';
+      break;
+    case 'boardroom_escrow_hold':
+      if (amount < 0) {
+        title = 'Boardroom Match Commitment';
+        desc = 'Capital allocated and locked in match escrow';
+        icon = '🏛️';
+      } else {
+        title = 'Boardroom Escrow Hold';
+        desc = 'Funds secured in confidential match escrow';
+        icon = '🔒';
+      }
+      break;
+    case 'boardroom_resolution':
+      title = amount > 0 ? 'Boardroom Victory Payout 🏆' : 'Boardroom Challenge Settlement';
+      desc = amount > 0 ? 'Pot earnings credited to available balance' : 'Session closed and settled';
+      icon = amount > 0 ? '🏆' : '⚖️';
+      break;
+    case 'boardroom_refund':
+      title = 'Boardroom Match Refund';
+      desc = 'Match cancelled; commitment returned to balance';
+      icon = '↩️';
+      break;
+    case 'market_buy':
+      title = 'Macro Predictor Forecast Position';
+      desc = 'Contract shares purchased and held until resolution';
+      icon = '📈';
+      break;
+    case 'market_resolve_yes':
+    case 'market_resolve_no':
+      title = 'Macro Predictor Contract Payout';
+      desc = 'Forecast verified; earnings credited to available balance';
+      icon = '⚡';
+      break;
+    case 'deposit':
+      title = 'Capital Deposit';
+      desc = 'Funds credited via payment gateway';
+      icon = '💳';
+      break;
+    case 'withdrawal':
+      title = 'Capital Withdrawal';
+      desc = 'Payout transferred to destination bank account';
+      icon = '🏦';
+      break;
+    default:
+      if (!serverDesc) {
+        title = (eventType || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      }
+  }
+
+  return { title, desc, icon, badgeLabel, badgeStyle };
+}
+
 async function loadWalletData() {
   const el = document.getElementById('wallet-transactions-table');
   if (el && state.page === 'wallet' && el.querySelector('table')) {
@@ -5444,24 +5534,49 @@ async function loadWalletData() {
         } else {
           el.innerHTML = `
             <div class="table-responsive">
-              <table style="width: 100%; min-width: 460px; border-collapse: collapse; text-align: left; font-size: 13.5px; white-space: nowrap;">
+              <table style="width: 100%; min-width: 520px; border-collapse: collapse; text-align: left; font-size: 13.5px; white-space: nowrap;">
                 <thead>
-                  <tr style="border-bottom: 2px solid var(--line); color: var(--muted);">
-                    <th style="padding: 10px 8px;">Date</th>
-                    <th style="padding: 10px 8px;">Event Type</th>
-                    <th style="padding: 10px 8px;">Account</th>
-                    <th style="padding: 10px 8px; text-align: right;">Amount</th>
+                  <tr style="border-bottom: 2px solid var(--line); color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    <th style="padding: 12px 10px;">Date &amp; Time</th>
+                    <th style="padding: 12px 10px;">Activity &amp; Purpose</th>
+                    <th style="padding: 12px 10px;">Ledger Bucket</th>
+                    <th style="padding: 12px 10px; text-align: right;">Capital Change</th>
                   </tr>
                 </thead>
                 <tbody>
-                  ${res.data.transactions.map(t => `
-                    <tr style="border-bottom: 1px solid var(--line);">
-                      <td style="padding: 10px 8px; color: var(--muted);">${t.created_at ? t.created_at.substring(0, 16) : ''}</td>
-                      <td style="padding: 10px 8px; font-weight: 600;">${t.event_type}</td>
-                      <td style="padding: 10px 8px;"><span class="market-tag">${t.kind}</span></td>
-                      <td style="padding: 10px 8px; text-align: right; font-weight: bold; color: ${t.amount >= 0 ? 'var(--jade)' : 'var(--text)'};">${t.formatted}</td>
-                    </tr>
-                  `).join('')}
+                  ${res.data.transactions.map(t => {
+                    const act = formatLedgerActivity(t.event_type, t.kind, t.amount, t.description, t.account_label);
+                    const isPositive = t.amount > 0;
+                    const isNegative = t.amount < 0;
+                    const amountColor = isPositive ? 'var(--jade)' : (isNegative ? '#f87171' : 'var(--text)');
+                    const sign = isPositive ? '+' : '';
+                    const displayAmt = `${sign}₦${Math.abs(t.amount).toLocaleString()}`;
+
+                    return `
+                      <tr style="border-bottom: 1px solid var(--line);">
+                        <td style="padding: 12px 10px; color: var(--muted); font-family: monospace; font-size: 12px;">
+                          ${t.created_at ? t.created_at.substring(0, 16).replace('T', ' ') : 'Just now'}
+                        </td>
+                        <td style="padding: 12px 10px;">
+                          <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 16px;">${act.icon}</span>
+                            <div>
+                              <div style="font-weight: 700; color: var(--text);">${act.title}</div>
+                              <div style="font-size: 11.5px; color: var(--muted);">${act.desc}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td style="padding: 12px 10px;">
+                          <span style="display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; ${act.badgeStyle}">
+                            ${act.badgeLabel}
+                          </span>
+                        </td>
+                        <td style="padding: 12px 10px; text-align: right; font-weight: 800; font-family: monospace; font-size: 14px; color: ${amountColor};">
+                          ${displayAmt}
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')}
                 </tbody>
               </table>
             </div>

@@ -389,14 +389,40 @@ class LedgerService
         $stmt->execute();
         $rows = $stmt->fetchAll();
 
-        return array_map(function ($r) {
+        $eventDescriptions = [
+            'educational_grant' => 'Educational Simulation Grant',
+            'grant_disbursement' => 'Grant Capital Credited',
+            'boardroom_escrow_hold' => 'Boardroom Match Commitment',
+            'boardroom_resolution' => 'Boardroom Challenge Settlement',
+            'boardroom_refund' => 'Boardroom Escrow Refund',
+            'market_buy' => 'Predictor Forecast Position',
+            'market_resolve_yes' => 'Predictor Settlement (YES)',
+            'market_resolve_no' => 'Predictor Settlement (NO)',
+            'deposit' => 'Wallet Capital Deposit',
+            'withdrawal' => 'Capital Withdrawal',
+        ];
+
+        $accountLabels = [
+            'user_available' => 'Available Balance',
+            'user_held' => 'Escrow Hold',
+            'platform_issuance' => 'Platform Treasury',
+            'platform_clearing' => 'Clearing House',
+            'platform_revenue' => 'Platform Reserve',
+            'payment_clearing' => 'Gateway Transit',
+        ];
+
+        return array_map(function ($r) use ($eventDescriptions, $accountLabels) {
             $amount = (int)($r['amount_minor'] / 100);
+            $event = $r['event_type'] ?? '';
+            $kind = $r['kind'] ?? '';
             return [
                 'id' => $r['id'],
-                'event_type' => $r['event_type'],
+                'event_type' => $event,
+                'description' => $eventDescriptions[$event] ?? ucwords(str_replace('_', ' ', (string)$event)),
+                'account_label' => $accountLabels[$kind] ?? ucwords(str_replace('_', ' ', (string)$kind)),
                 'amount_minor' => (int)$r['amount_minor'],
                 'amount' => $amount,
-                'kind' => $r['kind'],
+                'kind' => $kind,
                 'reference_id' => $r['reference_id'],
                 'created_at' => $r['created_at'],
                 'formatted' => ($amount >= 0 ? '+' : '') . '₦' . number_format(abs($amount)),

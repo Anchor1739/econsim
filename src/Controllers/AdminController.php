@@ -48,6 +48,11 @@ class AdminController
         $this->requireAdmin();
         $pdo = Database::getConnection();
 
+        // Ensure platform_features includes scenario_lab key initialized to 0 (hidden by default)
+        try {
+            $pdo->prepare("INSERT IGNORE INTO platform_features (code, enabled, updated_at) VALUES ('scenario_lab', 0, NOW(3))")->execute();
+        } catch (\Throwable $e) {}
+
         $features = $pdo->query("SELECT code, enabled FROM platform_features")->fetchAll();
         $providers = $pdo->query("SELECT id, slug, display_name, status FROM funding_providers")->fetchAll();
         $industries = $pdo->query("SELECT id, slug, name FROM industries ORDER BY id ASC")->fetchAll();

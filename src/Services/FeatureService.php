@@ -42,6 +42,7 @@ class FeatureService
 
         $map = [
             'demo_mode' => true,
+            'scenario_lab' => false,
             'real_mode' => false,
             'real_funding' => false,
             'real_payouts' => false,
