@@ -1187,7 +1187,7 @@ Respond ONLY with valid JSON:
 
         // Held journal entries
         $heldStmt = $pdo->prepare("
-            SELECT e.amount_minor, (e.amount_minor / 100) as amount, j.id as journal_id, j.event_type, j.reference_id, j.created_at, j.description
+            SELECT e.amount_minor, (e.amount_minor / 100) as amount, j.id as journal_id, j.event_type, j.reference_id, j.created_at, j.idempotency_key
             FROM ledger_entries e
             JOIN ledger_accounts a ON e.account_id = a.id
             JOIN ledger_journals j ON e.journal_id = j.id
