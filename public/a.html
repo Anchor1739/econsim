@@ -1061,9 +1061,14 @@
             <h1>Platform Operations & Monetary Engine</h1>
             <p>High-level system health diagnostics, live double-entry liquidity pools, and quick workstation access.</p>
           </div>
-          <button class="btn btn-primary" id="btn-refresh-diagnostics" onclick="loadAllAdminData(this)">
-            Refresh Diagnostics ↺
-          </button>
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <button class="btn btn-secondary" id="btn-sweep-escrow" onclick="handleSweepAllEscrow(this)" title="Reconcile and refund any abandoned or trapped escrow across all users">
+              Reconcile Escrows 🛡️
+            </button>
+            <button class="btn btn-primary" id="btn-refresh-diagnostics" onclick="loadAllAdminData(this)">
+              Refresh Diagnostics ↺
+            </button>
+          </div>
         </div>
 
         <!-- Key Metrics Grid -->
@@ -2191,6 +2196,20 @@
         sessionStorage.removeItem('econsim_a_key');
         adminKey = '';
         showAuthGate();
+      }
+    }
+
+    async function handleSweepAllEscrow(btnEl) {
+      if (!confirm("Run global escrow reconciliation across all user accounts?\nThis will audit all users, refund zero-submission or abandoned matches, and release trapped escrow into available balances.")) return;
+      const restore = btnEl ? setButtonLoading(btnEl, 'Reconciling Escrows...') : () => {};
+      try {
+        const res = await apiRequest('/a/escrow/sweep-all', 'POST', {});
+        toast(`Global Sweep Complete: Refunded ₦${res.data.total_refunded_naira} across ${res.data.users_affected_count} user(s).`, 'success');
+        loadAllAdminData();
+      } catch (err) {
+        toast(err.message, 'error');
+      } finally {
+        restore();
       }
     }
 

@@ -1830,5 +1830,151 @@ Respond ONLY with valid JSON:
 
         return $ingested;
     }
+
+    public static function runLifecycleMaintenance(): array
+    {
+        $pdo = Database::getConnection();
+        $settledMatches = 0;
+        $refundedMatches = 0;
+        $refundedHoldMinor = 0;
+
+        // 1. Move expired 'live' matches to 'evaluating'
+        try {
+            $pdo->query("
+                UPDATE boardroom_challenges 
+                SET state = 'evaluating' 
+                WHERE state = 'live' 
+                  AND deadline_at IS NOT NULL 
+                  AND deadline_at <= NOW(3)
+            ");
+        } catch (\Throwable $e) {}
+
+        // 2. Process all 'evaluating' matches
+        try {
+            $evalStmt = $pdo->query("
+                SELECT c.id, c.host_id, c.opponent_id, c.commitment_minor, c.mode,
+                       (SELECT COUNT(*) FROM boardroom_submissions s WHERE s.challenge_id = c.id) as sub_count
+                FROM boardroom_challenges c
+                WHERE c.state = 'evaluating'
+            ");
+            $evaluating = $evalStmt->fetchAll(\PDO::FETCH_ASSOC);
+
+            foreach ($evaluating as $chg) {
+                $cId = $chg['id'];
+                $subCount = (int)$chg['sub_count'];
+
+                if ($subCount === 0) {
+                    // Zero submissions: refund both participants and mark settled
+                    self::settleChallengeWithScores($cId);
+                    $refundedMatches++;
+                } else {
+                    // Submissions exist: ensure an evaluation run is queued/processed
+                    $runsStmt = $pdo->prepare("SELECT id, evaluation_state FROM evaluation_runs WHERE challenge_id = ?");
+                    $runsStmt->execute([$cId]);
+                    $runs = $runsStmt->fetchAll(\PDO::FETCH_ASSOC);
+
+                    if (empty($runs)) {
+                        $subs = $pdo->prepare("SELECT id FROM boardroom_submissions WHERE challenge_id = ?");
+                        $subs->execute([$cId]);
+                        foreach ($subs->fetchAll(\PDO::FETCH_COLUMN) as $subId) {
+                            $rid = Security::uuid();
+                            $pdo->prepare("
+                                INSERT IGNORE INTO evaluation_runs 
+                                (id, challenge_id, submission_id, evaluation_state, created_at)
+                                VALUES (?, ?, ?, 'queued', NOW(3))
+                            ")->execute([$rid, $cId, $subId]);
+                        }
+                    }
+
+                    self::processQueuedEvaluations(5);
+
+                    $pendingRuns = $pdo->prepare("SELECT COUNT(*) FROM evaluation_runs WHERE challenge_id = ? AND evaluation_state != 'complete'");
+                    $pendingRuns->execute([$cId]);
+                    if ((int)$pendingRuns->fetchColumn() === 0) {
+                        self::settleChallengeWithScores($cId);
+                        $settledMatches++;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {}
+
+        // 3. Auto-refund stale lobby challenges in 'open' or 'scheduled' state older than 2 hours with no opponent
+        try {
+            $staleLobby = $pdo->query("
+                SELECT id, host_id, commitment_minor, mode 
+                FROM boardroom_challenges 
+                WHERE state IN ('open', 'scheduled') 
+                  AND opponent_id IS NULL 
+                  AND created_at <= DATE_SUB(NOW(3), INTERVAL 2 HOUR)
+            ");
+            $abandoned = $staleLobby->fetchAll(\PDO::FETCH_ASSOC);
+
+            foreach ($abandoned as $chg) {
+                $cId = $chg['id'];
+                $heldMinor = (int)$chg['commitment_minor'];
+                $hostId = $chg['host_id'];
+                $mode = $chg['mode'] ?? 'demo';
+
+                if ($hostId && $heldMinor > 0) {
+                    try {
+                        LedgerService::settleCommitment(
+                            $hostId,
+                            $heldMinor,
+                            $heldMinor,
+                            'boardroom_refund',
+                            $cId,
+                            "br_lobby_refund_{$cId}",
+                            $mode
+                        );
+                        $refundedHoldMinor += $heldMinor;
+                    } catch (\Throwable $e) {}
+                }
+
+                $pdo->prepare("UPDATE boardroom_challenges SET state = 'settled' WHERE id = ?")->execute([$cId]);
+                $refundedMatches++;
+            }
+        } catch (\Throwable $e) {}
+
+        // 4. Global ledger reconciliation for any user_held entries tied to settled challenges that were never released
+        try {
+            $stuckHoldsStmt = $pdo->query("
+                SELECT e.account_id, a.user_id, a.mode, j.reference_id, COALESCE(SUM(e.amount_minor), 0) as net_held
+                FROM ledger_entries e
+                JOIN ledger_journals j ON e.journal_id = j.id
+                JOIN ledger_accounts a ON e.account_id = a.id
+                JOIN boardroom_challenges c ON j.reference_id = c.id
+                WHERE a.kind = 'user_held'
+                  AND c.state = 'settled'
+                GROUP BY e.account_id, a.user_id, a.mode, j.reference_id
+                HAVING net_held > 0
+            ");
+            $stuckHolds = $stuckHoldsStmt->fetchAll(\PDO::FETCH_ASSOC);
+
+            foreach ($stuckHolds as $sh) {
+                $netHeld = (int)$sh['net_held'];
+                if ($netHeld > 0) {
+                    try {
+                        LedgerService::settleCommitment(
+                            $sh['user_id'],
+                            $netHeld,
+                            $netHeld,
+                            'boardroom_refund',
+                            $sh['reference_id'],
+                            "reconcile_held_{$sh['user_id']}_{$sh['reference_id']}_" . time(),
+                            $sh['mode'] ?? 'demo'
+                        );
+                        $refundedHoldMinor += $netHeld;
+                    } catch (\Throwable $e) {}
+                }
+            }
+        } catch (\Throwable $e) {}
+
+        return [
+            'settled_matches' => $settledMatches,
+            'refunded_matches' => $refundedMatches,
+            'refunded_hold_minor' => $refundedHoldMinor,
+            'refunded_hold_naira' => number_format($refundedHoldMinor / 100, 2),
+        ];
+    }
 }
 

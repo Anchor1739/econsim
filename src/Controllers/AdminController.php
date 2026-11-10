@@ -1347,4 +1347,151 @@ Respond ONLY with valid JSON:
             'new_balances' => $balances,
         ], "Escrow refund completed successfully");
     }
+
+    public function sweepAllStuckEscrow(): void
+    {
+        $this->requireAdmin();
+        $pdo = Database::getConnection();
+
+        // 1. Run boardroom lifecycle maintenance first
+        $maint = BoardroomService::runLifecycleMaintenance();
+
+        // 2. Query all accounts across ALL users where kind = 'user_held' and balance_minor != 0
+        $heldAccountsStmt = $pdo->query("
+            SELECT a.id, a.user_id, a.mode, a.currency, u.email, u.display_name,
+                   COALESCE(SUM(e.amount_minor), 0) AS balance_minor
+            FROM ledger_accounts a
+            JOIN users u ON a.user_id = u.id
+            LEFT JOIN ledger_entries e ON a.id = e.account_id
+            WHERE a.kind = 'user_held'
+            GROUP BY a.id, a.user_id, a.mode, a.currency, u.email, u.display_name
+            HAVING balance_minor != 0
+        ");
+        $heldAccounts = $heldAccountsStmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        $usersProcessed = [];
+        $grandTotalRefundedMinor = 0;
+
+        foreach ($heldAccounts as $acct) {
+            $userId = $acct['user_id'];
+            $heldAccountId = $acct['id'];
+            $mode = $acct['mode'] ?? 'demo';
+            $email = $acct['email'];
+            $startingBalanceMinor = (int)$acct['balance_minor'];
+
+            // Cleanup duplicate refunds if any
+            $dupStmt = $pdo->prepare("
+                SELECT reference_id, COUNT(*) as cnt 
+                FROM ledger_journals 
+                WHERE event_type = 'boardroom_refund' 
+                  AND idempotency_key LIKE CONCAT('admin_escrow_refund_', ?, '%')
+                GROUP BY reference_id
+                HAVING cnt > 1
+            ");
+            $dupStmt->execute([$userId]);
+            $dups = $dupStmt->fetchAll(\PDO::FETCH_ASSOC);
+            foreach ($dups as $dup) {
+                $refId = $dup['reference_id'];
+                $jStmt = $pdo->prepare("
+                    SELECT id FROM ledger_journals 
+                    WHERE reference_id = ? 
+                      AND event_type = 'boardroom_refund'
+                      AND idempotency_key LIKE CONCAT('admin_escrow_refund_', ?, '%')
+                    ORDER BY posted_at ASC
+                ");
+                $jStmt->execute([$refId, $userId]);
+                $jIds = $jStmt->fetchAll(\PDO::FETCH_COLUMN);
+                if (count($jIds) > 1) {
+                    for ($i = 1; $i < count($jIds); $i++) {
+                        $badJid = $jIds[$i];
+                        $pdo->prepare("DELETE FROM ledger_entries WHERE journal_id = ?")->execute([$badJid]);
+                        $pdo->prepare("DELETE FROM ledger_journals WHERE id = ?")->execute([$badJid]);
+                    }
+                }
+            }
+
+            // Find all reference_ids with net held > 0 for this account
+            $netHeldStmt = $pdo->prepare("
+                SELECT j.reference_id, j.event_type, COALESCE(SUM(e.amount_minor), 0) AS net_held_minor
+                FROM ledger_entries e
+                JOIN ledger_journals j ON e.journal_id = j.id
+                WHERE e.account_id = ?
+                GROUP BY j.reference_id, j.event_type
+                HAVING net_held_minor > 0
+            ");
+            $netHeldStmt->execute([$heldAccountId]);
+            $unreleasedRefs = $netHeldStmt->fetchAll(\PDO::FETCH_ASSOC);
+
+            $userRefundedMinor = 0;
+            $refundedItems = [];
+
+            foreach ($unreleasedRefs as $row) {
+                $refId = $row['reference_id'];
+                $netHeldMinor = (int)$row['net_held_minor'];
+                $eventType = $row['event_type'];
+                if ($netHeldMinor <= 0) continue;
+
+                $shouldRefund = false;
+                if ($eventType === 'boardroom_escrow_hold') {
+                    $chg = $pdo->prepare("SELECT state, deadline_at, (SELECT COUNT(*) FROM boardroom_submissions s WHERE s.challenge_id = ?) as subs FROM boardroom_challenges WHERE id = ?");
+                    $chg->execute([$refId, $refId]);
+                    $c = $chg->fetch(\PDO::FETCH_ASSOC);
+
+                    if (!$c || $c['state'] === 'settled' || ((int)$c['subs'] === 0) || (isset($c['deadline_at']) && strtotime($c['deadline_at']) < time())) {
+                        $shouldRefund = true;
+                    }
+                } else if ($eventType === 'forecast_stake') {
+                    $fPos = $pdo->prepare("SELECT p.status, m.state FROM forecast_positions p JOIN market_events m ON p.event_id = m.id WHERE p.id = ?");
+                    $fPos->execute([$refId]);
+                    $fp = $fPos->fetch(\PDO::FETCH_ASSOC);
+                    if ($fp && in_array($fp['state'], ['closed', 'settled', 'void'], true) && $fp['status'] === 'open') {
+                        $shouldRefund = true;
+                    }
+                }
+
+                if ($shouldRefund) {
+                    $idempotencyKey = "global_escrow_sweep_{$userId}_{$refId}_" . time();
+                    try {
+                        LedgerService::settleCommitment(
+                            $userId,
+                            $netHeldMinor,
+                            $netHeldMinor,
+                            'boardroom_refund',
+                            $refId,
+                            $idempotencyKey,
+                            $mode
+                        );
+                        $pdo->prepare("UPDATE boardroom_challenges SET state = 'settled' WHERE id = ? AND state != 'settled'")->execute([$refId]);
+                        $userRefundedMinor += $netHeldMinor;
+                        $refundedItems[] = [
+                            'reference_id' => $refId,
+                            'event_type' => $eventType,
+                            'amount_naira' => number_format($netHeldMinor / 100, 2),
+                        ];
+                    } catch (\Throwable $e) {}
+                }
+            }
+
+            $newBal = LedgerService::getUserBalances($userId, $mode);
+            $grandTotalRefundedMinor += $userRefundedMinor;
+
+            $usersProcessed[] = [
+                'email' => $email,
+                'display_name' => $acct['display_name'],
+                'starting_held_naira' => number_format($startingBalanceMinor / 100, 2),
+                'refunded_naira' => number_format($userRefundedMinor / 100, 2),
+                'ending_available_naira' => number_format($newBal['available'], 2),
+                'ending_held_naira' => number_format($newBal['held'], 2),
+                'items_refunded' => $refundedItems,
+            ];
+        }
+
+        Response::success([
+            'lifecycle_maintenance' => $maint,
+            'users_affected_count' => count($usersProcessed),
+            'total_refunded_minor' => $grandTotalRefundedMinor,
+            'total_refunded_naira' => number_format($grandTotalRefundedMinor / 100, 2),
+            'users' => $usersProcessed,
+        ], "Global escrow sweep completed across all user accounts.");
+    }
 }

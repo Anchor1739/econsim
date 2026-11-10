@@ -55,6 +55,12 @@ while (true) {
         if ($br['evaluated_memos_count'] > 0) {
             echo " [+] Evaluated {$br['evaluated_memos_count']} queued memo(s).\n";
         }
+
+        // 6. Boardroom Lifecycle Maintenance (auto-settle completed, auto-refund abandoned/zero-submission duels)
+        $maint = BoardroomService::runLifecycleMaintenance();
+        if ($maint['settled_matches'] > 0 || $maint['refunded_matches'] > 0) {
+            echo " [+] Boardroom Lifecycle: Settled {$maint['settled_matches']} match(es), refunded {$maint['refunded_matches']} match(es) (₦{$maint['refunded_hold_naira']}).\n";
+        }
     } catch (\Throwable $e) {
         echo " [!] Daemon error in cycle #{$cycle}: " . $e->getMessage() . "\n";
     }

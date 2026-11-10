@@ -82,6 +82,7 @@ class MarketController
             $boardroomScenarios = BoardroomService::continuousScenarioIngestion(1);
             $boardroomNotifs = BoardroomService::checkAndDispatchScheduledNotifications();
             $boardroom = BoardroomService::processQueuedEvaluations(5);
+            $boardroomLifecycle = BoardroomService::runLifecycleMaintenance();
 
             $payload = [
                 'server_time' => date('Y-m-d H:i:s T'),
@@ -91,6 +92,7 @@ class MarketController
                 'boardroom_scenarios' => $boardroomScenarios,
                 'boardroom_notifications' => $boardroomNotifs,
                 'boardroom' => $boardroom,
+                'boardroom_lifecycle' => $boardroomLifecycle,
             ];
 
             Response::success($payload, 'Platform background worker and Aiven keep-alive query completed successfully.');

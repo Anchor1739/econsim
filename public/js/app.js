@@ -5485,16 +5485,23 @@ function formatLedgerActivity(eventType, kind, amount, serverDesc, serverAccount
       desc = 'Match cancelled; commitment returned to balance';
       icon = '↩️';
       break;
+    case 'forecast_stake':
     case 'market_buy':
       title = 'Macro Predictor Forecast Position';
       desc = 'Contract shares purchased and held until resolution';
       icon = '📈';
       break;
+    case 'forecast_settlement_won':
     case 'market_resolve_yes':
     case 'market_resolve_no':
       title = 'Macro Predictor Contract Payout';
       desc = 'Forecast verified; earnings credited to available balance';
       icon = '⚡';
+      break;
+    case 'forecast_settlement_lost':
+      title = 'Macro Predictor Position Closed';
+      desc = 'Outcome resolved against forecast position';
+      icon = '📉';
       break;
     case 'deposit':
       title = 'Capital Deposit';
