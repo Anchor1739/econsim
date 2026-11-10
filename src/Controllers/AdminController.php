@@ -1159,7 +1159,7 @@ Respond ONLY with valid JSON:
         $this->requireAdmin();
         $pdo = Database::getConnection();
         
-        $user = $pdo->query("SELECT u.id, u.email FROM users u ORDER BY u.created_at DESC LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+        $user = $pdo->query("SELECT u.id, u.email FROM users u ORDER BY u.created_at DESC LIMIT 1")->fetch(\PDO::FETCH_ASSOC);
         
         try {
             $res = \App\Services\BoardroomService::createChallenge(
