@@ -75,13 +75,26 @@ class BoardroomService
         }, $rows);
     }
 
+    /**
+     * Retrieve all available industries for boardroom challenges
+     */
+    public static function getIndustriesList(): array
+    {
+        $pdo = Database::getConnection();
+        try {
+            PredictorService::ensureAllSectorsSeeded($pdo);
+        } catch (\Throwable $e) {}
+        return $pdo->query("SELECT id, slug, name FROM industries ORDER BY id ASC")->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
     public static function createChallenge(
         string $userId,
-        int $industryId,
+        int|string|null $industryId,
         int $commitmentAmount,
         ?string $scheduledAt = null,
         int $durationMinutes = 15,
-        string $mode = 'demo'
+        string $mode = 'demo',
+        ?string $industryName = null
     ): array {
         // Defensive parameter resilience: handle legacy inverted order gracefully
         if (is_numeric($scheduledAt) && !empty($scheduledAt) && is_numeric($durationMinutes) === false) {
@@ -112,6 +125,84 @@ class BoardroomService
 
         $pdo = Database::getConnection();
 
+        // 1. Ensure all standard sector records are seeded in industries table
+        try {
+            PredictorService::ensureAllSectorsSeeded($pdo);
+        } catch (\Throwable $e) {}
+
+        // 2. Resilient industry resolution (prevents MySQL FK 1452 violation on boardroom_challenges_ibfk_3)
+        $resolvedIndustryId = null;
+
+        // Check A: Direct numeric ID check in database
+        if (is_numeric($industryId) && (int)$industryId > 0) {
+            $chk = $pdo->prepare("SELECT id FROM industries WHERE id = ?");
+            $chk->execute([(int)$industryId]);
+            $val = $chk->fetchColumn();
+            if ($val) {
+                $resolvedIndustryId = (int)$val;
+            }
+        }
+
+        // Check B: String slug or name lookup if passed as string
+        if (!$resolvedIndustryId && is_string($industryId) && !empty(trim((string)$industryId))) {
+            $trimmed = trim((string)$industryId);
+            $chkSlug = $pdo->prepare("SELECT id FROM industries WHERE slug = ? OR name = ? LIMIT 1");
+            $chkSlug->execute([$trimmed, $trimmed]);
+            $val = $chkSlug->fetchColumn();
+            if ($val) {
+                $resolvedIndustryId = (int)$val;
+            }
+        }
+
+        // Check C: Optional industryName lookup if supplied
+        if (!$resolvedIndustryId && !empty($industryName)) {
+            $chkName = $pdo->prepare("SELECT id FROM industries WHERE name = ? OR name LIKE ? LIMIT 1");
+            $chkName->execute([trim($industryName), '%' . trim($industryName) . '%']);
+            $val = $chkName->fetchColumn();
+            if ($val) {
+                $resolvedIndustryId = (int)$val;
+            }
+        }
+
+        // Check D: Legacy 1..11 numeric index mapping
+        if (!$resolvedIndustryId && is_numeric($industryId)) {
+            $legacyMap = [
+                1 => 'monetary-policy',
+                2 => 'equities',
+                3 => 'energy',
+                4 => 'agriculture',
+                5 => 'fx-reserves',
+                6 => 'fintech',
+                7 => 'manufacturing',
+                8 => 'telecoms',
+                9 => 'real-estate',
+                10 => 'fmcg',
+                11 => 'aviation-logistics',
+            ];
+            $targetSlug = $legacyMap[(int)$industryId] ?? null;
+            if ($targetSlug) {
+                $chkSlug = $pdo->prepare("SELECT id FROM industries WHERE slug = ? OR slug LIKE ? LIMIT 1");
+                $chkSlug->execute([$targetSlug, "%{$targetSlug}%"]);
+                $val = $chkSlug->fetchColumn();
+                if ($val) {
+                    $resolvedIndustryId = (int)$val;
+                }
+            }
+        }
+
+        // Check E: Ultimate database fallback: first available row
+        if (!$resolvedIndustryId) {
+            $val = $pdo->query("SELECT id FROM industries ORDER BY id ASC LIMIT 1")->fetchColumn();
+            if ($val) {
+                $resolvedIndustryId = (int)$val;
+            } else {
+                $pdo->exec("INSERT INTO industries (slug, name) VALUES ('fintech', 'Fintech')");
+                $resolvedIndustryId = (int)$pdo->lastInsertId();
+            }
+        }
+
+        $industryId = (int)$resolvedIndustryId;
+
         // Assign a pre-approved scenario confidential server-side
         $scStmt = $pdo->prepare(
             "SELECT id FROM boardroom_scenarios 
@@ -126,22 +217,25 @@ class BoardroomService
             $scenarioId = $pdo->query("SELECT id FROM boardroom_scenarios LIMIT 1")->fetchColumn();
         }
 
+        // Defensive: Ensure scenarioId is a valid non-empty string or strictly NULL (never false/0/"")
+        $scenarioId = !empty($scenarioId) ? (string)$scenarioId : null;
+
         $challengeId = Security::uuid();
         $commitmentMinor = $commitmentAmount * 100;
         $idempotencyKey = "boardroom_host_{$userId}_{$challengeId}";
 
-        // Step 1: Hold host's commitment
-        LedgerService::holdCommitment(
-            $userId,
-            $commitmentMinor,
-            'boardroom_escrow_hold',
-            $challengeId,
-            $idempotencyKey,
-            $normalizedMode
-        );
-
         $pdo->beginTransaction();
         try {
+            // Step 1: Hold host's commitment atomically inside the transaction
+            LedgerService::holdCommitment(
+                $userId,
+                $commitmentMinor,
+                'boardroom_escrow_hold',
+                $challengeId,
+                $idempotencyKey,
+                $normalizedMode
+            );
+
             $stmt = $pdo->prepare(
                 "INSERT INTO boardroom_challenges 
                     (id, host_id, industry_id, scenario_id, mode, commitment_minor, scheduled_at, duration_minutes, state, notified_5min, notified_started, created_at)

@@ -106,6 +106,7 @@ if (str_starts_with($path, '/api/')) {
 
     // Boardroom Strategy Challenge Routes
     $router->get('/api/boardroom/lobby', [BoardroomController::class, 'getLobby']);
+    $router->get('/api/boardroom/industries', [BoardroomController::class, 'getIndustries']);
     $router->post('/api/boardroom/create', [BoardroomController::class, 'create']);
     $router->post('/api/boardroom/join/{id}', [BoardroomController::class, 'join']);
     $router->post('/api/boardroom/start-demo/{id}', [BoardroomController::class, 'startDemoMatch']);

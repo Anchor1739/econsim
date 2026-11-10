@@ -23,6 +23,16 @@ class BoardroomController
         }
     }
 
+    public function getIndustries(): void
+    {
+        try {
+            $industries = BoardroomService::getIndustriesList();
+            Response::success($industries);
+        } catch (Throwable $e) {
+            Response::error($e->getMessage(), 500);
+        }
+    }
+
     public function create(): void
     {
         $user = AuthService::getCurrentUser();
@@ -31,20 +41,22 @@ class BoardroomController
         }
 
         $body = json_decode(file_get_contents('php://input'), true) ?? [];
-        $industryId = (int)($body['industry_id'] ?? 1);
+        $rawIndustry = $body['industry_id'] ?? $body['industry_slug'] ?? $body['industry'] ?? 1;
+        $industryName = $body['industry_name'] ?? null;
         $stake = (int)($body['stake'] ?? 10000);
-        $scheduledAt = $body['scheduled_at'] ?? date('Y-m-d H:i:s');
+        $scheduledAt = $body['scheduled_at'] ?? null;
         $duration = (int)($body['duration'] ?? 15);
         $mode = $body['mode'] ?? 'demo';
 
         try {
             $res = BoardroomService::createChallenge(
                 $user['id'],
-                $industryId,
+                $rawIndustry,
                 $stake,
                 $scheduledAt,
                 $duration,
-                $mode
+                $mode,
+                $industryName
             );
             Response::success($res, 'Boardroom challenge published to lobby.', 201);
         } catch (Throwable $e) {

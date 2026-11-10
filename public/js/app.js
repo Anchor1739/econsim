@@ -2603,17 +2603,7 @@ function renderCreateChallenge() {
           <div class="form-group" style="margin-top: 12px;">
             <label>Industry</label>
             <select class="select" id="create-industry">
-              <option value="1">Monetary Policy</option>
-              <option value="2">Equities</option>
-              <option value="3">Energy</option>
-              <option value="4">Agriculture</option>
-              <option value="5">FX & Reserves</option>
-              <option value="6">Fintech</option>
-              <option value="7">Manufacturing</option>
-              <option value="8">Telecoms & Digital</option>
-              <option value="9">Real Estate & Infra</option>
-              <option value="10">FMCG & Retail</option>
-              <option value="11">Aviation & Logistics</option>
+              ${renderCreateIndustryOptions()}
             </select>
           </div>
           <div class="form-group">
@@ -3850,6 +3840,8 @@ function attachViewEvents() {
     loadLiveChallengeData(state.currentChallengeId);
   } else if (state.page === 'challenge_report' && state.currentChallengeId) {
     loadChallengeReportData(state.currentChallengeId);
+  } else if (state.page === 'create_challenge') {
+    loadCreateChallengeData();
   } else if (state.page === 'lab') {
     loadScenarioLabData(state.lab.selectedIndustry);
   }
@@ -4220,13 +4212,63 @@ async function handlePlaceForecast(e, eventId) {
   }
 }
 
+function renderCreateIndustryOptions() {
+  if (state.boardroomIndustries && state.boardroomIndustries.length > 0) {
+    return state.boardroomIndustries.map(i => `<option value="${i.id}">${escapeHtml(i.name)}</option>`).join('');
+  }
+  return `
+    <option value="1">Monetary Policy</option>
+    <option value="2">Equities</option>
+    <option value="3">Energy</option>
+    <option value="4">Agriculture</option>
+    <option value="5">FX & Reserves</option>
+    <option value="6">Fintech</option>
+    <option value="7">Manufacturing</option>
+    <option value="8">Telecoms & Digital</option>
+    <option value="9">Real Estate & Infra</option>
+    <option value="10">FMCG & Retail</option>
+    <option value="11">Aviation & Logistics</option>
+  `;
+}
+
 function toggleCustomScheduleInput(val) {
   const wrap = document.getElementById('custom-schedule-wrap');
+  const input = document.getElementById('create-scheduled-custom');
   if (wrap) {
     wrap.style.display = (val === 'custom') ? 'block' : 'none';
   }
+  if (input && val === 'custom') {
+    const futureDate = new Date(Date.now() + 15 * 60 * 1000);
+    const yr = futureDate.getFullYear();
+    const mo = String(futureDate.getMonth() + 1).padStart(2, '0');
+    const da = String(futureDate.getDate()).padStart(2, '0');
+    const hr = String(futureDate.getHours()).padStart(2, '0');
+    const mi = String(futureDate.getMinutes()).padStart(2, '0');
+    const isoLocal = `${yr}-${mo}-${da}T${hr}:${mi}`;
+    if (!input.value) {
+      input.value = isoLocal;
+    }
+    input.min = isoLocal;
+  }
 }
 window.toggleCustomScheduleInput = toggleCustomScheduleInput;
+
+async function loadCreateChallengeData() {
+  try {
+    const res = await api.get('/boardroom/industries');
+    if (res?.data && res.data.length > 0) {
+      state.boardroomIndustries = res.data;
+      const selectEl = document.getElementById('create-industry');
+      if (selectEl) {
+        const curVal = selectEl.value;
+        selectEl.innerHTML = res.data.map(i => `<option value="${i.id}">${escapeHtml(i.name)}</option>`).join('');
+        if (curVal && selectEl.querySelector(`option[value="${curVal}"]`)) {
+          selectEl.value = curVal;
+        }
+      }
+    }
+  } catch (e) {}
+}
 
 async function loadBoardroomLobby() {
   try {
@@ -4308,7 +4350,9 @@ async function loadBoardroomLobby() {
 
 async function handleCreateChallenge(e) {
   e.preventDefault();
-  const industryId = parseInt(document.getElementById('create-industry').value, 10);
+  const indEl = document.getElementById('create-industry');
+  const industryId = indEl ? parseInt(indEl.value, 10) : 1;
+  const industryName = indEl?.selectedOptions?.[0]?.textContent?.trim() || '';
   const stake = parseInt(document.getElementById('create-stake').value, 10);
   const duration = parseInt(document.getElementById('create-duration').value, 10);
   const mode = document.getElementById('create-mode')?.value || 'demo';
@@ -4333,7 +4377,16 @@ async function handleCreateChallenge(e) {
       api.toast('Please select a custom scheduled date and time.', 'warning');
       return;
     }
-    scheduledAt = new Date(customVal).toISOString();
+    const parsedDate = new Date(customVal);
+    if (isNaN(parsedDate.getTime())) {
+      api.toast('Invalid date format for custom schedule.', 'warning');
+      return;
+    }
+    if (parsedDate.getTime() < Date.now() + 60 * 1000) {
+      api.toast('Scheduled time must be at least 2 minutes in the future.', 'warning');
+      return;
+    }
+    scheduledAt = parsedDate.toISOString();
   } else {
     const offsetMins = parseInt(scheduleOffset, 10) || 10;
     const targetDate = new Date(Date.now() + offsetMins * 60 * 1000);
@@ -4347,6 +4400,7 @@ async function handleCreateChallenge(e) {
   try {
     const res = await api.post('/boardroom/create', {
       industry_id: industryId,
+      industry_name: industryName,
       stake,
       duration,
       mode,
