@@ -1200,7 +1200,7 @@ Respond ONLY with valid JSON:
         // Active forecast positions
         $posStmt = $pdo->prepare("
             SELECT p.id, p.event_id, p.mode, p.selected_outcome, p.stake_minor, (p.stake_minor/100) as stake, p.status, p.created_at,
-                   m.title as market_title, m.state as market_state, m.resolution_date
+                   m.title as market_title, m.state as market_state, m.resolves_at
             FROM forecast_positions p
             JOIN market_events m ON p.event_id = m.id
             WHERE p.user_id = ?
