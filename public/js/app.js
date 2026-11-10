@@ -2364,6 +2364,7 @@ function renderAppShell(innerHtml) {
 // Dashboard View
 // -------------------------------------------------------------
 function renderDashboard() {
+  const isLabEnabled = Boolean(state.features?.scenario_lab);
   const name = state.user?.display_name || 'Strategist';
   const userXp = state.stats?.xp ?? (state.user?.stats?.xp ?? 0);
   const userLevel = state.stats?.level ?? (state.user?.stats?.level ?? { level: 1, name: 'Novice Analyst', progress_pct: 0 });
