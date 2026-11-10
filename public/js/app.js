@@ -4416,9 +4416,11 @@ async function handleCreateChallenge(e) {
     );
     navigate('waiting_room', { challengeId: res.data.challenge_id });
   } catch (err) {
+    console.error('Challenge creation error:', err);
     if (createBtn) { createBtn.disabled = false; createBtn.innerHTML = createBtnOrig; }
   }
 }
+window.handleCreateChallenge = handleCreateChallenge;
 
 async function handleJoinChallenge(challengeId, btnEl) {
   // Spinner + disable — works whether called with a btn ref or via onclick attr
