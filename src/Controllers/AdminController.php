@@ -1248,6 +1248,37 @@ Respond ONLY with valid JSON:
         }
         $userId = $user['id'];
 
+        // Cleanup any accidental duplicate refunds caused by concurrent calls
+        $dupStmt = $pdo->prepare("
+            SELECT reference_id, COUNT(*) as cnt 
+            FROM ledger_journals 
+            WHERE event_type = 'boardroom_refund' 
+              AND idempotency_key LIKE CONCAT('admin_escrow_refund_', ?, '%')
+            GROUP BY reference_id
+            HAVING cnt > 1
+        ");
+        $dupStmt->execute([$userId]);
+        $dups = $dupStmt->fetchAll(\PDO::FETCH_ASSOC);
+        foreach ($dups as $dup) {
+            $refId = $dup['reference_id'];
+            $jStmt = $pdo->prepare("
+                SELECT id FROM ledger_journals 
+                WHERE reference_id = ? 
+                  AND event_type = 'boardroom_refund'
+                  AND idempotency_key LIKE CONCAT('admin_escrow_refund_', ?, '%')
+                ORDER BY posted_at ASC
+            ");
+            $jStmt->execute([$refId, $userId]);
+            $jIds = $jStmt->fetchAll(\PDO::FETCH_COLUMN);
+            if (count($jIds) > 1) {
+                for ($i = 1; $i < count($jIds); $i++) {
+                    $badJid = $jIds[$i];
+                    $pdo->prepare("DELETE FROM ledger_entries WHERE journal_id = ?")->execute([$badJid]);
+                    $pdo->prepare("DELETE FROM ledger_journals WHERE id = ?")->execute([$badJid]);
+                }
+            }
+        }
+
         $heldAcctStmt = $pdo->prepare("SELECT id, mode, currency FROM ledger_accounts WHERE user_id = ? AND kind = 'user_held'");
         $heldAcctStmt->execute([$userId]);
         $heldAccounts = $heldAcctStmt->fetchAll(\PDO::FETCH_ASSOC);
