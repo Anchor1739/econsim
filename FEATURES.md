@@ -68,11 +68,52 @@ EconSim does **not** rely on simple numeric balance columns on the `users` table
 - **Concurrency & Atomicity:** Operations utilize database-level row locks (`SELECT ... FOR UPDATE`) within MySQL transactions.
 - **Idempotency:** Every financial operation requires a unique deterministic idempotency key (e.g. `boardroom_escrow_hold_{userId}_{challengeId}`), preventing double-spending or duplicate charges on re-submission.
 
+### Humanized Transaction & Audit Trail Experience
+Rather than exposing raw backend accounting enums to end users, the terminal translates all double-entry movements into executive financial statements:
+- **Ledger Account Buckets:**
+  - **Available Balance (`user_available`):** Unencumbered capital ready for new forecast allocations or challenge commitments. Rendered with high-contrast emerald badges.
+  - **Escrow Hold (`user_held`):** Capital committed to live peer-to-peer boardroom duels or open forecast contracts until outcome verification. Rendered with distinct amber security badges.
+- **Activity & Purpose Mapping:**
+  - `educational_grant` $\rightarrow$ `🎁 Simulation Grant (Welcome Capital)`: Educational funding credited to the wallet.
+  - `boardroom_escrow_hold` (-₦) $\rightarrow$ `🏛️ Boardroom Match Commitment`: Capital held in match escrow.
+  - `boardroom_escrow_hold` (+₦) $\rightarrow$ `🔒 Boardroom Escrow Hold`: Active funds held in confidential escrow.
+  - `boardroom_resolution` (+₦) $\rightarrow$ `🏆 Boardroom Victory Payout`: Winner pot payout credited to available balance.
+  - `market_buy` $\rightarrow$ `📈 Macro Predictor Forecast Position`: Prediction contract allocation committed.
+  - `market_resolve_yes/no` $\rightarrow$ `⚡ Macro Predictor Contract Payout`: Contract verified; earnings credited to available balance.
+- **High-Contrast Amount Formatting:** Positive inflows render in emerald (`+₦500,000`) while allocations and commitments render in clear muted/red tones (`-₦10,000`).
+
 ---
 
 ## 4. The Predictor — Macroeconomic Prediction Markets
 
 The Predictor allows users to allocate capital on future macroeconomic catalysts across major sectors of the African economy.
+
+### Automated Market Maker (AMM) & Odds Engine
+Odds and probabilities are governed by a **Bayesian Automated Market Maker (AMM)** that dynamically reacts to empirical economic baselines and crowd-wisdom liquidity:
+
+1. **Probability Calculation Formula:**
+   $$\text{Probability (YES)} = \frac{\text{Prior Baseline Capital} + \text{Traded YES Volume}}{\text{Virtual Liquidity Pool Depth} + \text{Total Traded Volume}}$$
+
+2. **Decimal Odds & Payout Multiplier:**
+   $$\text{Decimal Odds} = \frac{1}{\text{Probability}}$$
+   $$\text{Potential Payout} = \text{Stake Amount} \times \text{Entry Odds}$$
+
+   | Implied Probability | Decimal Odds | Payout on ₦10,000 Stake | Status |
+   | :--- | :--- | :--- | :--- |
+   | **80%** | **1.25×** | ₦12,500 | Strong Institutional Consensus |
+   | **64%** | **1.56×** | ₦15,600 | Market Favored |
+   | **50%** | **2.00×** | ₦20,000 | Even-Split Sentiment |
+   | **36%** | **2.78×** | ₦27,800 | Underdog Thesis |
+   | **20%** | **5.00×** | ₦50,000 | High-Yield Macro Outlier |
+
+3. **Virtual Liquidity Depth (₦100,000):**
+   The AMM injects a constant virtual depth anchor of **₦100,000 (10,000,000 kobo)**. This anchors market stability, prevents excessive slippage from individual large positions, and ensures orderly price discovery.
+4. **Empirical Baseline Priors:**
+   New contracts initialize with calibrated prior probabilities derived from historical macroeconomic precedent (e.g., CBN Monetary Policy Rate Hike: 64%, Tier 1 Recapitalization: 78%, Brent Crude targets: 36%, custom admin contracts: 50%).
+5. **Safety Clamps:**
+   Probabilities are strictly bounded between **5% (0.05)** and **95% (0.95)** to prevent mathematical division-by-zero errors or infinite odds.
+6. **Point-in-Time Locked Entry Odds:**
+   When a strategist enters a position, their potential payout is cryptographically locked to the exact odds at that specific second, regardless of how future crowd volume moves the odds prior to settlement.
 
 ### Key Capabilities
 - **Sector Catalogue:**
@@ -108,6 +149,24 @@ The Boardroom is a real-time competitive simulation arena where strategists navi
 5. **Simultaneous Unsealing & Live Response:**
    - At 00:00, the scenario unseals simultaneously for both participants.
    - The countdown timer transitions to the Memo Response Window.
+
+### 1v1 Peer-to-Peer Match Submission Synchronization
+To eliminate race conditions and unfair grading cutoffs in live human duels, the platform enforces a synchronized multi-participant evaluation lifecycle:
+1. **Asynchronous Independent Submission:**
+   - When Participant 1 submits their strategy memorandum, the challenge remains strictly in `state = 'live'`.
+   - Participant 1's memo is securely vaulted in `boardroom_submissions`.
+   - Participant 1 is seamlessly transitioned to the **Opponent Waiting Screen**, displaying a live countdown timer showing the remaining response window. The client quietly heartbeats every 4 seconds to detect when Participant 2 finishes.
+2. **Unimpeded Participant 2 Response:**
+   - Participant 2 is **never locked out** and experiences zero disruption. They retain their full response window to analyze data, dictate, format, and submit their executive memorandum.
+3. **Simultaneous Dual Evaluation Trigger:**
+   - The instant both participants have submitted (`subsRecorded >= 2`), the challenge transitions atomically to `state = 'evaluating'`.
+   - An evaluation run is queued and immediately executed by `evaluateSingleRun()`.
+   - **Both memoranda are evaluated simultaneously** against the identical 40/30/20/10 rubric. Individual scores, detailed qualitative rationale, and empirical evidence citations are recorded for each participant.
+4. **Fair Head-to-Head Comparison & Pot Settlement:**
+   - Composite scores are compared (e.g. 84.5 vs 76.0).
+   - The double-entry ledger atomically distributes the entire pot ($2 \times \text{stake}$) to the winning participant, while uncommitted holds are settled.
+5. **Grace Period & Timeout Forfeit Guard:**
+   - If a participant closes their browser or fails to submit before the response window expires, the system automatically registers a zero-hour forfeit submission (0/100) once the window closes. The active participant is awarded victory and the escrow pot settles cleanly.
 
 ---
 
@@ -186,6 +245,12 @@ All executive memoranda are evaluated using a four-pillar institutional scoring 
 ### Scenario Lab
 An interactive single-player case library where strategists explore multi-stage corporate dilemmas, select strategic options, and receive immediate post-mortem analysis on their decisions.
 
+#### Dynamic Administrative Visibility Gating (`scenario_lab`)
+To support controlled rollouts and focused platform testing, the Scenario Lab workspace features dynamic admin visibility gating:
+- **Default State (Hidden):** The feature defaults to inactive for standard users, cleanly removing the entry points from desktop navigation, the mobile drawer, and dashboard action desks.
+- **Direct Route Guard:** Direct URL access (`/page=lab`) gracefully redirects users to the dashboard with an informative status message when the feature is inactive.
+- **Administrative Instant Toggle:** Designated platform administrators on `/a` can toggle **Scenario Lab (User Workspace)** on or off with an instant reactive switch, immediately unsealing or concealing the module across client devices without code redeployment.
+
 ### Real-World Expert Scenario Ingestion Pipeline
 Industry leaders, CFOs, and macroeconomists can submit real-world corporate dilemmas they navigated:
 1. **Submission Portal:** Accessible via header triggers (`+ Contribute Case 🎓` in Boardroom, `+ Contribute Scenario 🎓` in Scenario Lab).
@@ -221,13 +286,14 @@ User reputation is quantified through an Experience Points (XP) meritocracy:
 
 ## 13. Institutional Administrative Portal (`/a`)
 
-Accessible to designated administrator accounts at `/a` or `admin.html`:
+Accessible to designated administrator accounts at `/a` with passkey authentication:
 - **Platform Health & Metrics:** Real-time user counts, active boardroom matches, total liquidity volume, and ledger balance verification.
-- **Instant Kill Switches:** Platform-wide toggles for `real_mode`, `real_boardroom`, `real_predictor`, and `boardroom_grading_mode`.
+- **Engine Feature & Kill Switches:** Platform-wide real-time toggles for `scenario_lab`, `real_mode`, `real_boardroom`, `real_funding`, `real_payouts`, and `boardroom_grading_mode`.
 - **Adjudication Desk:** Review pending strategy memos, inspect AI rubric breakdowns, override scores, and trigger instant settlements.
 - **Expert Scenario Ingestion Desk:** Inspect, test, approve, or reject incoming real-world scenarios.
 - **Feedback Management:** Track user sentiment, bug reports, and resolution states.
 - **Double-Entry Ledger Audit:** Inspect raw journal entries and verify that total debits match total credits across all clearing accounts.
+- **Asynchronous Concurrency & Button Spinners:** All administrative buttons (diagnostics refresh, desk queries, adjudication modals, feedback triage, contract publication, sync cron, and payment gateway switches) feature dedicated animated spinners (`<span class="spinner"></span>`) and disabled states during execution, guaranteeing that duplicate clicks and double payments are physically prevented.
 
 ---
 
@@ -245,7 +311,7 @@ Accessible to designated administrator accounts at `/a` or `admin.html`:
 - **Typography & Aesthetics:** Styled in Space Grotesk and DM Sans with high-contrast institutional dark and light palettes.
 - **Sticky Bottom Navigation:** Fixed bottom navigation bar with safe-area padding for mobile Chrome and iOS Safari.
 - **Responsive Layout:** Adaptive two-column panels that collapse into vertical executive feeds on mobile devices.
-- **Micro-Interactions:** Loading spinners on all action buttons, double-click prevention, and live waveform feedback during voice dictation.
+- **Micro-Interactions & Loaders:** Reusable CSS loading spinners across all submit, formatting, and refresh buttons, double-click prevention, and live waveform feedback during voice dictation.
 
 ---
 
