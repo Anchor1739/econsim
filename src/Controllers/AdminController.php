@@ -1153,31 +1153,4 @@ Respond ONLY with valid JSON:
         ");
         Response::success($stmt->fetchAll());
     }
-
-    public function diagnoseCreateChallenge(): void
-    {
-        $this->requireAdmin();
-        $pdo = Database::getConnection();
-        
-        $user = $pdo->query("SELECT u.id, u.email FROM users u ORDER BY u.created_at DESC LIMIT 1")->fetch(\PDO::FETCH_ASSOC);
-        
-        try {
-            $res = \App\Services\BoardroomService::createChallenge(
-                $user['id'],
-                5, // Healthcare
-                5000,
-                gmdate('Y-m-d\TH:i:s\Z', time() + 600),
-                20,
-                'demo',
-                'Healthcare'
-            );
-            Response::success([
-                'success' => true,
-                'user' => $user,
-                'challenge' => $res,
-            ]);
-        } catch (\Throwable $e) {
-            Response::error('Diagnostic: ' . $e->getMessage() . ' | In: ' . $e->getFile() . ':' . $e->getLine(), 500);
-        }
-    }
 }

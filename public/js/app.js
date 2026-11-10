@@ -2635,7 +2635,7 @@ function renderCreateChallenge() {
             </div>
             <small style="color: var(--muted);">Fixed start time. The confidential dilemma unlocks simultaneously for both participants when this timer hits zero.</small>
           </div>
-          <button type="submit" class="btn btn-primary btn-full" style="margin-top: 14px;">Publish Challenge to Lobby ↗</button>
+          <button type="submit" id="btn-publish-challenge" class="btn btn-primary btn-full" style="margin-top: 14px;">Publish Challenge to Lobby ↗</button>
         </form>
       </div>
 
@@ -4349,13 +4349,20 @@ async function loadBoardroomLobby() {
 }
 
 async function handleCreateChallenge(e) {
-  e.preventDefault();
+  if (e && typeof e.preventDefault === 'function') {
+    e.preventDefault();
+  }
   const indEl = document.getElementById('create-industry');
   const industryId = indEl ? parseInt(indEl.value, 10) : 1;
   const industryName = indEl?.selectedOptions?.[0]?.textContent?.trim() || '';
-  const stake = parseInt(document.getElementById('create-stake').value, 10);
-  const duration = parseInt(document.getElementById('create-duration').value, 10);
+  const stake = parseInt(document.getElementById('create-stake')?.value, 10) || 10000;
+  const duration = parseInt(document.getElementById('create-duration')?.value, 10) || 15;
   const mode = document.getElementById('create-mode')?.value || 'demo';
+
+  if (stake < 1000) {
+    api.toast('Minimum Boardroom commitment is ₦1,000.', 'warning');
+    return;
+  }
 
   if (mode === 'real') {
     if (!state.features?.real_mode) {
@@ -4393,7 +4400,7 @@ async function handleCreateChallenge(e) {
     scheduledAt = targetDate.toISOString();
   }
 
-  const createBtn = e.submitter || e.target?.querySelector('button[type="submit"]');
+  const createBtn = document.getElementById('btn-publish-challenge') || e?.submitter || e?.target?.querySelector('button[type="submit"]') || e?.target;
   const createBtnOrig = createBtn ? createBtn.innerHTML : '';
   if (createBtn) { createBtn.disabled = true; createBtn.innerHTML = '<span class="spinner"></span> Creating...'; }
 
@@ -4406,7 +4413,7 @@ async function handleCreateChallenge(e) {
       mode,
       scheduled_at: scheduledAt,
     });
-    api.toast(res.message, 'success');
+    api.toast(res.message || 'Challenge published to lobby!', 'success');
     sendSystemNotification(
       '🏛️ Boardroom Challenge Created',
       `Challenge #${res.data?.challenge_id || ''} scheduled for ${formatLocalTime(scheduledAt)} (${getUserTimezoneLabel()}). Waiting for challenger.`,
@@ -4417,6 +4424,7 @@ async function handleCreateChallenge(e) {
     navigate('waiting_room', { challengeId: res.data.challenge_id });
   } catch (err) {
     console.error('Challenge creation error:', err);
+    api.toast(err.message || 'Failed to publish challenge. Please try again.', 'error');
     if (createBtn) { createBtn.disabled = false; createBtn.innerHTML = createBtnOrig; }
   }
 }
