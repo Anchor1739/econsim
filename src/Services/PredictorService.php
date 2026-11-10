@@ -795,6 +795,30 @@ Respond ONLY with valid JSON:
                     'history' => 'Major OMO auctions in early 2024 attracted strong foreign institutional demand following high stop rates.'
                 ],
                 [
+                    'title' => 'Will the 364-day Nigerian Treasury Bill primary auction stop rate clear below 21.0% in the upcoming auction?',
+                    'slug' => 'ntb-364day-stop-rate-sub-21',
+                    'def' => 'Resolves YES if the official Central Bank of Nigeria primary market treasury auction result records the 364-day tenor stop rate below 21.000%.',
+                    'source' => 'Central Bank of Nigeria (CBN) Government Securities Auction Results',
+                    'days' => 10,
+                    'metrics' => [
+                        ['Yield Curve Inversion', 'Short-term debt servicing costs for Federal sovereign domestic issuance.'],
+                        ['Disinflation Expectations', 'Investor expectations of medium-term headline inflation trajectory.']
+                    ],
+                    'history' => 'Aggressive monetary tightening pushed 1-year treasury bill stop rates past 22% in early 2024.'
+                ],
+                [
+                    'title' => 'Will National Bureau of Statistics (NBS) report a deceleration in month-on-month headline inflation for November?',
+                    'slug' => 'nbs-cpi-mom-deceleration-nov',
+                    'def' => 'Resolves YES if the official Consumer Price Index (CPI) report published by the National Bureau of Statistics shows the month-on-month headline inflation rate declining compared to the previous month.',
+                    'source' => 'National Bureau of Statistics (NBS) Consumer Price Index (CPI) Report',
+                    'days' => 21,
+                    'metrics' => [
+                        ['Food Price Pressure', 'Harvest season grain inflows tempering month-on-month urban food inflation.'],
+                        ['Currency Pass-Through', 'Exchange rate stability dampening imported consumer basket pricing.']
+                    ],
+                    'history' => 'Base effects and post-harvest market supply previously contributed to month-on-month CPI cooling.'
+                ],
+                [
                     'title' => 'Will the Central Bank of Nigeria raise the MPR by at least 50 bps at the upcoming MPC meeting?',
                     'slug' => 'cbn-mpr-hike-50bps',
                     'def' => 'Resolves YES if the published CBN Monetary Policy Committee communique officially raises the Monetary Policy Rate (MPR) by 50 basis points or higher above the preceding benchmark.',
@@ -808,6 +832,30 @@ Respond ONLY with valid JSON:
                 ]
             ],
             'capital-markets' => [
+                [
+                    'title' => 'Will the Nigerian Exchange (NGX) All-Share Index close Friday trading above 98,000 index points?',
+                    'slug' => 'ngx-asi-friday-close-above-98k',
+                    'def' => 'Resolves YES if the official NGX Daily Official List (DOL) records the All-Share Index (ASI) closing at or above 98,000.00 points at the conclusion of Friday trading.',
+                    'source' => 'Nigerian Exchange Group (NGX) Daily Official List & Closing Index Bulletin',
+                    'days' => 5,
+                    'metrics' => [
+                        ['Tier-1 Banking Valuations', 'Institutional bids for dividend-paying banking giants on the NGX-30.'],
+                        ['Pension Fund Equity Allocations', 'PFAs rotating liquidity from fixed income into high-yield equities.']
+                    ],
+                    'history' => 'The NGX All-Share Index crossed the historic 100,000-point threshold in Q1 2024 on heavy institutional buying.'
+                ],
+                [
+                    'title' => 'Will foreign portfolio investor (FPI) equity turnover on the NGX exceed ₦45 Billion over the next two weeks?',
+                    'slug' => 'fpi-ngx-equity-turnover-45b',
+                    'def' => 'Resolves YES if official NGX Domestic & Foreign Portfolio Investment reports confirm cumulative bi-weekly offshore equity turnover surpassing ₦45,000,000,000.',
+                    'source' => 'Nigerian Exchange (NGX) Domestic & Foreign Portfolio Investment Report',
+                    'days' => 14,
+                    'metrics' => [
+                        ['Autonomous FX Repatriation', 'Offshore investor confidence in NAFEM exchange liquidity and dividend convertibility.'],
+                        ['Corporate Earnings Sentiment', 'Foreign institutional demand for blue-chip telecom and consumer names.']
+                    ],
+                    'history' => 'Currency reforms and clearing of legacy FX forward backlogs helped revive offshore portfolio interest in 2024.'
+                ],
                 [
                     'title' => 'Will the NGX 30 Index achieve positive quarterly net total return exceeding 10% in the upcoming quarter?',
                     'slug' => 'ngx-30-quarterly-return-10pct',
@@ -847,6 +895,30 @@ Respond ONLY with valid JSON:
             ],
             'fx-reserves' => [
                 [
+                    'title' => 'Will the parallel market naira-to-dollar exchange rate close stronger than ₦1,720/$ at Friday market close?',
+                    'slug' => 'parallel-fx-rate-sub-1720-friday',
+                    'def' => 'Resolves YES if verified Lagos BDC spot closing rates record the parallel market US Dollar selling rate stronger than ₦1,720.00/USD at the close of business Friday.',
+                    'source' => 'Association of Bureaux De Change Operators of Nigeria (ABCON) / FMDQ Market Intelligence',
+                    'days' => 6,
+                    'metrics' => [
+                        ['Retail Dollar Liquidity', 'Bureau de Change allocations from the CBN easing informal retail currency demand.'],
+                        ['Speculative Premium Compression', 'Narrowing arbitrage gap between autonomous official NAFEM window and street cash quotes.']
+                    ],
+                    'history' => 'Harmonization of exchange rate segments significantly curtailed round-tripping and speculative hoarding.'
+                ],
+                [
+                    'title' => 'Will gross external reserves record net weekly accretion exceeding $200 Million in the upcoming CBN reserve update?',
+                    'slug' => 'cbn-fx-reserves-weekly-accretion-200m',
+                    'def' => 'Resolves YES if official Central Bank of Nigeria 30-day moving average gross external reserves statistics show a net weekly increase of at least USD 200,000,000.',
+                    'source' => 'Central Bank of Nigeria (CBN) Movement in External Reserves Daily Statistics',
+                    'days' => 10,
+                    'metrics' => [
+                        ['Crude Oil Export Receipts', 'Inflows from sovereign crude sales and deepwater petroleum tax payments.'],
+                        ['Diaspora Remittance Trajectory', 'Formalization of international money transfer inflows through licensed IMTO channels.']
+                    ],
+                    'history' => 'External reserves gained over $5 billion in 2024 driven by sustained autonomous FX inflows and diaspora remittances.'
+                ],
+                [
                     'title' => 'Will monthly autonomous foreign exchange turnover on the NAFEM window exceed $4 Billion?',
                     'slug' => 'nafem-monthly-fx-turnover-4b',
                     'def' => 'Resolves YES if FMDQ Securities Exchange monthly financial market statistics show total NAFEM trading turnover surpassing $4,000,000,000.',
@@ -885,6 +957,30 @@ Respond ONLY with valid JSON:
             ],
             'fintech' => [
                 [
+                    'title' => 'Will NIBSS instant payment daily transaction value cross ₦3.5 Trillion during the upcoming weekend payment cycle?',
+                    'slug' => 'nibss-daily-instant-payments-3-5t',
+                    'def' => 'Resolves YES if NIBSS Daily Instant Payment (NIP) clearing data records total electronic fund transfer volume exceeding ₦3,500,000,000,000 in a single 24-hour cycle.',
+                    'source' => 'Nigeria Inter-Bank Settlement System (NIBSS) Daily E-Payment Portal Statistics',
+                    'days' => 7,
+                    'metrics' => [
+                        ['Cashless Transaction Velocity', 'Mobile banking and corporate interbank settlement volume spikes.'],
+                        ['Switch Infrastructure Resilience', 'Gateway concurrency handling peak consumer weekend merchant traffic without timeouts.']
+                    ],
+                    'history' => 'Nigerian electronic payments expanded exponentially, ranking among the world’s most advanced real-time payment corridors.'
+                ],
+                [
+                    'title' => 'Will interbank NIBSS POS failure rate remain suppressed below 1.5% during the month-end payday weekend?',
+                    'slug' => 'nibss-pos-failure-rate-sub-1-5',
+                    'def' => 'Resolves YES if official NIBSS Point of Sale transaction quality metrics confirm an average system failure rate strictly below 1.50% throughout the month-end payday weekend.',
+                    'source' => 'NIBSS Downstream POS & Terminal Quality Performance Bulletin',
+                    'days' => 14,
+                    'metrics' => [
+                        ['Switch Redundancy', 'Multi-switch fallback architectures adopted by licensed MMOs and commercial acquirers.'],
+                        ['Consumer Settlement Trust', 'Reduction in customer dispense error complaints and failed debit reversals.']
+                    ],
+                    'history' => 'Capacity upgrades by central switches drastically reduced peak holiday settlement bottlenecks in 2024.'
+                ],
+                [
                     'title' => 'Will monthly instant payment transaction volume on NIBSS exceed 1.2 Billion transactions?',
                     'slug' => 'nibss-instant-payments-volume-1-2b',
                     'def' => 'Resolves YES if the Nigeria Inter-Bank Settlement System (NIBSS) official monthly report registers over 1,200,000,000 NIP transactions.',
@@ -922,6 +1018,30 @@ Respond ONLY with valid JSON:
                 ]
             ],
             'energy' => [
+                [
+                    'title' => 'Will average retail PMS fuel pump prices in Lagos metropolitan stations remain below ₦1,050 per litre through next week?',
+                    'slug' => 'pms-fuel-retail-price-lagos-sub-1050',
+                    'def' => 'Resolves YES if the NMDPRA daily downstream retail monitoring survey shows major marketer PMS pump prices in Lagos remaining strictly below ₦1,050.00/litre for 7 consecutive days.',
+                    'source' => 'Nigerian Midstream and Downstream Petroleum Regulatory Authority (NMDPRA) Daily Downstream Bulletins',
+                    'days' => 8,
+                    'metrics' => [
+                        ['Local Refining Supply', 'Domestic supply volume from Dangote Refinery reducing coastal vessel freight and import parity costs.'],
+                        ['Naira Crude Pricing', 'Local currency crude-for-refined petroleum transactions insulating domestic retail prices from FX volatility.']
+                    ],
+                    'history' => 'Downstream deregulation and removal of petrol subsidies transitioned Nigeria to full cost-reflective market pricing.'
+                ],
+                [
+                    'title' => 'Will NNPC Limited confirm daily crude oil and condensate production averaging above 1.70 Million bpd this month?',
+                    'slug' => 'nnpc-crude-production-170m-bpd',
+                    'def' => 'Resolves YES if official NUPRC or NNPC Limited monthly upstream oil production statistics record average daily crude and condensate output exceeding 1,700,000 barrels per day.',
+                    'source' => 'Nigerian Upstream Petroleum Regulatory Commission (NUPRC) Crude Oil Production Summary',
+                    'days' => 18,
+                    'metrics' => [
+                        ['Pipeline Security & Uptime', 'Sustained throughput on the Trans-Niger Pipeline (TNP) and Nembe Creek Trunk Line.'],
+                        ['Federal Federation Account Revenue', 'Direct foreign currency accretion from sovereign equity crude oil royalties.']
+                    ],
+                    'history' => 'Heightened pipeline surveillance and joint task force interventions helped recover shut-in onshore volumes across the Niger Delta.'
+                ],
                 [
                     'title' => 'Will Dangote Petroleum Refinery achieve sustained export volume of refined diesel to West African ports?',
                     'slug' => 'dangote-refinery-regional-exports',

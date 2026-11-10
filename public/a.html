@@ -1216,6 +1216,21 @@
               <div class="panel-subtitle">Publish new macroeconomic forecasting question</div>
             </div>
           </div>
+
+          <div style="background: rgba(5, 150, 105, 0.08); border: 1px dashed rgba(5, 150, 105, 0.35); border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+            <div>
+              <div style="font-weight: 700; color: #34d399; font-size: 12px; display: flex; align-items: center; gap: 6px;">
+                <span>🤖</span> Market AI Structuring Assistant
+              </div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+                Type a rough headline or idea below, then click to auto-structure into an institutional-grade contract with aligned milestone dates.
+              </div>
+            </div>
+            <button type="button" class="btn btn-secondary" id="btn-ai-assist-market" style="font-size: 11px; padding: 6px 12px; background: linear-gradient(135deg, rgba(5, 150, 105, 0.25), rgba(2, 132, 199, 0.25)); border: 1px solid rgba(52, 211, 153, 0.4); color: #fff;" onclick="handleAiAssistMarket()">
+              ✨ Polish &amp; Autofill with AI
+            </button>
+          </div>
+
           <form onsubmit="handleCreateMarket(event)">
             <div class="form-group">
               <label>Contract Title / Question</label>
@@ -1243,6 +1258,76 @@
             </div>
             <button type="submit" class="btn btn-primary" style="margin-top: 8px;">
               Publish Verified Contract 🚀
+            </button>
+          </form>
+        </div>
+
+        <!-- Publish Boardroom Strategy Scenario with AI Assistant -->
+        <div class="panel" style="margin-top: 24px;">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">
+                <span>🏛️</span> Publish Boardroom Strategy Scenario
+              </div>
+              <div class="panel-subtitle">Create and inject verified corporate case dilemmas into the executive arena</div>
+            </div>
+          </div>
+
+          <div style="background: rgba(56, 189, 248, 0.08); border: 1px dashed rgba(56, 189, 248, 0.35); border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+            <div>
+              <div style="font-weight: 700; color: #38bdf8; font-size: 12px; display: flex; align-items: center; gap: 6px;">
+                <span>🤖</span> Boardroom Scenario AI Architect
+              </div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+                Provide a brief real-world crisis or dilemma note, and our LLM will format it into standard executive Backstory, Option A vs Option B directives, quantitative figures, and historical reference case.
+              </div>
+            </div>
+            <button type="button" class="btn btn-secondary" id="btn-ai-assist-scenario" style="font-size: 11px; padding: 6px 12px; background: linear-gradient(135deg, rgba(2, 132, 199, 0.25), rgba(99, 102, 241, 0.25)); border: 1px solid rgba(56, 189, 248, 0.4); color: #fff;" onclick="handleAiAssistScenario()">
+              ✨ Polish &amp; Package with AI
+            </button>
+          </div>
+
+          <form onsubmit="handleCreateScenario(event)">
+            <div class="form-grid-2col">
+              <div class="form-group">
+                <label>Scenario Title</label>
+                <input type="text" class="form-control" id="sc-title" placeholder="e.g. Cross-Border FX Clearing Bottleneck &amp; Working Capital Allocation" required>
+              </div>
+              <div class="form-group">
+                <label>Target Industry</label>
+                <select class="form-control" id="sc-industry" required>
+                  <!-- Populated dynamically -->
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Confidential Dilemma Body (Backstory + Executive Directive with Option A vs Option B)</label>
+              <textarea class="form-control" id="sc-body" rows="7" placeholder="You are the Chief Financial Officer...&#10;&#10;EXECUTIVE DIRECTIVE: Choose your strategic directive:&#10;Option A: ...&#10;Option B: ..." required></textarea>
+            </div>
+
+            <div class="form-grid-2col">
+              <div class="form-group">
+                <label>Reference Entity / Sector</label>
+                <input type="text" class="form-control" id="sc-company" placeholder="e.g. Licensed Mobile Money Operators (MMO) &amp; POS Acquirers" required>
+              </div>
+              <div class="form-group">
+                <label>Difficulty Tier</label>
+                <select class="form-control" id="sc-difficulty" required>
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate" selected>Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Historical Macro Precedent</label>
+              <input type="text" class="form-control" id="sc-precedent" placeholder="e.g. Peak holiday settlement overload and multi-switch gateway routing in 2024." required>
+            </div>
+
+            <button type="submit" class="btn btn-primary" id="btn-submit-scenario" style="margin-top: 8px;">
+              Publish Scenario to Live Boardroom Arena 🚀
             </button>
           </form>
         </div>
@@ -1763,8 +1848,13 @@
 
     function renderIndustries(inds) {
       const select = document.getElementById('m-industry');
-      if (!select || !inds) return;
-      select.innerHTML = inds.map(i => `<option value="${i.id}">${i.name}</option>`).join('');
+      if (select && inds) {
+        select.innerHTML = inds.map(i => `<option value="${i.id}">${i.name}</option>`).join('');
+      }
+      const scSelect = document.getElementById('sc-industry');
+      if (scSelect && inds) {
+        scSelect.innerHTML = inds.map(i => `<option value="${i.id}">${i.name}</option>`).join('');
+      }
     }
 
     function renderAiModel(ai) {
@@ -1853,6 +1943,134 @@
         loadAllAdminData();
       } catch (err) {
         toast(err.message, 'error');
+      }
+    }
+
+    async function handleAiAssistMarket() {
+      const titleInput = document.getElementById('m-title');
+      const indInput = document.getElementById('m-industry');
+      const btn = document.getElementById('btn-ai-assist-market');
+      const origText = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Structuring with AI...';
+      }
+
+      try {
+        const rawIdea = titleInput ? titleInput.value.trim() : '';
+        const industry_id = indInput ? parseInt(indInput.value, 10) : null;
+        const res = await apiRequest('/a/markets/ai-assist', 'POST', {
+          idea: rawIdea,
+          industry_id: industry_id
+        });
+
+        if (res.data) {
+          const d = res.data;
+          if (titleInput && d.title) titleInput.value = d.title;
+          if (indInput && d.industry_id) indInput.value = d.industry_id;
+          if (d.closes_at && document.getElementById('m-date')) {
+            document.getElementById('m-date').value = d.closes_at;
+          }
+          if (d.resolution_source && document.getElementById('m-source')) {
+            document.getElementById('m-source').value = d.resolution_source;
+          }
+          if (d.definition && document.getElementById('m-def')) {
+            document.getElementById('m-def').value = d.definition;
+          }
+          toast('Market question and criteria polished by AI!', 'success');
+        }
+      } catch (err) {
+        toast('AI structuring failed: ' + err.message, 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = origText;
+        }
+      }
+    }
+
+    async function handleAiAssistScenario() {
+      const titleInput = document.getElementById('sc-title');
+      const indInput = document.getElementById('sc-industry');
+      const bodyInput = document.getElementById('sc-body');
+      const compInput = document.getElementById('sc-company');
+      const diffInput = document.getElementById('sc-difficulty');
+      const precInput = document.getElementById('sc-precedent');
+
+      const btn = document.getElementById('btn-ai-assist-scenario');
+      const origText = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Architecting Scenario with AI...';
+      }
+
+      try {
+        const rawIdea = (titleInput ? titleInput.value.trim() : '') || (bodyInput ? bodyInput.value.trim() : '');
+        const industry_id = indInput ? parseInt(indInput.value, 10) : null;
+        const res = await apiRequest('/a/scenarios/ai-assist', 'POST', {
+          idea: rawIdea,
+          industry_id: industry_id
+        });
+
+        if (res.data) {
+          const d = res.data;
+          if (titleInput && d.title) titleInput.value = d.title;
+          if (indInput && d.industry_id) indInput.value = d.industry_id;
+          if (bodyInput && d.confidential_body) bodyInput.value = d.confidential_body;
+          if (compInput && d.reference_case?.company) compInput.value = d.reference_case.company;
+          if (precInput && d.reference_case?.precedent) precInput.value = d.reference_case.precedent;
+          if (diffInput && d.difficulty) diffInput.value = d.difficulty;
+          toast('Scenario structured into executive boardroom dilemma!', 'success');
+        }
+      } catch (err) {
+        toast('Scenario structuring failed: ' + err.message, 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = origText;
+        }
+      }
+    }
+
+    async function handleCreateScenario(e) {
+      e.preventDefault();
+      const title = document.getElementById('sc-title').value.trim();
+      const industry_id = parseInt(document.getElementById('sc-industry').value, 10);
+      const confidential_body = document.getElementById('sc-body').value.trim();
+      const difficulty = document.getElementById('sc-difficulty').value;
+      const company = document.getElementById('sc-company').value.trim();
+      const precedent = document.getElementById('sc-precedent').value.trim();
+
+      const btn = document.getElementById('btn-submit-scenario');
+      const origText = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Publishing...';
+      }
+
+      try {
+        await apiRequest('/a/scenarios/create', 'POST', {
+          title,
+          industry_id,
+          confidential_body,
+          difficulty,
+          reference_case: {
+            company,
+            precedent
+          }
+        });
+        toast('Boardroom Scenario published live to the arena! 🚀', 'success');
+        document.getElementById('sc-title').value = '';
+        document.getElementById('sc-body').value = '';
+        document.getElementById('sc-company').value = '';
+        document.getElementById('sc-precedent').value = '';
+      } catch (err) {
+        toast('Publishing failed: ' + err.message, 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = origText;
+        }
       }
     }
 

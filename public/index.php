@@ -151,8 +151,12 @@ if (str_starts_with($path, '/api/')) {
     $router->get('/api/a/funding/stream', [AdminController::class, 'getFundingStream']);
     $router->get('/api/a/stats', [AdminController::class, 'getStats']);
     $router->post('/api/a/markets/create', [AdminController::class, 'createMarket']);
+    $router->post('/api/a/markets/ai-assist', [AdminController::class, 'aiAssistMarket']);
     $router->post('/api/a/markets/resolve', [AdminController::class, 'resolveMarket']);
     $router->post('/api/a/markets/ai-evaluate', [AdminController::class, 'aiEvaluateMarket']);
+    $router->get('/api/a/scenarios', [AdminController::class, 'getScenarios']);
+    $router->post('/api/a/scenarios/create', [AdminController::class, 'createScenario']);
+    $router->post('/api/a/scenarios/ai-assist', [AdminController::class, 'aiAssistScenario']);
     $router->get('/api/a/ai/model', [AdminController::class, 'getAiConfig']);
     $router->post('/api/a/ai/model', [AdminController::class, 'updateAiModel']);
     $router->get('/api/a/boardroom/grading-desk', [AdminController::class, 'getBoardroomGradingDesk']);

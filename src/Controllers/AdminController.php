@@ -814,4 +814,343 @@ Respond ONLY with valid JSON:
             Response::error($e->getMessage(), 400);
         }
     }
+
+    public function aiAssistMarket(): void
+    {
+        $this->requireAdmin();
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+        $rawIdea = trim((string)($body['idea'] ?? $body['title'] ?? ''));
+        $targetIndustryId = !empty($body['industry_id']) ? (int)$body['industry_id'] : null;
+
+        $pdo = Database::getConnection();
+        $industries = $pdo->query("SELECT id, slug, name FROM industries ORDER BY id ASC")->fetchAll();
+
+        $targetIndustryName = 'Monetary Policy or Macroeconomics';
+        if ($targetIndustryId) {
+            foreach ($industries as $ind) {
+                if ((int)$ind['id'] === $targetIndustryId) {
+                    $targetIndustryName = $ind['name'];
+                    break;
+                }
+            }
+        }
+
+        $apiKey = (string)Env::get('NVIDIA_API_KEY', '');
+        $today = date('Y-m-d');
+        $currentYear = date('Y');
+
+        if (empty($apiKey)) {
+            $fallbackTitle = !empty($rawIdea) ? "Will {$rawIdea}?" : "Will the CBN maintain headline MPR stability at the upcoming policy cycle?";
+            Response::success([
+                'title' => $fallbackTitle,
+                'industry_id' => $targetIndustryId ?: 1,
+                'resolution_source' => 'Official Regulatory Gazette & Central Bank of Nigeria Disclosures',
+                'closes_at' => date('Y-m-d', strtotime('+14 days')),
+                'definition' => "Resolves YES if official published statistics confirm the target threshold on or before the resolution date.",
+                'days' => 14,
+            ], 'Market contract drafted (rule-based fallback).');
+            return;
+        }
+
+        $model = 'meta/llama-3.1-70b-instruct';
+        try {
+            $s = $pdo->query("SELECT value FROM platform_settings WHERE `key` = 'active_ai_model' LIMIT 1")->fetchColumn();
+            if ($s) $model = trim($s);
+        } catch (\Throwable $e) {}
+
+        $slugsList = implode(', ', array_column($industries, 'slug'));
+        $prompt = "You are an Elite Institutional Structurer & Derivatives Economist for the EconSim terminal.
+Current Date: {$today}. Current Year: {$currentYear}.
+The Administrator provided this rough input / market idea: \"{$rawIdea}\".
+Target Industry Focus: {$targetIndustryName}. Available industry slugs: [{$slugsList}].
+
+TASK: Refine and package this into a high-stakes, institutional-grade, verifiable prediction market contract for the Nigerian economy or financial markets.
+
+RULES:
+1. TITLE: Must be a clear, binary question starting with \"Will ...?\". Must be concrete and professional.
+2. TIMEFRAME CONSISTENCY: Pick an appropriate duration between 7 and 60 days. If the contract targets year-end {$currentYear}, ensure days does NOT overflow into " . ((int)$currentYear + 1) . ".
+3. RESOLUTION SOURCE: Name the authoritative publishing source (e.g. CBN, NBS, NGX, FMDQ, NUPRC, NMDPRA, FAAC).
+4. CRITERIA: Formulate unambiguous verification criteria starting with \"Resolves YES if...\".
+
+Respond ONLY with valid JSON:
+{
+  \"industry_slug\": \"one of the industry slugs above\",
+  \"title\": \"Will ...?\",
+  \"days\": 14,
+  \"resolution_source\": \"Official Authority Name (e.g. Central Bank of Nigeria / NBS)\",
+  \"definition\": \"Resolves YES if official published data confirms...\"
+}";
+
+        $postData = [
+            'model' => $model,
+            'messages' => [
+                ['role' => 'system', 'content' => 'You are an elite quantitative financial structurer. Return valid JSON only.'],
+                ['role' => 'user', 'content' => $prompt],
+            ],
+            'temperature' => 0.2,
+            'max_tokens' => 600,
+        ];
+
+        $ch = curl_init("https://integrate.api.nvidia.com/v1/chat/completions");
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => json_encode($postData),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                "Authorization: Bearer {$apiKey}",
+            ],
+            CURLOPT_TIMEOUT => 20,
+            CURLOPT_SSL_VERIFYPEER => false,
+        ]);
+
+        $res = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        $parsed = null;
+        if ($httpCode === 200 && $res) {
+            $data = json_decode($res, true);
+            $content = $data['choices'][0]['message']['content'] ?? '';
+            if (preg_match('/\{[\s\S]*\}/', $content, $matches)) {
+                $parsed = json_decode($matches[0], true);
+            }
+        }
+
+        if (!$parsed || empty($parsed['title'])) {
+            $fallbackTitle = !empty($rawIdea) ? "Will {$rawIdea}?" : "Will the CBN maintain headline MPR stability at the upcoming policy cycle?";
+            Response::success([
+                'title' => $fallbackTitle,
+                'industry_id' => $targetIndustryId ?: 1,
+                'resolution_source' => 'Official Regulatory Gazette & Central Bank of Nigeria Disclosures',
+                'closes_at' => date('Y-m-d', strtotime('+14 days')),
+                'definition' => "Resolves YES if official published statistics confirm the target threshold on or before the resolution date.",
+                'days' => 14,
+            ], 'Market contract drafted (rule-based fallback).');
+            return;
+        }
+
+        $matchedIndId = $targetIndustryId ?: 1;
+        if (!empty($parsed['industry_slug'])) {
+            foreach ($industries as $ind) {
+                if ($ind['slug'] === $parsed['industry_slug']) {
+                    $matchedIndId = (int)$ind['id'];
+                    break;
+                }
+            }
+        }
+
+        $days = max(5, min(90, (int)($parsed['days'] ?? 14)));
+        $aligned = PredictorService::computeAlignedMilestoneDates($parsed['title'], $parsed['definition'] ?? '', $days);
+
+        Response::success([
+            'title' => $parsed['title'],
+            'industry_id' => $matchedIndId,
+            'resolution_source' => $parsed['resolution_source'] ?? 'Official Regulatory Disclosures',
+            'closes_at' => substr($aligned['closes_at'], 0, 10),
+            'definition' => $parsed['definition'] ?? '',
+            'days' => $days,
+        ], 'Market contract structured and polished by Institutional AI.');
+    }
+
+    public function aiAssistScenario(): void
+    {
+        $this->requireAdmin();
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+        $rawDilemma = trim((string)($body['idea'] ?? $body['dilemma'] ?? ''));
+        $targetIndustryId = !empty($body['industry_id']) ? (int)$body['industry_id'] : null;
+
+        $pdo = Database::getConnection();
+        $industries = $pdo->query("SELECT id, slug, name FROM industries ORDER BY id ASC")->fetchAll();
+
+        $targetIndustryName = 'Corporate Finance & Strategy';
+        $targetSlug = 'fintech';
+        if ($targetIndustryId) {
+            foreach ($industries as $ind) {
+                if ((int)$ind['id'] === $targetIndustryId) {
+                    $targetIndustryName = $ind['name'];
+                    $targetSlug = $ind['slug'];
+                    break;
+                }
+            }
+        }
+
+        $apiKey = (string)Env::get('NVIDIA_API_KEY', '');
+        if (empty($apiKey)) {
+            Response::success([
+                'title' => !empty($rawDilemma) ? substr($rawDilemma, 0, 60) : 'Corporate Capital Allocation & Working Capital Crisis',
+                'industry_id' => $targetIndustryId ?: 1,
+                'difficulty' => 'intermediate',
+                'confidential_body' => "You are the Chief Financial Officer navigating an emergency working capital shortage.\n\nEXECUTIVE DIRECTIVE: Choose your strategic directive:\nOption A: Secure an expedited ₦500 million bridge facility at 28% interest to protect supply chain liquidity.\nOption B: Halt expansion capex and enforce 45-day vendor payment terms, risking supplier attrition.",
+                'reference_case' => [
+                    'company' => 'Emerging Market Conglomerates',
+                    'precedent' => 'Liquidity management during macro interest rate tightening cycles.'
+                ]
+            ], 'Scenario drafted (fallback).');
+            return;
+        }
+
+        $model = 'meta/llama-3.1-70b-instruct';
+        try {
+            $s = $pdo->query("SELECT value FROM platform_settings WHERE `key` = 'active_ai_model' LIMIT 1")->fetchColumn();
+            if ($s) $model = trim($s);
+        } catch (\Throwable $e) {}
+
+        $slugsList = implode(', ', array_column($industries, 'slug'));
+        $prompt = "You are the Lead Executive Strategy Case Designer for EconSim.
+The Administrator provided this rough dilemma note / idea: \"{$rawDilemma}\".
+Target Industry Focus: '{$targetIndustryName}' (slug: '{$targetSlug}'). Available slugs: [{$slugsList}].
+
+TASK: Formulate a SHARP, BITE-SIZED, SINGLE-OBJECTIVE boardroom dilemma for a corporate executive (CFO/COO/CEO).
+
+CRITICAL REQUIREMENTS:
+1. SINGLE FOCUSED PROBLEM: Do NOT create multiple sub-tasks. Focus on ONE concrete crisis or trade-off (e.g. 72-hour cash burn, FX contract rollover, tariff hike, raw material port hold, power cost surge).
+2. CONCRETE NUMBERS: Include explicit figures (e.g. ₦X million burn, Y% cost surge, Z days deadline).
+3. PUNCHY DIRECTIVE: Conclude with 1 clear Executive Directive presenting 2 distinct strategic alternatives (Option A vs Option B).
+
+Respond ONLY with valid JSON:
+{
+  \"industry_slug\": \"{$targetSlug}\",
+  \"title\": \"Punchy 6-12 word dilemma title\",
+  \"body\": \"1 short backstory paragraph with figures\\n\\nEXECUTIVE DIRECTIVE: Choose your technical and operational directive:\\nOption A: [Strategic action with financial cost or tradeoff]\\nOption B: [Alternative action with operational or reputational tradeoff]\",
+  \"reference\": {
+    \"company\": \"Relevant enterprise name or sector cluster\",
+    \"precedent\": \"Historical emerging market or Nigerian business precedent\"
+  },
+  \"difficulty\": \"intermediate\"
+}";
+
+        $postData = [
+            'model' => $model,
+            'messages' => [
+                ['role' => 'system', 'content' => 'You design sharp, single-objective executive business dilemmas. Return valid JSON only.'],
+                ['role' => 'user', 'content' => $prompt],
+            ],
+            'temperature' => 0.25,
+            'max_tokens' => 896,
+        ];
+
+        $ch = curl_init("https://integrate.api.nvidia.com/v1/chat/completions");
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => json_encode($postData),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                "Authorization: Bearer {$apiKey}",
+            ],
+            CURLOPT_TIMEOUT => 20,
+            CURLOPT_SSL_VERIFYPEER => false,
+        ]);
+
+        $res = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        $parsed = null;
+        if ($httpCode === 200 && $res) {
+            $data = json_decode($res, true);
+            $content = $data['choices'][0]['message']['content'] ?? '';
+            if (preg_match('/\{[\s\S]*\}/', $content, $matches)) {
+                $parsed = json_decode($matches[0], true);
+            }
+        }
+
+        if (!$parsed || empty($parsed['title'])) {
+            Response::success([
+                'title' => !empty($rawDilemma) ? substr($rawDilemma, 0, 60) : 'Corporate Capital Allocation & Working Capital Crisis',
+                'industry_id' => $targetIndustryId ?: 1,
+                'difficulty' => 'intermediate',
+                'confidential_body' => "You are the Chief Financial Officer navigating an emergency working capital shortage.\n\nEXECUTIVE DIRECTIVE: Choose your strategic directive:\nOption A: Secure an expedited ₦500 million bridge facility at 28% interest to protect supply chain liquidity.\nOption B: Halt expansion capex and enforce 45-day vendor payment terms, risking supplier attrition.",
+                'reference_case' => [
+                    'company' => 'Emerging Market Conglomerates',
+                    'precedent' => 'Liquidity management during macro interest rate tightening cycles.'
+                ]
+            ], 'Scenario drafted (fallback).');
+            return;
+        }
+
+        $matchedIndId = $targetIndustryId ?: 1;
+        if (!empty($parsed['industry_slug'])) {
+            foreach ($industries as $ind) {
+                if ($ind['slug'] === $parsed['industry_slug']) {
+                    $matchedIndId = (int)$ind['id'];
+                    break;
+                }
+            }
+        }
+
+        Response::success([
+            'title' => $parsed['title'],
+            'industry_id' => $matchedIndId,
+            'difficulty' => in_array($parsed['difficulty'] ?? '', ['beginner', 'intermediate', 'advanced'], true) ? $parsed['difficulty'] : 'intermediate',
+            'confidential_body' => $parsed['body'],
+            'reference_case' => $parsed['reference'] ?? [
+                'company' => $targetIndustryName,
+                'precedent' => 'Nigerian corporate sector operational dilemma.'
+            ],
+        ], 'Boardroom scenario structured and polished by Institutional AI.');
+    }
+
+    public function createScenario(): void
+    {
+        $admin = $this->requireAdmin();
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
+
+        $title = trim((string)($body['title'] ?? ''));
+        $industryId = (int)($body['industry_id'] ?? 1);
+        $confidentialBody = trim((string)($body['confidential_body'] ?? ''));
+        $difficulty = in_array($body['difficulty'] ?? '', ['beginner', 'intermediate', 'advanced'], true) ? $body['difficulty'] : 'intermediate';
+        $referenceCase = $body['reference_case'] ?? ['company' => 'Enterprise Cluster', 'precedent' => 'Macro precedent'];
+
+        if (empty($title)) {
+            Response::error('Scenario title is required.', 400);
+        }
+        if (empty($confidentialBody)) {
+            Response::error('Confidential scenario body with directive is required.', 400);
+        }
+
+        $rubric = [
+            'financial_mechanics' => 40,
+            'downside_risk_controls' => 30,
+            'macro_precedent' => 20,
+            'executive_communication' => 10,
+        ];
+
+        $id = Security::uuid();
+        $pdo = Database::getConnection();
+        $stmt = $pdo->prepare("
+            INSERT INTO boardroom_scenarios 
+                (id, industry_id, title, confidential_body, reference_case, rubric, difficulty, approved_by, created_at)
+            VALUES 
+                (:id, :ind, :title, :body, :ref, :rubric, :diff, :admin, NOW(3))
+        ");
+        $stmt->execute([
+            ':id' => $id,
+            ':ind' => $industryId,
+            ':title' => $title,
+            ':body' => $confidentialBody,
+            ':ref' => json_encode($referenceCase, JSON_UNESCAPED_SLASHES),
+            ':rubric' => json_encode($rubric),
+            ':diff' => $difficulty,
+            ':admin' => $admin['id'] ?? null,
+        ]);
+
+        Response::success(['id' => $id, 'title' => $title], 'Boardroom scenario successfully published to live arena.', 201);
+    }
+
+    public function getScenarios(): void
+    {
+        $this->requireAdmin();
+        $pdo = Database::getConnection();
+        $stmt = $pdo->query("
+            SELECT s.id, s.title, s.difficulty, s.created_at, i.name as industry_name,
+                   (SELECT COUNT(*) FROM boardroom_challenges c WHERE c.scenario_id = s.id) as challenges_count
+            FROM boardroom_scenarios s
+            LEFT JOIN industries i ON s.industry_id = i.id
+            ORDER BY s.created_at DESC
+            LIMIT 30
+        ");
+        Response::success($stmt->fetchAll());
+    }
 }
