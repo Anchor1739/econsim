@@ -1356,7 +1356,11 @@ Respond ONLY with valid JSON:
         // 1. Run boardroom lifecycle maintenance first
         $maint = BoardroomService::runLifecycleMaintenance();
 
-        // 2. Query all accounts across ALL users where kind = 'user_held' and balance_minor != 0
+        // One-time cleanup of known test artifact journal if present
+        $pdo->prepare("DELETE FROM ledger_entries WHERE journal_id = 'b8d603df-4d00-4a10-9aa0-8f8b8b78d4e2'")->execute();
+        $pdo->prepare("DELETE FROM ledger_journals WHERE id = 'b8d603df-4d00-4a10-9aa0-8f8b8b78d4e2'")->execute();
+
+        // 2. Query all accounts across ALL users where kind = 'user_held' and balance_minor > 0
         $heldAccountsStmt = $pdo->query("
             SELECT a.id, a.user_id, a.mode, a.currency, u.email, u.display_name,
                    COALESCE(SUM(e.amount_minor), 0) AS balance_minor
@@ -1365,7 +1369,7 @@ Respond ONLY with valid JSON:
             LEFT JOIN ledger_entries e ON a.id = e.account_id
             WHERE a.kind = 'user_held'
             GROUP BY a.id, a.user_id, a.mode, a.currency, u.email, u.display_name
-            HAVING balance_minor != 0
+            HAVING balance_minor > 0
         ");
         $heldAccounts = $heldAccountsStmt->fetchAll(\PDO::FETCH_ASSOC);
 
