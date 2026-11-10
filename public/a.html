@@ -136,6 +136,168 @@
       50% { opacity: 0.4; }
     }
 
+    /* Executive Tabbed Menu Bar */
+    .admin-nav {
+      background: rgba(13, 20, 36, 0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 64px;
+      z-index: 45;
+      padding: 0 28px;
+      display: flex;
+      gap: 4px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+      width: 100%;
+      max-width: 100vw;
+    }
+    .admin-nav::-webkit-scrollbar { display: none; }
+
+    .nav-tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-family: var(--font-main);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 14px 14px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 2px solid transparent;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+
+    .nav-tab-btn:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .nav-tab-btn.active {
+      color: #38bdf8;
+      border-bottom-color: #38bdf8;
+      background: rgba(56, 189, 248, 0.06);
+    }
+
+    .nav-tab-btn .tab-badge {
+      background: rgba(251, 191, 36, 0.15);
+      border: 1px solid rgba(251, 191, 36, 0.3);
+      color: #fbbf24;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 9999px;
+      font-family: var(--font-mono);
+      line-height: 1.2;
+    }
+
+    .admin-tab-page {
+      display: none;
+      animation: tabFadeIn 0.2s ease-in-out;
+    }
+
+    .admin-tab-page.active {
+      display: block;
+    }
+
+    @keyframes tabFadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Page Section Header inside Tab Pages */
+    .tab-page-header {
+      margin-bottom: 24px;
+    }
+
+    .tab-page-header .tab-page-eyebrow {
+      font-family: var(--font-mono);
+      color: var(--accent);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 4px;
+    }
+
+    .tab-page-header h2 {
+      font-size: 20px;
+      font-weight: 800;
+      color: white;
+      margin-bottom: 4px;
+    }
+
+    .tab-page-header p {
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    /* Quick Launch Command Hub in Overview */
+    .command-hub-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin-top: 24px;
+    }
+
+    .command-card {
+      background: var(--surface-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .command-card:hover {
+      border-color: #38bdf8;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+      background: var(--surface-elevated);
+    }
+
+    .command-card .card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .command-card .card-icon {
+      font-size: 22px;
+    }
+
+    .command-card .card-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: white;
+      margin-bottom: 4px;
+    }
+
+    .command-card .card-desc {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .command-card .card-footer {
+      margin-top: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 600;
+      color: #38bdf8;
+    }
+
     /* Layout */
     .admin-container {
       max-width: 1400px;
@@ -830,45 +992,208 @@
       </div>
     </header>
 
+    <!-- Executive Tabbed Menu Bar -->
+    <nav class="admin-nav" id="admin-nav-bar">
+      <button class="nav-tab-btn active" data-tab="overview" onclick="switchAdminTab('overview')">
+        <span>📊</span> Overview
+      </button>
+      <button class="nav-tab-btn" data-tab="engine" onclick="switchAdminTab('engine')">
+        <span>⚙️</span> Engine &amp; Gateways
+      </button>
+      <button class="nav-tab-btn" data-tab="boardroom" onclick="switchAdminTab('boardroom')">
+        <span>🏛️</span> Boardroom Desk
+        <span class="tab-badge" id="nav-badge-boardroom" style="display: none;">0</span>
+      </button>
+      <button class="nav-tab-btn" data-tab="creator" onclick="switchAdminTab('creator')">
+        <span>✍️</span> Creator Studio
+      </button>
+      <button class="nav-tab-btn" data-tab="settlement" onclick="switchAdminTab('settlement')">
+        <span>⚖️</span> Market Settlement
+      </button>
+      <button class="nav-tab-btn" data-tab="expert" onclick="switchAdminTab('expert')">
+        <span>🎓</span> Expert Scenarios
+        <span class="tab-badge" id="nav-badge-expert" style="display: none;">0</span>
+      </button>
+      <button class="nav-tab-btn" data-tab="funding" onclick="switchAdminTab('funding')">
+        <span>💳</span> Funding Stream
+      </button>
+      <button class="nav-tab-btn" data-tab="feedback" onclick="switchAdminTab('feedback')">
+        <span>💬</span> Feedback Desk
+        <span class="tab-badge" id="nav-badge-feedback" style="display: none;">0</span>
+      </button>
+    </nav>
+
     <!-- Main Container -->
     <main class="admin-container">
-      <div class="terminal-banner">
-        <div>
-          <div style="font-family: var(--font-mono); color: var(--accent); font-size: 12px; margin-bottom: 4px;">
-            INSTITUTIONAL CORE · DUAL-GATEWAY LIQUIDITY ENGINE
+
+      <!-- ======================================================== -->
+      <!-- TAB 1: OVERVIEW & KEY METRICS                            -->
+      <!-- ======================================================== -->
+      <section class="admin-tab-page active" id="tab-page-overview">
+        <div class="terminal-banner">
+          <div>
+            <div style="font-family: var(--font-mono); color: var(--accent); font-size: 12px; margin-bottom: 4px;">
+              INSTITUTIONAL CORE · DUAL-GATEWAY LIQUIDITY ENGINE
+            </div>
+            <h1>Platform Operations & Monetary Engine</h1>
+            <p>High-level system health diagnostics, live double-entry liquidity pools, and quick workstation access.</p>
           </div>
-          <h1>Platform Operations & Monetary Engine</h1>
-          <p>Full control over real-mode operations, payment gateways (Flutterwave & Korapay), AI adjudication pools, and market clearing.</p>
+          <button class="btn btn-primary" onclick="loadAllAdminData()">
+            Refresh Diagnostics ↺
+          </button>
         </div>
-        <button class="btn btn-primary" onclick="loadAllAdminData()">
-          Refresh Diagnostics ↺
-        </button>
-      </div>
 
-      <!-- Key Metrics Grid -->
-      <div class="metrics-grid">
-        <div class="metric-box emerald">
-          <label>Registered Strategists</label>
-          <div class="value" id="stat-users">0</div>
+        <!-- Key Metrics Grid -->
+        <div class="metrics-grid">
+          <div class="metric-box emerald">
+            <label>Registered Strategists</label>
+            <div class="value" id="stat-users">0</div>
+          </div>
+          <div class="metric-box">
+            <label>Open Market Contracts</label>
+            <div class="value" id="stat-markets">0</div>
+          </div>
+          <div class="metric-box">
+            <label>Virtual Capital Minted</label>
+            <div class="value" id="stat-virtual-deposits">₦0</div>
+            <div class="sub">Simulation Ledger Deposits</div>
+          </div>
+          <div class="metric-box amber">
+            <label>Real Escrow Balance</label>
+            <div class="value" id="stat-real-escrow">₦0</div>
+            <div class="sub">Audited Live Liquidity Pool</div>
+          </div>
         </div>
-        <div class="metric-box">
-          <label>Open Market Contracts</label>
-          <div class="value" id="stat-markets">0</div>
-        </div>
-        <div class="metric-box">
-          <label>Virtual Capital Minted</label>
-          <div class="value" id="stat-virtual-deposits">₦0</div>
-          <div class="sub">Simulation Ledger Deposits</div>
-        </div>
-        <div class="metric-box amber">
-          <label>Real Escrow Balance</label>
-          <div class="value" id="stat-real-escrow">₦0</div>
-          <div class="sub">Audited Live Liquidity Pool</div>
-        </div>
-      </div>
 
-      <!-- Two-Column Master Grid -->
-      <div class="admin-grid">
+        <!-- Executive Navigation Hub / Command Cards -->
+        <div style="margin-top: 32px;">
+          <div class="tab-page-header">
+            <div class="tab-page-eyebrow">WORKSTATION NAVIGATOR</div>
+            <h2>Operational Workstations</h2>
+            <p>Click any workstation card below or use the top menu bar to jump straight to that operational module.</p>
+          </div>
+
+          <div class="command-hub-grid">
+            <div class="command-card" onclick="switchAdminTab('engine')">
+              <div>
+                <div class="card-head">
+                  <span class="card-icon">⚙️</span>
+                  <span class="status-pill" style="font-size: 10px;">CORE ENGINE</span>
+                </div>
+                <div class="card-title">Engine &amp; Payment Rails</div>
+                <div class="card-desc">Toggle demo/real modes, switch live gateways (Korapay &amp; Flutterwave), designate autonomous AI evaluation models, and copy the keep-warm cron worker URL.</div>
+              </div>
+              <div class="card-footer">
+                <span>Configure Engine</span>
+                <span>→</span>
+              </div>
+            </div>
+
+            <div class="command-card" onclick="switchAdminTab('boardroom')">
+              <div>
+                <div class="card-head">
+                  <span class="card-icon">🏛️</span>
+                  <span class="status-pill status-enabled" style="font-size: 10px;">ADJUDICATION</span>
+                </div>
+                <div class="card-title">Boardroom Grading Desk</div>
+                <div class="card-desc">Review submitted participant strategy memos, inspect proposed AI scores, toggle Autonomous AI vs Human Review, and train the evaluation rubric.</div>
+              </div>
+              <div class="card-footer">
+                <span>Open Grading Desk</span>
+                <span>→</span>
+              </div>
+            </div>
+
+            <div class="command-card" onclick="switchAdminTab('creator')">
+              <div>
+                <div class="card-head">
+                  <span class="card-icon">✍️</span>
+                  <span class="status-pill" style="font-size: 10px;">AI ASSISTED</span>
+                </div>
+                <div class="card-title">Creator Studio</div>
+                <div class="card-desc">Formulate new verifiable macroeconomic forecast contracts and craft confidential corporate boardroom case dilemmas with AI structuring assistance.</div>
+              </div>
+              <div class="card-footer">
+                <span>Draft Contracts &amp; Cases</span>
+                <span>→</span>
+              </div>
+            </div>
+
+            <div class="command-card" onclick="switchAdminTab('settlement')">
+              <div>
+                <div class="card-head">
+                  <span class="card-icon">⚖️</span>
+                  <span class="status-pill" style="font-size: 10px;">MARKET CLEARING</span>
+                </div>
+                <div class="card-title">Contract Settlement Console</div>
+                <div class="card-desc">Audit open forecasting contracts, declare verified YES/NO macroeconomic resolutions, and execute atomic payouts across the double-entry ledger.</div>
+              </div>
+              <div class="card-footer">
+                <span>Resolve Open Markets</span>
+                <span>→</span>
+              </div>
+            </div>
+
+            <div class="command-card" onclick="switchAdminTab('expert')">
+              <div>
+                <div class="card-head">
+                  <span class="card-icon">🎓</span>
+                  <span class="status-pill" style="font-size: 10px;">COMMUNITY INTEL</span>
+                </div>
+                <div class="card-title">Expert Scenarios Desk</div>
+                <div class="card-desc">Review community &amp; industry expert business dilemmas, verify quantitative metrics, package directives, and promote directly into live Boardroom rotation.</div>
+              </div>
+              <div class="card-footer">
+                <span>Inspect Submissions</span>
+                <span>→</span>
+              </div>
+            </div>
+
+            <div class="command-card" onclick="switchAdminTab('funding')">
+              <div>
+                <div class="card-head">
+                  <span class="card-icon">💳</span>
+                  <span class="status-pill" style="font-size: 10px;">AUDIT LEDGER</span>
+                </div>
+                <div class="card-title">Real Liquidity Stream</div>
+                <div class="card-desc">Inspect audited deposit transits, payment gateway references, transaction statuses, and real money inflow ledgers in real time.</div>
+              </div>
+              <div class="card-footer">
+                <span>View Transaction Ledger</span>
+                <span>→</span>
+              </div>
+            </div>
+
+            <div class="command-card" onclick="switchAdminTab('feedback')">
+              <div>
+                <div class="card-head">
+                  <span class="card-icon">💬</span>
+                  <span class="status-pill" style="font-size: 10px;">USER SENTIMENT</span>
+                </div>
+                <div class="card-title">Feedback &amp; Bug Desk</div>
+                <div class="card-desc">Read strategist bug reports, UX suggestions, star ratings, and mark feedback items as reviewed, resolved, or archived.</div>
+              </div>
+              <div class="card-footer">
+                <span>Review User Feedback</span>
+                <span>→</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ======================================================== -->
+      <!-- TAB 2: ENGINE CONTROLS & PAYMENT GATEWAYS                -->
+      <!-- ======================================================== -->
+      <section class="admin-tab-page" id="tab-page-engine">
+        <div class="tab-page-header">
+          <div class="tab-page-eyebrow">PLATFORM ENGINE &amp; PAYMENT GATEWAYS</div>
+          <h2>System Modes, Processing Rails &amp; AI Routing</h2>
+          <p>Configure feature flags, active card/virtual bank transfer rails, and designated LLM model backbones.</p>
+        </div>
+
+        <!-- Two-Column Master Grid -->
+        <div class="admin-grid">
 
         <!-- Column 1: Feature Toggles & Engine Controls -->
         <div class="panel">
@@ -934,10 +1259,20 @@
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-            <!-- Boardroom Strategy Grading & Adjudication Desk -->
-      <div class="panel" style="margin-bottom: 32px;" id="boardroom-grading-desk-panel">
+      <!-- ======================================================== -->
+      <!-- TAB 3: BOARDROOM STRATEGY GRADING DESK                   -->
+      <!-- ======================================================== -->
+      <section class="admin-tab-page" id="tab-page-boardroom">
+        <div class="tab-page-header">
+          <div class="tab-page-eyebrow">BOARDROOM STRATEGY ADJUDICATION</div>
+          <h2>Executive Memo Grading &amp; Review Desk</h2>
+          <p>Supervise strategic match evaluations, train AI scoring heuristics, and review live participant submissions.</p>
+        </div>
+
+        <!-- Boardroom Strategy Grading & Adjudication Desk -->
+        <div class="panel" style="margin-bottom: 32px;" id="boardroom-grading-desk-panel">
         <div class="panel-header" style="align-items: flex-start;">
           <div>
             <div class="panel-title">
@@ -1032,13 +1367,19 @@
             </table>
           </div>
         </div>
-      </div>
-
+      </section>
 
       <!-- ======================================================== -->
-      <!-- USER FEEDBACK & SUGGESTIONS DESK                         -->
+      <!-- TAB 8: USER FEEDBACK & SUGGESTIONS DESK                  -->
       <!-- ======================================================== -->
-      <div class="panel" style="margin-bottom: 32px;" id="feedback-desk-panel">
+      <section class="admin-tab-page" id="tab-page-feedback">
+        <div class="tab-page-header">
+          <div class="tab-page-eyebrow">USER SENTIMENT &amp; BUG REPORTS</div>
+          <h2>Strategist Feedback &amp; Suggestions Desk</h2>
+          <p>Direct bug reports, user sentiment ratings, and feature requests from platform participants.</p>
+        </div>
+
+        <div class="panel" style="margin-bottom: 32px;" id="feedback-desk-panel">
         <div class="panel-header" style="align-items: flex-start;">
           <div>
             <div class="panel-title">
@@ -1112,12 +1453,19 @@
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
 
       <!-- ======================================================== -->
-      <!-- REAL-WORLD EXPERT SCENARIO INGESTION DESK                -->
+      <!-- TAB 6: REAL-WORLD EXPERT SCENARIOS DESK                  -->
       <!-- ======================================================== -->
-      <div class="panel" style="margin-bottom: 32px;" id="expert-scenarios-panel">
+      <section class="admin-tab-page" id="tab-page-expert">
+        <div class="tab-page-header">
+          <div class="tab-page-eyebrow">COMMUNITY &amp; EXPERT CONTRIBUTIONS</div>
+          <h2>Executive Scenario Ingestion &amp; Verification Desk</h2>
+          <p>Review submitted real-world case dilemmas, verify quantitative metrics, and promote them directly into live Boardroom rotation.</p>
+        </div>
+
+        <div class="panel" style="margin-bottom: 32px;" id="expert-scenarios-panel">
         <div class="panel-header" style="align-items: flex-start;">
           <div>
             <div class="panel-title">
@@ -1173,43 +1521,63 @@
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
 
-<!-- Real Funding Stream Audit Ledger -->
-      <div class="panel" style="margin-bottom: 32px;">
-        <div class="panel-header">
-          <div>
-            <div class="panel-title">
-              <span>📊</span> Real Account Funding Stream
-            </div>
-            <div class="panel-subtitle">Live Deposit Transits Across Flutterwave & Korapay</div>
-          </div>
+      <!-- ======================================================== -->
+      <!-- TAB 7: REAL FUNDING STREAM                               -->
+      <!-- ======================================================== -->
+      <section class="admin-tab-page" id="tab-page-funding">
+        <div class="tab-page-header">
+          <div class="tab-page-eyebrow">LIQUIDITY &amp; CAPITAL TRANSITS</div>
+          <h2>Real Account Funding Stream Audit Ledger</h2>
+          <p>Real-time audit log of cash deposits and ledger holds across Korapay and Flutterwave.</p>
         </div>
-        <div class="table-responsive">
-          <table>
-            <thead>
-              <tr>
-                <th>Strategist</th>
-                <th>Amount</th>
-                <th>Gateway Rail</th>
-                <th>Reference</th>
-                <th>Status</th>
-                <th style="text-align: right;">Timestamp</th>
-              </tr>
-            </thead>
-            <tbody id="funding-stream-table">
-              <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">Loading real transaction stream...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
 
-      <!-- Market Creation & Adjudication Controls -->
-      <div class="admin-grid">
-        <!-- New Market Form -->
-        <div class="panel">
+        <!-- Real Funding Stream Audit Ledger -->
+        <div class="panel" style="margin-bottom: 32px;">
           <div class="panel-header">
             <div>
+              <div class="panel-title">
+                <span>📊</span> Real Account Funding Stream
+              </div>
+              <div class="panel-subtitle">Live Deposit Transits Across Flutterwave & Korapay</div>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>Strategist</th>
+                  <th>Amount</th>
+                  <th>Gateway Rail</th>
+                  <th>Reference</th>
+                  <th>Status</th>
+                  <th style="text-align: right;">Timestamp</th>
+                </tr>
+              </thead>
+              <tbody id="funding-stream-table">
+                <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">Loading real transaction stream...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ======================================================== -->
+      <!-- TAB 4: CREATOR STUDIO (MARKETS & SCENARIOS)              -->
+      <!-- ======================================================== -->
+      <section class="admin-tab-page" id="tab-page-creator">
+        <div class="tab-page-header">
+          <div class="tab-page-eyebrow">CREATOR STUDIO &amp; AI ARCHITECT</div>
+          <h2>Structure Economic Contracts &amp; Corporate Cases</h2>
+          <p>Draft institutional-grade prediction markets and boardroom strategy dilemmas with built-in AI structuring assistants.</p>
+        </div>
+
+        <div class="admin-grid">
+          <!-- New Market Form -->
+          <div class="panel">
+            <div class="panel-header">
+              <div>
               <div class="panel-title">
                 <span>➕</span> Create Verifiable Economic Contract
               </div>
@@ -1331,13 +1699,25 @@
             </button>
           </form>
         </div>
+      </div>
+      </section>
+
+      <!-- ======================================================== -->
+      <!-- TAB 5: MARKET CLEARING & SETTLEMENT                      -->
+      <!-- ======================================================== -->
+      <section class="admin-tab-page" id="tab-page-settlement">
+        <div class="tab-page-header">
+          <div class="tab-page-eyebrow">PREDICTOR MARKET CLEARING</div>
+          <h2>Contract Settlement &amp; Resolution Console</h2>
+          <p>Declare authoritative real-world outcomes and trigger atomic double-entry payout distributions.</p>
+        </div>
 
         <!-- Open Contracts Settlement Table -->
         <div class="panel">
           <div class="panel-header">
             <div>
               <div class="panel-title">
-                <span>⚖️</span> Contract Settlement & Resolution
+                <span>⚖️</span> Open Contracts Awaiting Settlement
               </div>
               <div class="panel-subtitle">Atomic distribution of forecast payouts</div>
             </div>
@@ -1360,7 +1740,7 @@
             </table>
           </div>
         </div>
-      </div>
+      </section>
     </main>
   </div>
 
@@ -1614,6 +1994,58 @@
     const API_BASE = '/api';
     let adminKey = sessionStorage.getItem('econsim_a_key') || '';
 
+    // ========================================================
+    // TAB NAVIGATION CONTROLLER
+    // ========================================================
+    const ADMIN_TABS = ['overview', 'engine', 'boardroom', 'creator', 'settlement', 'expert', 'funding', 'feedback'];
+
+    function switchAdminTab(tabName) {
+      if (!ADMIN_TABS.includes(tabName)) tabName = 'overview';
+
+      // Update tab buttons
+      document.querySelectorAll('.nav-tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tabName);
+      });
+
+      // Update tab page containers
+      document.querySelectorAll('.admin-tab-page').forEach(page => {
+        page.classList.toggle('active', page.id === `tab-page-${tabName}`);
+      });
+
+      // Save state in session & hash
+      sessionStorage.setItem('econsim_admin_active_tab', tabName);
+      try {
+        history.replaceState(null, '', `#tab=${tabName}`);
+      } catch (e) {}
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    window.switchAdminTab = switchAdminTab;
+
+    function restoreAdminTab() {
+      let targetTab = 'overview';
+      if (window.location.hash) {
+        const hashMatch = window.location.hash.match(/tab=([a-z0-9_-]+)/i);
+        if (hashMatch && ADMIN_TABS.includes(hashMatch[1])) {
+          targetTab = hashMatch[1];
+        }
+      }
+      if (targetTab === 'overview') {
+        const savedTab = sessionStorage.getItem('econsim_admin_active_tab');
+        if (savedTab && ADMIN_TABS.includes(savedTab)) {
+          targetTab = savedTab;
+        }
+      }
+      switchAdminTab(targetTab);
+    }
+
+    window.addEventListener('hashchange', () => {
+      const match = window.location.hash.match(/tab=([a-z0-9_-]+)/i);
+      if (match && ADMIN_TABS.includes(match[1])) {
+        switchAdminTab(match[1]);
+      }
+    });
+
     function toast(msg, type = 'info') {
       const container = document.getElementById('toast-container');
       const el = document.createElement('div');
@@ -1677,6 +2109,7 @@
       try {
         await apiRequest('/a/auth/verify');
         hideAuthGate();
+        restoreAdminTab();
         toast('Terminal unlocked successfully!', 'success');
         loadAllAdminData();
       } catch (err) {
@@ -1701,6 +2134,7 @@
     }
 
     async function checkInitialAuth() {
+      restoreAdminTab();
       // Auto-populate from URL query params ?key=JESUS or ?admin_key=JESUS or ?passkey=JESUS
       const urlParams = new URLSearchParams(window.location.search);
       const urlKey = urlParams.get('key') || urlParams.get('admin_key') || urlParams.get('passkey');
@@ -1715,6 +2149,7 @@
       try {
         await apiRequest('/a/auth/verify');
         hideAuthGate();
+        restoreAdminTab();
         loadAllAdminData();
       } catch (e) {
         sessionStorage.removeItem('econsim_a_key');
@@ -2217,10 +2652,17 @@
 
     function renderBoardroomStats(stats) {
       if (!stats) return;
-      document.getElementById('bd-stat-pending').innerText = (stats.pending_count || 0).toLocaleString();
+      const pending = Number(stats.pending_count || 0);
+      document.getElementById('bd-stat-pending').innerText = pending.toLocaleString();
       document.getElementById('bd-stat-evaluated').innerText = (stats.total_evaluated || 0).toLocaleString();
       document.getElementById('bd-stat-corrected').innerText = (stats.total_reviewed_or_corrected || 0).toLocaleString();
-      document.getElementById('bd-queue-badge').innerText = `${stats.pending_count || 0} QUEUED`;
+      document.getElementById('bd-queue-badge').innerText = `${pending} QUEUED`;
+
+      const badge = document.getElementById('nav-badge-boardroom');
+      if (badge) {
+        badge.innerText = pending;
+        badge.style.display = pending > 0 ? 'inline-block' : 'none';
+      }
     }
 
     function renderBoardroomPendingTable(items) {
@@ -2422,8 +2864,6 @@
         toast('Adjudication failed: ' + err.message, 'error');
       }
     }
-
-    checkInitialAuth();
   
     // ========================================================
     // FEEDBACK DESK CONTROLLER
@@ -2465,6 +2905,13 @@
         if (statNew) statNew.innerText = stats.new || 0;
         if (statRating) statRating.innerText = stats.average_rating ? `${stats.average_rating} ★` : '5.0 ★';
         if (statResolved) statResolved.innerText = stats.resolved || 0;
+
+        const fbBadge = document.getElementById('nav-badge-feedback');
+        if (fbBadge) {
+          const newCount = Number(stats.new || 0);
+          fbBadge.innerText = newCount;
+          fbBadge.style.display = newCount > 0 ? 'inline-block' : 'none';
+        }
 
         renderFeedbackTable(currentFeedbackItems);
       } catch (err) {
@@ -2569,6 +3016,13 @@
         if (statPending) statPending.innerText = stats.pending || 0;
         if (statApproved) statApproved.innerText = stats.approved || 0;
         if (statRejected) statRejected.innerText = stats.rejected || 0;
+
+        const expBadge = document.getElementById('nav-badge-expert');
+        if (expBadge) {
+          const pendingCount = Number(stats.pending || 0);
+          expBadge.innerText = pendingCount;
+          expBadge.style.display = pendingCount > 0 ? 'inline-block' : 'none';
+        }
 
         renderExpertScenariosTable(currentExpertSubmissions);
       } catch (err) {
@@ -2727,6 +3181,9 @@
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
     }
+
+    // Initialize authentication and tab state
+    checkInitialAuth();
 
 </script>
 </body>
