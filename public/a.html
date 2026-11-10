@@ -1701,6 +1701,13 @@
     }
 
     async function checkInitialAuth() {
+      // Auto-populate from URL query params ?key=JESUS or ?admin_key=JESUS or ?passkey=JESUS
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlKey = urlParams.get('key') || urlParams.get('admin_key') || urlParams.get('passkey');
+      if (urlKey) {
+        adminKey = urlKey.trim();
+        sessionStorage.setItem('econsim_a_key', adminKey);
+      }
       if (!adminKey) {
         showAuthGate();
         return;
@@ -2443,7 +2450,7 @@
         if (currentFeedbackStatusFilter) query.set('status', currentFeedbackStatusFilter);
         if (cat) query.set('category', cat);
 
-        const res = await apiRequest(`/a/feedback?\${query.toString()}`);
+        const res = await apiRequest(`/a/feedback?${query.toString()}`);
         const data = res?.data || {};
         currentFeedbackItems = data.items || [];
 
@@ -2456,12 +2463,12 @@
 
         if (statTotal) statTotal.innerText = stats.total || 0;
         if (statNew) statNew.innerText = stats.new || 0;
-        if (statRating) statRating.innerText = stats.average_rating ? `\${stats.average_rating} ★` : '5.0 ★';
+        if (statRating) statRating.innerText = stats.average_rating ? `${stats.average_rating} ★` : '5.0 ★';
         if (statResolved) statResolved.innerText = stats.resolved || 0;
 
         renderFeedbackTable(currentFeedbackItems);
       } catch (err) {
-        if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #f87171; padding: 24px;">Failed to load feedback: \${err.message}</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #f87171; padding: 24px;">Failed to load feedback: ${err.message}</td></tr>`;
       }
     }
 
@@ -2492,30 +2499,30 @@
         return `
           <tr>
             <td>
-              <div style="font-weight: 700; color: white;">\${item.user_name || 'Guest Strategist'}</div>
-              <div style="font-size: 11px; color: var(--text-muted);">\${item.contact_email || item.user_email || 'No email provided'}</div>
+              <div style="font-weight: 700; color: white;">${item.user_name || 'Guest Strategist'}</div>
+              <div style="font-size: 11px; color: var(--text-muted);">${item.contact_email || item.user_email || 'No email provided'}</div>
             </td>
             <td>
-              <span style="background: var(--surface); border: 1px solid var(--border); padding: 2px 6px; border-radius: 4px; font-size: 10.5px; text-transform: uppercase; font-weight: 700; color: var(--accent);">\${item.category}</span>
-              \${stars ? `<div style="color: #fbbf24; font-size: 11px; margin-top: 3px;">\${stars}</div>` : ''}
+              <span style="background: var(--surface); border: 1px solid var(--border); padding: 2px 6px; border-radius: 4px; font-size: 10.5px; text-transform: uppercase; font-weight: 700; color: var(--accent);">${item.category}</span>
+              ${stars ? `<div style="color: #fbbf24; font-size: 11px; margin-top: 3px;">${stars}</div>` : ''}
             </td>
             <td style="max-width: 320px;">
-              <div style="font-size: 12.5px; color: var(--text); line-height: 1.4; word-break: break-word;">\${escapeHtml(item.message)}</div>
-              \${item.admin_notes ? `<div style="font-size: 11px; color: #34d399; margin-top: 4px;"><b>Admin Note:</b> \${escapeHtml(item.admin_notes)}</div>` : ''}
+              <div style="font-size: 12.5px; color: var(--text); line-height: 1.4; word-break: break-word;">${escapeHtml(item.message)}</div>
+              ${item.admin_notes ? `<div style="font-size: 11px; color: #34d399; margin-top: 4px;"><b>Admin Note:</b> ${escapeHtml(item.admin_notes)}</div>` : ''}
             </td>
             <td>
-              <div style="font-size: 11px; color: var(--text-muted); font-family: monospace;">\${item.page_url ? item.page_url.replace(/https?:\\/\\/[^/]+/, '') : '/'}</div>
-              <div style="font-size: 10.5px; color: var(--text-muted); margin-top: 2px;">\${(item.created_at || '').slice(0, 16)}</div>
+              <div style="font-size: 11px; color: var(--text-muted); font-family: monospace;">${item.page_url ? item.page_url.replace(/https?:\/\/[^/]+/, '') : '/'}</div>
+              <div style="font-size: 10.5px; color: var(--text-muted); margin-top: 2px;">${(item.created_at || '').slice(0, 16)}</div>
             </td>
-            <td>\${statusBadge}</td>
+            <td>${statusBadge}</td>
             <td style="text-align: right; white-space: nowrap;">
-              \${item.status === 'new' ? `
-                <button class="btn btn-secondary" style="font-size: 10.5px; padding: 3px 8px;" onclick="handleUpdateFeedbackStatus('\${item.id}', 'reviewed')">Reviewed ✓</button>
+              ${item.status === 'new' ? `
+                <button class="btn btn-secondary" style="font-size: 10.5px; padding: 3px 8px;" onclick="handleUpdateFeedbackStatus('${item.id}', 'reviewed')">Reviewed ✓</button>
               ` : ''}
-              \${item.status !== 'resolved' ? `
-                <button class="btn btn-primary" style="font-size: 10.5px; padding: 3px 8px;" onclick="handleUpdateFeedbackStatus('\${item.id}', 'resolved')">Resolve ⚡</button>
+              ${item.status !== 'resolved' ? `
+                <button class="btn btn-primary" style="font-size: 10.5px; padding: 3px 8px;" onclick="handleUpdateFeedbackStatus('${item.id}', 'resolved')">Resolve ⚡</button>
               ` : `
-                <button class="btn btn-secondary" style="font-size: 10.5px; padding: 3px 8px;" onclick="handleUpdateFeedbackStatus('\${item.id}', 'archived')">Archive</button>
+                <button class="btn btn-secondary" style="font-size: 10.5px; padding: 3px 8px;" onclick="handleUpdateFeedbackStatus('${item.id}', 'archived')">Archive</button>
               `}
             </td>
           </tr>
@@ -2526,11 +2533,11 @@
     async function handleUpdateFeedbackStatus(feedbackId, newStatus) {
       const note = (newStatus === 'resolved') ? prompt('Optional resolution note for records:', '') : null;
       try {
-        await apiRequest(`/a/feedback/\${feedbackId}`, 'POST', {
+        await apiRequest(`/a/feedback/${feedbackId}`, 'POST', {
           status: newStatus,
           admin_notes: note || undefined
         });
-        toast(`Feedback status updated to \${newStatus}`, 'success');
+        toast(`Feedback status updated to ${newStatus}`, 'success');
         loadFeedbackDeskData();
       } catch (err) {
         toast('Failed to update feedback: ' + err.message, 'error');
@@ -2565,7 +2572,7 @@
 
         renderExpertScenariosTable(currentExpertSubmissions);
       } catch (err) {
-        if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #f87171; padding: 24px;">Failed to load expert submissions: \${err.message}</td></tr>`;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #f87171; padding: 24px;">Failed to load expert submissions: ${err.message}</td></tr>`;
       }
     }
 
@@ -2589,23 +2596,23 @@
         return `
           <tr>
             <td>
-              <div style="font-weight: 700; color: white;">\${escapeHtml(s.contributor_name)}</div>
-              <div style="font-size: 11px; color: var(--text-muted);">\${escapeHtml(s.contributor_role)}\${s.organization ? ` · \${escapeHtml(s.organization)}` : ''}</div>
-              <div style="font-size: 10.5px; color: var(--text-muted);">\${escapeHtml(s.contributor_email)}</div>
+              <div style="font-weight: 700; color: white;">${escapeHtml(s.contributor_name)}</div>
+              <div style="font-size: 11px; color: var(--text-muted);">${escapeHtml(s.contributor_role)}${s.organization ? ` · ${escapeHtml(s.organization)}` : ''}</div>
+              <div style="font-size: 10.5px; color: var(--text-muted);">${escapeHtml(s.contributor_email)}</div>
             </td>
             <td>
-              <div style="font-weight: 700; color: white; max-width: 260px;">\${escapeHtml(s.title)}</div>
-              <span style="background: var(--surface); border: 1px solid var(--border); padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; color: var(--accent);">\${s.industry_name}</span>
+              <div style="font-weight: 700; color: white; max-width: 260px;">${escapeHtml(s.title)}</div>
+              <span style="background: var(--surface); border: 1px solid var(--border); padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; color: var(--accent);">${s.industry_name}</span>
             </td>
             <td style="max-width: 200px; font-size: 11.5px; color: var(--text-muted);">
-              \${escapeHtml((s.decision_options || '').slice(0, 100))}...
+              ${escapeHtml((s.decision_options || '').slice(0, 100))}...
             </td>
             <td style="max-width: 200px; font-size: 11.5px; color: var(--text-muted);">
-              \${escapeHtml((s.actual_outcome_result || '').slice(0, 100))}...
+              ${escapeHtml((s.actual_outcome_result || '').slice(0, 100))}...
             </td>
-            <td>\${statusBadge}</td>
+            <td>${statusBadge}</td>
             <td style="text-align: right; white-space: nowrap;">
-              <button class="btn btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="openExpertScenarioModal(\${idx})">
+              <button class="btn btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="openExpertScenarioModal(${idx})">
                 Inspect &amp; Package 🔍
               </button>
             </td>
@@ -2637,8 +2644,8 @@
         if (s.key_metrics && typeof s.key_metrics === 'object' && Object.keys(s.key_metrics).length) {
           mContainer.innerHTML = Object.entries(s.key_metrics).map(([k, v]) => `
             <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font-size: 11.5px;">
-              <span style="color: var(--text-muted); text-transform: capitalize;">\${k.replace(/[_-]/g, ' ')}:</span>
-              <b style="color: #34d399; margin-left: 4px;">\${escapeHtml(String(v))}</b>
+              <span style="color: var(--text-muted); text-transform: capitalize;">${k.replace(/[_-]/g, ' ')}:</span>
+              <b style="color: #34d399; margin-left: 4px;">${escapeHtml(String(v))}</b>
             </div>
           `).join('');
         } else {
@@ -2680,7 +2687,7 @@
       if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Publishing...'; }
 
       try {
-        const res = await apiRequest(`/a/expert/scenarios/\${id}/approve`, 'POST', {
+        const res = await apiRequest(`/a/expert/scenarios/${id}/approve`, 'POST', {
           title: title,
           difficulty: difficulty,
           admin_notes: notes || undefined
@@ -2700,7 +2707,7 @@
       if (!notes) return;
 
       try {
-        await apiRequest(`/a/expert/scenarios/\${id}/reject`, 'POST', {
+        await apiRequest(`/a/expert/scenarios/${id}/reject`, 'POST', {
           admin_notes: notes
         });
         toast('Scenario submission rejected.', 'info');
