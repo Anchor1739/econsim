@@ -1231,4 +1231,89 @@ Respond ONLY with valid JSON:
             'challenges' => $challenges,
         ]);
     }
+
+    public function refundUserEscrow(): void
+    {
+        $this->requireAdmin();
+        $email = trim($_GET['email'] ?? ($_POST['email'] ?? 'hackerxy.united1@gmail.com'));
+        $pdo = Database::getConnection();
+
+        $uStmt = $pdo->prepare("SELECT id, email, display_name FROM users WHERE email = ?");
+        $uStmt->execute([$email]);
+        $user = $uStmt->fetch(\PDO::FETCH_ASSOC);
+
+        if (!$user) {
+            Response::error("User not found: {$email}", 404);
+            return;
+        }
+        $userId = $user['id'];
+
+        $heldAcctStmt = $pdo->prepare("SELECT id, mode, currency FROM ledger_accounts WHERE user_id = ? AND kind = 'user_held'");
+        $heldAcctStmt->execute([$userId]);
+        $heldAccounts = $heldAcctStmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        $refunded = [];
+        $totalRefundedMinor = 0;
+
+        foreach ($heldAccounts as $hAcct) {
+            $heldAccountId = $hAcct['id'];
+            $mode = $hAcct['mode'] ?? 'demo';
+
+            $netHeldStmt = $pdo->prepare("
+                SELECT j.reference_id, COALESCE(SUM(e.amount_minor), 0) AS net_held_minor
+                FROM ledger_entries e
+                JOIN ledger_journals j ON e.journal_id = j.id
+                WHERE e.account_id = ?
+                GROUP BY j.reference_id
+                HAVING net_held_minor > 0
+            ");
+            $netHeldStmt->execute([$heldAccountId]);
+            $unreleasedRefs = $netHeldStmt->fetchAll(\PDO::FETCH_ASSOC);
+
+            foreach ($unreleasedRefs as $row) {
+                $refId = $row['reference_id'];
+                $netHeldMinor = (int)$row['net_held_minor'];
+                if ($netHeldMinor <= 0) continue;
+
+                $idempotencyKey = "admin_escrow_refund_{$userId}_{$refId}_" . time();
+                try {
+                    LedgerService::settleCommitment(
+                        $userId,
+                        $netHeldMinor,
+                        $netHeldMinor,
+                        'boardroom_refund',
+                        $refId,
+                        $idempotencyKey,
+                        $mode
+                    );
+
+                    // Mark challenge settled/closed if applicable
+                    $pdo->prepare("UPDATE boardroom_challenges SET state = 'settled' WHERE id = ? AND state != 'settled'")->execute([$refId]);
+
+                    $totalRefundedMinor += $netHeldMinor;
+                    $refunded[] = [
+                        'reference_id' => $refId,
+                        'refunded_minor' => $netHeldMinor,
+                        'refunded_naira' => number_format($netHeldMinor / 100, 2),
+                        'idempotency_key' => $idempotencyKey,
+                    ];
+                } catch (\Throwable $e) {
+                    $refunded[] = [
+                        'reference_id' => $refId,
+                        'error' => $e->getMessage(),
+                    ];
+                }
+            }
+        }
+
+        $balances = LedgerService::getUserBalances($userId);
+
+        Response::success([
+            'user' => $user,
+            'total_refunded_minor' => $totalRefundedMinor,
+            'total_refunded_naira' => number_format($totalRefundedMinor / 100, 2),
+            'items' => $refunded,
+            'new_balances' => $balances,
+        ], "Escrow refund completed successfully");
+    }
 }

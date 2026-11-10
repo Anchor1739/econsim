@@ -171,6 +171,8 @@ if (str_starts_with($path, '/api/')) {
     $router->post('/api/a/expert/scenarios/{id}/approve', [AdminController::class, 'approveExpertScenario']);
     $router->post('/api/a/expert/scenarios/{id}/reject', [AdminController::class, 'rejectExpertScenario']);
     $router->get('/api/a/users/escrow-audit', [AdminController::class, 'auditUserEscrow']);
+    $router->get('/api/a/users/escrow-refund', [AdminController::class, 'refundUserEscrow']);
+    $router->post('/api/a/users/escrow-refund', [AdminController::class, 'refundUserEscrow']);
 
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $router->dispatch($method, $uri);

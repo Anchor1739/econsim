@@ -1527,6 +1527,40 @@ Respond ONLY with valid JSON in this exact structure:
         $rows = $scores->fetchAll();
 
         if (empty($rows)) {
+            // No submissions were graded: refund escrow commitments to host and opponent
+            $chgStmt = $pdo->prepare("SELECT host_id, opponent_id, commitment_minor, mode FROM boardroom_challenges WHERE id = ?");
+            $chgStmt->execute([$challengeId]);
+            $c = $chgStmt->fetch();
+            if ($c) {
+                $heldMinor = (int)$c['commitment_minor'];
+                $mode = $c['mode'] ?? 'demo';
+                if (!empty($c['host_id']) && $heldMinor > 0) {
+                    try {
+                        LedgerService::settleCommitment(
+                            $c['host_id'],
+                            $heldMinor,
+                            $heldMinor,
+                            'boardroom_refund',
+                            $challengeId,
+                            "br_refund_host_{$challengeId}",
+                            $mode
+                        );
+                    } catch (\Throwable $e) {}
+                }
+                if (!empty($c['opponent_id']) && $heldMinor > 0) {
+                    try {
+                        LedgerService::settleCommitment(
+                            $c['opponent_id'],
+                            $heldMinor,
+                            $heldMinor,
+                            'boardroom_refund',
+                            $challengeId,
+                            "br_refund_opp_{$challengeId}",
+                            $mode
+                        );
+                    } catch (\Throwable $e) {}
+                }
+            }
             $pdo->prepare("UPDATE boardroom_challenges SET state = 'settled' WHERE id = ?")->execute([$challengeId]);
             return;
         }
