@@ -620,7 +620,25 @@ Respond ONLY with valid JSON:
             }
         }
 
-        // 3. Continuous Multi-Sector Market Ingestion Engine:
+        // 3. Milestone Date Alignment Check:
+        // Clamps markets mentioning year-end 2026 to Dec 31, 2026
+        $alignStmt = $pdo->prepare("
+            UPDATE market_events 
+            SET closes_at = '2026-12-31 20:00:00',
+                resolves_at = '2027-01-01 12:00:00'
+            WHERE state = 'open' 
+              AND (
+                  title LIKE '%year-end 2026%' 
+                  OR title LIKE '%December 31, 2026%'
+                  OR outcome_definition LIKE '%December 31, 2026%'
+                  OR outcome_definition LIKE '%year-end 2026%'
+              )
+              AND closes_at > '2026-12-31 23:59:59'
+        ");
+        $alignStmt->execute();
+        $updates['aligned_milestone_markets'] = $alignStmt->rowCount();
+
+        // 4. Continuous Multi-Sector Market Ingestion Engine:
         // Constantly ingests fresh prediction markets whenever data or catalysts are available;
         // does NOT wait for sector counts to drop.
         $replenished = self::continuousMarketIngestion(3);
@@ -629,7 +647,7 @@ Respond ONLY with valid JSON:
             $updates['replenished_markets'] = $replenished;
         }
 
-        if ($updates['auto_locked_5min_markets'] > 0 || $updates['auto_resolved_markets'] > 0 || $updates['auto_replenished_count'] > 0) {
+        if ($updates['auto_locked_5min_markets'] > 0 || $updates['auto_resolved_markets'] > 0 || $updates['auto_replenished_count'] > 0 || ($updates['aligned_milestone_markets'] ?? 0) > 0) {
             self::clearMarketCache();
         }
 
@@ -1255,9 +1273,13 @@ Respond ONLY with valid JSON:
 
                         $eventId = Security::uuid();
                         $uniqueSlug = ($aiMarket['slug'] ?? 'macro-news') . '-' . substr(bin2hex(random_bytes(4)), 0, 6);
-                        $days = max(30, min(150, (int)($aiMarket['days'] ?? 60)));
-                        $closesAt = date('Y-m-d H:i:s', time() + ($days * 86400));
-                        $resolvesAt = date('Y-m-d H:i:s', time() + (($days + 1) * 86400));
+                        $dates = self::computeAlignedMilestoneDates(
+                            $aiMarket['title'],
+                            $aiMarket['definition'] ?? $headline,
+                            (int)($aiMarket['days'] ?? 60)
+                        );
+                        $closesAt = $dates['closes_at'];
+                        $resolvesAt = $dates['resolves_at'];
 
                         $ins = $pdo->prepare("
                             INSERT INTO market_events 
@@ -1336,8 +1358,13 @@ Respond ONLY with valid JSON:
 
                     $eventId = Security::uuid();
                     $uniqueSlug = $tmpl['slug'] . '-' . substr(bin2hex(random_bytes(4)), 0, 6);
-                    $closesAt = date('Y-m-d H:i:s', time() + ($tmpl['days'] * 86400));
-                    $resolvesAt = date('Y-m-d H:i:s', time() + (($tmpl['days'] + 1) * 86400));
+                    $dates = self::computeAlignedMilestoneDates(
+                        $tmpl['title'],
+                        $tmpl['def'] ?? '',
+                        (int)($tmpl['days'] ?? 60)
+                    );
+                    $closesAt = $dates['closes_at'];
+                    $resolvesAt = $dates['resolves_at'];
 
                     $insEvent = $pdo->prepare("
                         INSERT INTO market_events 
@@ -1391,6 +1418,63 @@ Respond ONLY with valid JSON:
     }
 
     /**
+     * Compute chronologically aligned milestone dates.
+     * Prevents milestone contradiction where questions ask about e.g. "before year-end 2026"
+     * but closes_at overflows into 2027.
+     */
+    public static function computeAlignedMilestoneDates(string $title, string $definition, int $days): array
+    {
+        $now = time();
+        $text = strtolower($title . ' ' . $definition);
+
+        // Check for specific year-end 2026 mentions
+        if (str_contains($text, 'year-end 2026') || str_contains($text, 'december 31, 2026') || str_contains($text, 'dec 31, 2026') || str_contains($text, 'q4 2026')) {
+            $yearEnd2026 = strtotime('2026-12-31 20:00:00 UTC');
+            if ($now < $yearEnd2026) {
+                $calculatedCloses = $now + ($days * 86400);
+                $closesTs = min($calculatedCloses, $yearEnd2026);
+                return [
+                    'closes_at' => gmdate('Y-m-d H:i:s', $closesTs),
+                    'resolves_at' => '2027-01-01 12:00:00',
+                ];
+            }
+        }
+
+        // Check for specific 2027 Q1 mentions
+        if (str_contains($text, 'q1 2027') || str_contains($text, 'march 31, 2027') || str_contains($text, 'q1-end 2027')) {
+            $q1End2027 = strtotime('2027-03-31 20:00:00 UTC');
+            if ($now < $q1End2027) {
+                $calculatedCloses = $now + ($days * 86400);
+                $closesTs = min($calculatedCloses, $q1End2027);
+                return [
+                    'closes_at' => gmdate('Y-m-d H:i:s', $closesTs),
+                    'resolves_at' => '2027-04-01 12:00:00',
+                ];
+            }
+        }
+
+        // Check for year-end 2027 mentions
+        if (str_contains($text, 'year-end 2027') || str_contains($text, 'december 31, 2027')) {
+            $yearEnd2027 = strtotime('2027-12-31 20:00:00 UTC');
+            if ($now < $yearEnd2027) {
+                $calculatedCloses = $now + ($days * 86400);
+                $closesTs = min($calculatedCloses, $yearEnd2027);
+                return [
+                    'closes_at' => gmdate('Y-m-d H:i:s', $closesTs),
+                    'resolves_at' => '2028-01-01 12:00:00',
+                ];
+            }
+        }
+
+        // Standard dynamic forecast duration
+        $days = max(14, min(180, $days));
+        return [
+            'closes_at' => gmdate('Y-m-d H:i:s', $now + ($days * 86400)),
+            'resolves_at' => gmdate('Y-m-d H:i:s', $now + (($days + 1) * 86400)),
+        ];
+    }
+
+    /**
      * Self-healing: verify all 11 core industries exist with matching slugs/names
      * and ensure every single sector has active open prediction contracts.
      */
@@ -1440,6 +1524,21 @@ Respond ONLY with valid JSON:
             $pdo->exec("UPDATE industries SET name = 'FMCG & Retail' WHERE slug = 'fmcg' AND name != 'FMCG & Retail'");
             $pdo->exec("UPDATE industries SET name = 'Real Estate & Infra' WHERE slug = 'real-estate' AND name != 'Real Estate & Infra'");
             $pdo->exec("UPDATE industries SET name = 'Equities' WHERE slug IN ('capital-markets', 'equities') AND name != 'Equities'");
+
+            // Synchronize date consistency for markets mentioning specific year-end milestones
+            $pdo->exec("
+                UPDATE market_events 
+                SET closes_at = '2026-12-31 20:00:00',
+                    resolves_at = '2027-01-01 12:00:00'
+                WHERE state = 'open' 
+                  AND (
+                      title LIKE '%year-end 2026%' 
+                      OR title LIKE '%December 31, 2026%'
+                      OR outcome_definition LIKE '%December 31, 2026%'
+                      OR outcome_definition LIKE '%year-end 2026%'
+                  )
+                  AND closes_at > '2026-12-31 23:59:59'
+            ");
 
             // Check if open markets count is low
             $openCount = (int)$pdo->query("SELECT COUNT(*) FROM market_events WHERE state = 'open'")->fetchColumn();
