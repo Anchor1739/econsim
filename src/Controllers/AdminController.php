@@ -1384,11 +1384,11 @@ Respond ONLY with valid JSON:
                 SELECT reference_id, COUNT(*) as cnt 
                 FROM ledger_journals 
                 WHERE event_type = 'boardroom_refund' 
-                  AND idempotency_key LIKE CONCAT('admin_escrow_refund_', ?, '%')
+                  AND (idempotency_key LIKE CONCAT('admin_escrow_refund_', ?, '%') OR idempotency_key LIKE CONCAT('global_escrow_sweep_', ?, '%'))
                 GROUP BY reference_id
                 HAVING cnt > 1
             ");
-            $dupStmt->execute([$userId]);
+            $dupStmt->execute([$userId, $userId]);
             $dups = $dupStmt->fetchAll(\PDO::FETCH_ASSOC);
             foreach ($dups as $dup) {
                 $refId = $dup['reference_id'];
@@ -1396,10 +1396,10 @@ Respond ONLY with valid JSON:
                     SELECT id FROM ledger_journals 
                     WHERE reference_id = ? 
                       AND event_type = 'boardroom_refund'
-                      AND idempotency_key LIKE CONCAT('admin_escrow_refund_', ?, '%')
+                      AND (idempotency_key LIKE CONCAT('admin_escrow_refund_', ?, '%') OR idempotency_key LIKE CONCAT('global_escrow_sweep_', ?, '%'))
                     ORDER BY posted_at ASC
                 ");
-                $jStmt->execute([$refId, $userId]);
+                $jStmt->execute([$refId, $userId, $userId]);
                 $jIds = $jStmt->fetchAll(\PDO::FETCH_COLUMN);
                 if (count($jIds) > 1) {
                     for ($i = 1; $i < count($jIds); $i++) {
@@ -1410,13 +1410,29 @@ Respond ONLY with valid JSON:
                 }
             }
 
+            // If account has negative balance from previous erroneous refund, reverse the extra sweep journal
+            $curHeldBal = (int)$pdo->query("SELECT COALESCE(SUM(amount_minor), 0) FROM ledger_entries WHERE account_id = '{$heldAccountId}'")->fetchColumn();
+            if ($curHeldBal < 0) {
+                $erroneousSweeps = $pdo->query("
+                    SELECT j.id FROM ledger_journals j 
+                    WHERE j.idempotency_key LIKE 'global_escrow_sweep_{$userId}_%' 
+                    ORDER BY j.posted_at DESC
+                ")->fetchAll(\PDO::FETCH_COLUMN);
+                foreach ($erroneousSweeps as $esJid) {
+                    if ($curHeldBal >= 0) break;
+                    $pdo->prepare("DELETE FROM ledger_entries WHERE journal_id = ?")->execute([$esJid]);
+                    $pdo->prepare("DELETE FROM ledger_journals WHERE id = ?")->execute([$esJid]);
+                    $curHeldBal = (int)$pdo->query("SELECT COALESCE(SUM(amount_minor), 0) FROM ledger_entries WHERE account_id = '{$heldAccountId}'")->fetchColumn();
+                }
+            }
+
             // Find all reference_ids with net held > 0 for this account
             $netHeldStmt = $pdo->prepare("
-                SELECT j.reference_id, j.event_type, COALESCE(SUM(e.amount_minor), 0) AS net_held_minor
+                SELECT j.reference_id, COALESCE(SUM(e.amount_minor), 0) AS net_held_minor
                 FROM ledger_entries e
                 JOIN ledger_journals j ON e.journal_id = j.id
                 WHERE e.account_id = ?
-                GROUP BY j.reference_id, j.event_type
+                GROUP BY j.reference_id
                 HAVING net_held_minor > 0
             ");
             $netHeldStmt->execute([$heldAccountId]);
@@ -1428,8 +1444,11 @@ Respond ONLY with valid JSON:
             foreach ($unreleasedRefs as $row) {
                 $refId = $row['reference_id'];
                 $netHeldMinor = (int)$row['net_held_minor'];
-                $eventType = $row['event_type'];
                 if ($netHeldMinor <= 0) continue;
+
+                $evStmt = $pdo->prepare("SELECT event_type FROM ledger_journals WHERE reference_id = ? ORDER BY posted_at ASC LIMIT 1");
+                $evStmt->execute([$refId]);
+                $eventType = (string)($evStmt->fetchColumn() ?: 'boardroom_escrow_hold');
 
                 $shouldRefund = false;
                 if ($eventType === 'boardroom_escrow_hold') {
@@ -1441,6 +1460,7 @@ Respond ONLY with valid JSON:
                         $shouldRefund = true;
                     }
                 } else if ($eventType === 'forecast_stake') {
+                    // Only refund if the underlying market has closed/settled without settling the position
                     $fPos = $pdo->prepare("SELECT p.status, m.state FROM forecast_positions p JOIN market_events m ON p.event_id = m.id WHERE p.id = ?");
                     $fPos->execute([$refId]);
                     $fp = $fPos->fetch(\PDO::FETCH_ASSOC);
