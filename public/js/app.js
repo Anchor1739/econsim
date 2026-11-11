@@ -128,6 +128,9 @@ let state = {
   markets: [],
   selectedMarketId: null,
   marketFilter: 'All',
+  predictorTab: 'markets',
+  myForecasts: [],
+  bookingsFilter: 'all',
   boardroomLobby: [],
   currentChallengeId: null,
   activeChallenge: null,
@@ -2395,10 +2398,10 @@ function renderDashboard() {
         <strong id="dash-xp">${userXp.toLocaleString()} XP</strong>
         <small id="dash-level">Level ${levelNumStr}: ${userLevel.name}</small>
       </div>
-      <div class="metric-card">
+      <div class="metric-card" onclick="switchPredictorTab('bookings'); navigate('predictor');" style="cursor: pointer;" title="View your active predictor bookings">
         <span>Active Forecasts</span>
         <strong id="dash-forecasts">${openForecasts} Open</strong>
-        <small>Ledger held commitments</small>
+        <small style="color: var(--jade);">View Bookings ↗</small>
       </div>
       <div class="metric-card">
         <span>Boardroom Sessions</span>
@@ -2468,27 +2471,53 @@ function renderPredictor() {
     'Aviation & Logistics'
   ];
 
+  const currentTab = state.predictorTab || 'markets';
+  const openCount = (state.myForecasts || []).filter(f => f.status === 'open').length;
+
   return `
     <div class="page-head">
       <div>
         <div class="eyebrow">THE PREDICTOR</div>
         <h1>Macroeconomic & Market Forecasts</h1>
-        <p>Explore economic contracts across 11 key industries, analyze fundamentals, and test your thesis.</p>
+        <p>Explore economic contracts across 11 key industries, analyze fundamentals, and track your active positions.</p>
       </div>
-      <button class="btn btn-secondary" onclick="loadPredictorData()">Refresh Markets ↺</button>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn btn-secondary" onclick="loadPredictorData()">Refresh ↺</button>
+      </div>
     </div>
 
-    <div id="predictor-filter-bar" style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
-      ${industries.map(f => `
-        <button class="btn ${state.marketFilter.toLowerCase() === f.toLowerCase() ? 'btn-primary' : 'btn-secondary'}" 
-                style="padding: 6px 14px; font-size: 12px; border-radius: 20px;" 
-                onclick="setMarketFilter('${f}')">${f}</button>
-      `).join('')}
+    <!-- Predictor Navigation Tabs -->
+    <div style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--line); padding-bottom: 12px;">
+      <button class="btn ${currentTab === 'markets' ? 'btn-primary' : 'btn-secondary'}" 
+              style="padding: 8px 18px; font-size: 13px; font-weight: 600; border-radius: 8px;" 
+              onclick="switchPredictorTab('markets')">
+        Explore Markets
+      </button>
+      <button class="btn ${currentTab === 'bookings' ? 'btn-primary' : 'btn-secondary'}" 
+              style="padding: 8px 18px; font-size: 13px; font-weight: 600; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px;" 
+              onclick="switchPredictorTab('bookings')">
+        <span>My Bookings & Positions</span>
+        ${openCount > 0 ? `<span id="tab-open-bookings-badge" style="background: ${currentTab === 'bookings' ? 'rgba(255,255,255,0.25)' : 'var(--jade)'}; color: #fff; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 10px;">${openCount}</span>` : ''}
+      </button>
     </div>
 
-    <div class="market-grid" id="markets-container">
-      ${renderMarketSkeletonGrid(4)}
-    </div>
+    ${currentTab === 'markets' ? `
+      <div id="predictor-filter-bar" style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
+        ${industries.map(f => `
+          <button class="btn ${state.marketFilter.toLowerCase() === f.toLowerCase() ? 'btn-primary' : 'btn-secondary'}" 
+                  style="padding: 6px 14px; font-size: 12px; border-radius: 20px;" 
+                  onclick="setMarketFilter('${f}')">${f}</button>
+        `).join('')}
+      </div>
+
+      <div class="market-grid" id="markets-container">
+        ${renderMarketSkeletonGrid(4)}
+      </div>
+    ` : `
+      <div id="my-bookings-container">
+        ${renderMyBookingsView()}
+      </div>
+    `}
   `;
 }
 
@@ -3915,20 +3944,255 @@ async function loadDashboardData() {
 
 async function loadPredictorData() {
   const el = document.getElementById('markets-container');
-  // Stale-While-Revalidate: render cached markets immediately for instant UI response
-  if (state.markets && state.markets.length > 0) {
+  if (state.markets && state.markets.length > 0 && state.predictorTab === 'markets') {
     renderMarketsFiltered();
-  } else if (el) {
+  } else if (el && state.predictorTab === 'markets') {
     el.innerHTML = renderMarketSkeletonGrid(4);
   }
 
   try {
-    const res = await api.get('/markets');
-    if (res?.data) {
-      state.markets = res.data;
+    const [marketsRes, forecastsRes] = await Promise.all([
+      api.get('/markets'),
+      api.get('/forecasts/me').catch(() => ({ data: [] }))
+    ]);
+
+    if (marketsRes?.data) {
+      state.markets = marketsRes.data;
+    }
+    if (forecastsRes?.data) {
+      state.myForecasts = Array.isArray(forecastsRes.data) ? forecastsRes.data : [];
+    }
+
+    if (state.predictorTab === 'bookings') {
+      const bEl = document.getElementById('my-bookings-container');
+      if (bEl) bEl.innerHTML = renderMyBookingsView();
+    } else {
       renderMarketsFiltered();
     }
+
+    // Refresh tab open bookings count badge dynamically
+    const badge = document.getElementById('tab-open-bookings-badge');
+    const openCount = (state.myForecasts || []).filter(f => f.status === 'open').length;
+    if (badge) {
+      if (openCount > 0) {
+        badge.innerText = openCount;
+        badge.style.display = 'inline';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
   } catch (e) {}
+}
+
+function switchPredictorTab(tab) {
+  state.predictorTab = tab;
+  render();
+  if (tab === 'bookings') {
+    renderMyBookingsFiltered();
+  } else {
+    renderMarketsFiltered();
+  }
+}
+window.switchPredictorTab = switchPredictorTab;
+
+function setBookingsFilter(filter) {
+  state.bookingsFilter = filter;
+  renderMyBookingsFiltered();
+}
+window.setBookingsFilter = setBookingsFilter;
+
+function renderMyBookingsView() {
+  const fList = state.myForecasts || [];
+  const openList = fList.filter(f => f.status === 'open');
+  const wonList = fList.filter(f => f.status === 'won');
+  const lostList = fList.filter(f => f.status === 'lost');
+
+  const activeHeld = openList.reduce((acc, f) => acc + (f.stake || 0), 0);
+  const potentialTotal = openList.reduce((acc, f) => acc + (f.potential_payout || 0), 0);
+  const totalSettledProfits = wonList.reduce((acc, f) => acc + (f.total_return || f.potential_payout || 0), 0);
+
+  const filter = state.bookingsFilter || 'all';
+
+  return `
+    <!-- Bookings Portfolio Overview Metrics -->
+    <div class="metrics-row" style="margin-bottom: 20px;">
+      <div class="metric-card">
+        <span>Active Staked Capital</span>
+        <strong style="color: var(--jade);">${formatMoney(activeHeld)}</strong>
+        <small>${openList.length} open position${openList.length === 1 ? '' : 's'} in escrow</small>
+      </div>
+      <div class="metric-card">
+        <span>Potential Gross Payout</span>
+        <strong style="color: var(--navy);">${formatMoney(potentialTotal)}</strong>
+        <small>Weighted locked entry odds</small>
+      </div>
+      <div class="metric-card">
+        <span>Realized Returns</span>
+        <strong style="color: #10b981;">${formatMoney(totalSettledProfits)}</strong>
+        <small>${wonList.length} won forecast contract${wonList.length === 1 ? '' : 's'}</small>
+      </div>
+      <div class="metric-card">
+        <span>Total Forecasts</span>
+        <strong>${fList.length}</strong>
+        <small>Audited ledger orders</small>
+      </div>
+    </div>
+
+    <!-- Filter Pills for Bookings -->
+    <div style="display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; align-items: center; justify-content: space-between;">
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button class="btn ${filter === 'all' ? 'btn-primary' : 'btn-secondary'}" 
+                style="padding: 5px 14px; font-size: 12px; border-radius: 20px;" 
+                onclick="setBookingsFilter('all')">
+          All Bookings (${fList.length})
+        </button>
+        <button class="btn ${filter === 'open' ? 'btn-primary' : 'btn-secondary'}" 
+                style="padding: 5px 14px; font-size: 12px; border-radius: 20px;" 
+                onclick="setBookingsFilter('open')">
+          Active (${openList.length})
+        </button>
+        <button class="btn ${filter === 'won' ? 'btn-primary' : 'btn-secondary'}" 
+                style="padding: 5px 14px; font-size: 12px; border-radius: 20px;" 
+                onclick="setBookingsFilter('won')">
+          Won (${wonList.length})
+        </button>
+        <button class="btn ${filter === 'closed' ? 'btn-primary' : 'btn-secondary'}" 
+                style="padding: 5px 14px; font-size: 12px; border-radius: 20px;" 
+                onclick="setBookingsFilter('closed')">
+          Closed (${lostList.length})
+        </button>
+      </div>
+      <span style="font-size: 12px; color: var(--muted);">Double-entry cryptographic journal records</span>
+    </div>
+
+    <div id="bookings-list-content">
+      ${renderBookingsCardsHtml(filter)}
+    </div>
+  `;
+}
+
+function renderBookingsCardsHtml(filter) {
+  const fList = state.myForecasts || [];
+  let filtered = fList;
+  if (filter === 'open') filtered = fList.filter(f => f.status === 'open');
+  else if (filter === 'won') filtered = fList.filter(f => f.status === 'won');
+  else if (filter === 'closed') filtered = fList.filter(f => f.status === 'lost' || f.status === 'void');
+
+  if (!filtered.length) {
+    if (fList.length === 0) {
+      return `
+        <div class="panel" style="text-align: center; padding: 48px 20px;">
+          <div style="font-size: 36px; margin-bottom: 12px;">📊</div>
+          <h3 style="margin-bottom: 8px;">No Forecast Bookings Yet</h3>
+          <p style="color: var(--muted); font-size: 13.5px; max-width: 440px; margin: 0 auto 20px;">
+            You have not placed any macroeconomic or market predictions yet. Explore available contracts to take a thesis and test your strategic foresight.
+          </p>
+          <button class="btn btn-primary" onclick="switchPredictorTab('markets')">Explore Available Markets ↗</button>
+        </div>
+      `;
+    }
+    return `
+      <div class="panel" style="text-align: center; padding: 40px 20px;">
+        <p style="color: var(--muted); font-size: 13.5px;">No bookings found under the "${filter}" filter.</p>
+        <button class="btn btn-secondary" style="margin-top: 10px;" onclick="setBookingsFilter('all')">View All Bookings ↺</button>
+      </div>
+    `;
+  }
+
+  return `
+    <div style="display: flex; flex-direction: column; gap: 14px;">
+      ${filtered.map(b => {
+        const isYes = String(b.outcome).toLowerCase() === 'yes';
+        const isReal = (b.mode || 'demo') === 'real';
+        const curr = isReal ? 'NGN' : 'VNGN';
+        const odds = b.entry_odds ? Number(b.entry_odds).toFixed(2) : '2.00';
+        const prob = b.quote_probability || 50;
+
+        let statusBadge = '';
+        if (b.status === 'open') {
+          statusBadge = `<span style="background: rgba(14,165,233,0.12); color: #0284c7; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;"><span class="live-dot" style="width: 6px; height: 6px; background: #0284c7; border-radius: 50%;"></span> PENDING RESOLUTION</span>`;
+        } else if (b.status === 'won') {
+          statusBadge = `<span style="background: rgba(16,185,129,0.15); color: #059669; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 11px;">WON: ₦${(b.total_return || b.potential_payout || 0).toLocaleString()} ${curr}</span>`;
+        } else if (b.status === 'lost') {
+          statusBadge = `<span style="background: rgba(239,68,68,0.12); color: #dc2626; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 11px;">CLOSED</span>`;
+        } else {
+          statusBadge = `<span style="background: rgba(245,158,11,0.12); color: #d97706; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 11px;">REFUNDED</span>`;
+        }
+
+        return `
+          <div class="panel" style="padding: 18px 20px; transition: transform 0.15s ease, box-shadow 0.15s ease; border: 1px solid var(--line);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; flex-wrap: wrap;">
+              <div style="flex: 1; min-width: 260px;">
+                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap;">
+                  <span class="market-tag" style="font-size: 11px;">${escapeHtml(b.industry || 'Macro')}</span>
+                  <span style="font-size: 10.5px; padding: 2px 7px; border-radius: 4px; font-weight: 600; background: ${isReal ? 'rgba(16,185,129,0.1)' : 'rgba(56,189,248,0.1)'}; color: ${isReal ? '#059669' : '#0284c7'};">
+                    ${isReal ? 'LIVE NGN' : 'VIRTUAL VNGN'}
+                  </span>
+                  <span style="color: var(--muted); font-size: 11px;">Booked on</span>
+                  ${formatTransactionDateTime(b.created_at)}
+                </div>
+                <h3 style="font-size: 16px; margin: 4px 0 10px; cursor: pointer; color: var(--navy); line-height: 1.4;" 
+                    onclick="navigate('market', { marketId: '${b.event_id}' })" 
+                    title="Click to view market details">
+                  ${escapeHtml(b.title)}
+                </h3>
+              </div>
+              <div style="text-align: right; min-width: 130px;">
+                ${statusBadge}
+              </div>
+            </div>
+
+            <!-- Booking Terms & Financial Mechanics Grid -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line);">
+              <div>
+                <span style="font-size: 11px; color: var(--muted); text-transform: uppercase; font-weight: 600;">Chosen Position</span>
+                <div style="margin-top: 4px;">
+                  <span style="display: inline-flex; align-items: center; gap: 4px; font-weight: 700; font-size: 13.5px; color: ${isYes ? 'var(--jade)' : '#e11d48'};">
+                    ${isYes ? '▲ YES' : '▼ NO'}
+                    <small style="font-weight: normal; color: var(--muted); font-size: 11.5px;">(${prob}% · ${odds}×)</small>
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <span style="font-size: 11px; color: var(--muted); text-transform: uppercase; font-weight: 600;">Committed Stake</span>
+                <div style="font-weight: 700; font-size: 14px; margin-top: 4px; color: var(--text);">
+                  ₦${(b.stake || 0).toLocaleString()} <small style="font-size: 11px; font-weight: normal; color: var(--muted);">${curr}</small>
+                </div>
+              </div>
+
+              <div>
+                <span style="font-size: 11px; color: var(--muted); text-transform: uppercase; font-weight: 600;">Potential Payout</span>
+                <div style="font-weight: 700; font-size: 14px; margin-top: 4px; color: ${b.status === 'lost' ? 'var(--muted)' : 'var(--jade)'};">
+                  ₦${(b.potential_payout || 0).toLocaleString()} <small style="font-size: 11px; font-weight: normal; color: var(--muted);">${curr}</small>
+                </div>
+              </div>
+
+              <div style="display: flex; align-items: flex-end; justify-content: flex-end;">
+                <button class="btn btn-secondary" style="font-size: 12px; padding: 6px 12px;" onclick="navigate('market', { marketId: '${b.event_id}' })">
+                  View Market ↗
+                </button>
+              </div>
+            </div>
+
+            ${b.thesis ? `
+              <div style="margin-top: 12px; padding: 10px 14px; background: var(--bg); border-radius: 6px; border-left: 3px solid var(--jade); font-size: 12.5px; color: var(--text); line-height: 1.5;">
+                <b style="color: var(--muted); font-size: 11px; text-transform: uppercase; display: block; margin-bottom: 2px;">Your Thesis / Decision Journal:</b>
+                ${escapeHtml(b.thesis)}
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function renderMyBookingsFiltered() {
+  const el = document.getElementById('bookings-list-content');
+  if (el) {
+    el.innerHTML = renderBookingsCardsHtml(state.bookingsFilter || 'all');
+  }
 }
 
 function normalizeSectorName(name) {
@@ -3982,8 +4246,15 @@ function setMarketFilter(f) {
 
 async function loadMarketDetailData(id) {
   try {
-    const res = await api.get(`/markets/${id}`);
+    const [res, forecastsRes] = await Promise.all([
+      api.get(`/markets/${id}`),
+      api.get('/forecasts/me').catch(() => ({ data: [] }))
+    ]);
     const m = res.data;
+    if (forecastsRes?.data) {
+      state.myForecasts = Array.isArray(forecastsRes.data) ? forecastsRes.data : [];
+    }
+
     const el = document.getElementById('market-detail-container');
     if (!el) return;
 
@@ -3993,6 +4264,38 @@ async function loadMarketDetailData(id) {
     const isReal = state.mode?.toLowerCase() === 'real';
     const activeBal = isReal ? state.realWallet : state.wallet;
     const currLabel = isReal ? 'NGN' : 'VNGN';
+
+    const myMarketPositions = (state.myForecasts || []).filter(p => p.event_id === m.id);
+    let myPositionsHtml = '';
+    if (myMarketPositions.length > 0) {
+      myPositionsHtml = `
+        <div class="panel" style="background: linear-gradient(135deg, rgba(16,185,129,0.08), rgba(14,165,233,0.06)); border: 1px solid rgba(16,185,129,0.3); margin-bottom: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <span style="font-weight: 700; font-size: 13px; color: var(--jade); display: flex; align-items: center; gap: 6px;">
+              <span>✓</span> YOUR BOOKINGS IN THIS CONTRACT
+            </span>
+            <button class="btn btn-secondary" style="font-size: 11px; padding: 3px 10px;" onclick="switchPredictorTab('bookings'); navigate('predictor');">All Bookings ↗</button>
+          </div>
+          ${myMarketPositions.map(pos => {
+            const isYes = String(pos.outcome).toLowerCase() === 'yes';
+            return `
+              <div style="padding: 10px; background: var(--bg); border-radius: 6px; border: 1px solid var(--line); margin-bottom: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                  <b style="color: ${isYes ? 'var(--jade)' : '#e11d48'}; font-size: 13px;">
+                    ${isYes ? '▲ YES' : '▼ NO'} <small style="font-weight: normal; color: var(--muted);">(${pos.entry_odds}× entry odds)</small>
+                  </b>
+                  <span class="sim-tag" style="text-transform: uppercase; font-size: 10px;">${pos.status}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 12.5px; color: var(--muted);">
+                  <span>Stake: <b style="color: var(--text);">₦${(pos.stake || 0).toLocaleString()}</b></span>
+                  <span>Est. Payout: <b style="color: var(--jade);">₦${(pos.potential_payout || 0).toLocaleString()}</b></span>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
 
     el.innerHTML = `
       <div class="two-col">
@@ -4082,6 +4385,7 @@ async function loadMarketDetailData(id) {
         </div>
 
         <div>
+          ${myPositionsHtml}
           <!-- Forecast Ticket Form -->
           <div class="panel">
             <div class="eyebrow">FORECAST TICKET (${currLabel})</div>
@@ -4227,6 +4531,7 @@ async function handlePlaceForecast(e, eventId) {
       'market'
     );
     await loadWalletData();
+    state.predictorTab = 'bookings';
     navigate('predictor');
   } catch (err) {
     if (btn) { btn.disabled = false; btn.innerHTML = origText; }

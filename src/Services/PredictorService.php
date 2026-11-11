@@ -350,10 +350,12 @@ class PredictorService
         $pdo = Database::getConnection();
         $stmt = $pdo->prepare(
             "SELECT p.id, p.event_id, p.mode, p.selected_outcome, p.stake_minor, p.quote_probability,
-                    p.status, p.total_return_minor, p.created_at, e.title, e.slug, i.name AS industry_name
+                    p.status, p.total_return_minor, p.created_at, e.title, e.slug, e.state AS market_state,
+                    e.closes_at, i.name AS industry_name, j.thesis
              FROM forecast_positions p
              JOIN market_events e ON p.event_id = e.id
              JOIN industries i ON e.industry_id = i.id
+             LEFT JOIN decision_journal j ON p.id = j.position_id
              WHERE p.user_id = ?
              ORDER BY p.created_at DESC"
         );
@@ -384,6 +386,9 @@ class PredictorService
                 'mode' => $posMode,
                 'currency' => ($posMode === 'real' ? 'NGN' : 'VNGN'),
                 'status' => $r['status'],
+                'market_state' => $r['market_state'] ?? 'open',
+                'closes_at' => $r['closes_at'] ?? null,
+                'thesis' => $r['thesis'] ?? null,
                 'created_at' => $r['created_at'],
             ];
         }, $rows);
