@@ -1548,10 +1548,11 @@ Respond ONLY with valid JSON:
             SELECT s.*, u.email as user_email, u.display_name as user_name,
                    sc.financial_mechanics, sc.risk_management, sc.historical_alignment, sc.communication,
                    (sc.financial_mechanics + sc.risk_management + sc.historical_alignment + sc.communication) as total_score,
-                   sc.explanation, sc.evidence, sc.model_used
+                   sc.explanation, sc.evidence, r.model_id as model_used
             FROM boardroom_submissions s
             JOIN users u ON s.user_id = u.id
-            LEFT JOIN evaluation_scores sc ON s.id = sc.submission_id
+            LEFT JOIN evaluation_runs r ON s.challenge_id = r.challenge_id
+            LEFT JOIN evaluation_scores sc ON r.id = sc.run_id AND s.id = sc.submission_id
             WHERE s.challenge_id = ?
             ORDER BY s.submitted_at ASC
         ");
