@@ -1518,4 +1518,54 @@ Respond ONLY with valid JSON:
             'users' => $usersProcessed,
         ], "Global escrow sweep completed across all user accounts.");
     }
+
+    public function inspectBoardroomChallenge(): void
+    {
+        $this->requireAdmin();
+        $id = trim($_GET['id'] ?? '57aa479d-20cd-4452-91e7-9e10410f6bf8');
+        $pdo = Database::getConnection();
+
+        $cStmt = $pdo->prepare("
+            SELECT c.*, i.name as industry_name, scn.title as scenario_title, scn.confidential_body,
+                   h.email as host_email, h.display_name as host_name,
+                   o.email as opponent_email, o.display_name as opponent_name
+            FROM boardroom_challenges c
+            JOIN industries i ON c.industry_id = i.id
+            LEFT JOIN boardroom_scenarios scn ON c.scenario_id = scn.id
+            LEFT JOIN users h ON c.host_id = h.id
+            LEFT JOIN users o ON c.opponent_id = o.id
+            WHERE c.id = ?
+        ");
+        $cStmt->execute([$id]);
+        $chg = $cStmt->fetch(\PDO::FETCH_ASSOC);
+
+        if (!$chg) {
+            Response::error("Challenge not found", 404);
+            return;
+        }
+
+        $subsStmt = $pdo->prepare("
+            SELECT s.*, u.email as user_email, u.display_name as user_name,
+                   sc.financial_mechanics, sc.risk_management, sc.historical_alignment, sc.communication,
+                   (sc.financial_mechanics + sc.risk_management + sc.historical_alignment + sc.communication) as total_score,
+                   sc.explanation, sc.evidence, sc.model_used
+            FROM boardroom_submissions s
+            JOIN users u ON s.user_id = u.id
+            LEFT JOIN evaluation_scores sc ON s.id = sc.submission_id
+            WHERE s.challenge_id = ?
+            ORDER BY s.submitted_at ASC
+        ");
+        $subsStmt->execute([$id]);
+        $subs = $subsStmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        $runsStmt = $pdo->prepare("SELECT * FROM evaluation_runs WHERE challenge_id = ? ORDER BY created_at ASC");
+        $runsStmt->execute([$id]);
+        $runs = $runsStmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        Response::success([
+            'challenge' => $chg,
+            'submissions' => $subs,
+            'runs' => $runs,
+        ]);
+    }
 }

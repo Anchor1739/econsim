@@ -175,6 +175,7 @@ if (str_starts_with($path, '/api/')) {
     $router->post('/api/a/users/escrow-refund', [AdminController::class, 'refundUserEscrow']);
     $router->get('/api/a/escrow/sweep-all', [AdminController::class, 'sweepAllStuckEscrow']);
     $router->post('/api/a/escrow/sweep-all', [AdminController::class, 'sweepAllStuckEscrow']);
+    $router->get('/api/a/boardroom/challenge-inspect', [AdminController::class, 'inspectBoardroomChallenge']);
 
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $router->dispatch($method, $uri);
