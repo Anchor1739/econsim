@@ -1280,11 +1280,26 @@ class BoardroomService
             'discount', 'price', 'pricing', 'tariff', 'power', 'diesel', 'fuel', 'transport', 'haulage',
             'port', 'demurrage', 'customs', 'fx', 'dollar', 'naira', 'devaluation', 'hedg', 'reserve',
             'inventory', 'working capital', 'receivable', 'payable', 'bank', 'interest', 'mpr', 'crr',
-            'mitigat', 'risk', 'contingency', 'buffer', 'milestone', 'strategy', 'plan', 'action', 'cut'
+            'mitigat', 'risk', 'contingency', 'buffer', 'milestone', 'strategy', 'plan', 'action', 'cut',
+            'real estate', 'property', 'land', 'asset', 'highway', 'road', 'alignment', 'infrastructure',
+            'construct', 'facility', 'car park', 'vehicle', 'injunction', 'interlocut', 'judicia', 'court',
+            'legal', 'statut', 'dispute', 'settle', 'negotiat', 'compensat', 'claim', 'right of way',
+            'regulat', 'government', 'business', 'commercial', 'profit', 'loss', 'valuation', 'value',
+            'patron', 'trade', 'market', 'deal', 'option'
         ];
 
+        // Also include substantive words from the scenario dilemma title
+        if (!empty($title)) {
+            $titleWords = preg_split('/[^a-zA-Z0-9]+/', strtolower($title));
+            foreach ($titleWords as $tw) {
+                if (strlen($tw) >= 4 && !in_array($tw, ['with', 'from', 'this', 'that', 'your', 'have', 'been'])) {
+                    $businessTerms[] = $tw;
+                }
+            }
+        }
+
         $matchedTerms = 0;
-        foreach ($businessTerms as $term) {
+        foreach (array_unique($businessTerms) as $term) {
             if (str_contains($lower, $term)) {
                 $matchedTerms++;
             }
@@ -1432,13 +1447,13 @@ Respond ONLY with valid JSON in this exact structure:
         }
         // B. Cash flow, runway, burn rate, liquidity analysis (up to +12)
         $cashHits = 0;
-        foreach (['runway', 'burn', 'cash flow', 'liquidity', 'working capital', 'payables', 'receivables', 'deficit'] as $k) {
+        foreach (['runway', 'burn', 'cash flow', 'liquidity', 'working capital', 'payables', 'receivables', 'deficit', 'real estate', 'asset', 'property', 'land', 'valuation'] as $k) {
             if (str_contains($text, $k)) $cashHits++;
         }
         $finScore += min(12.0, $cashHits * 3.5);
         // C. Cost restructuring, CapEx/OpEx, pricing or unit margin (up to +10)
         $costHits = 0;
-        foreach (['opex', 'capex', 'margin', 'revenue', 'cost reduction', 'overhead', 'renegotiat', 'pricing', 'surcharge'] as $k) {
+        foreach (['opex', 'capex', 'margin', 'revenue', 'cost reduction', 'overhead', 'renegotiat', 'pricing', 'surcharge', 'compensat', 'relocat'] as $k) {
             if (str_contains($text, $k)) $costHits++;
         }
         $finScore += min(10.0, $costHits * 3.0);
@@ -1451,13 +1466,13 @@ Respond ONLY with valid JSON in this exact structure:
         // 2. Downside Risk Management (0 - 30)
         // A. Identification of key risks (up to +12)
         $riskHits = 0;
-        foreach (['counterparty', 'default', 'churn', 'delay', 'outage', 'bottleneck', 'concentration', 'volatilit'] as $k) {
+        foreach (['counterparty', 'default', 'churn', 'delay', 'outage', 'bottleneck', 'concentration', 'volatilit', 'injunction', 'regulatory', 'interlocut', 'demolition', 'dispute', 'litigat'] as $k) {
             if (str_contains($text, $k)) $riskHits++;
         }
         $riskScore += min(12.0, $riskHits * 4.0);
         // B. Mitigation triggers, buffers, substitutes, hedges (up to +12)
         $mitHits = 0;
-        foreach (['mitigat', 'contingency', 'buffer', 'hedge', 'reserve', 'substitute', 'covenant', 'trigger', 'force majeure'] as $k) {
+        foreach (['mitigat', 'contingency', 'buffer', 'hedge', 'reserve', 'substitute', 'covenant', 'trigger', 'force majeure', 'negotiat', 'realignment', 'review'] as $k) {
             if (str_contains($text, $k)) $mitHits++;
         }
         $riskScore += min(12.0, $mitHits * 4.0);
@@ -1470,7 +1485,7 @@ Respond ONLY with valid JSON in this exact structure:
         // 3. Historical Precedent Alignment (0 - 20)
         // A. Nigerian / African macroeconomic realities (+10)
         $macroHits = 0;
-        foreach (['fx', 'dollar', 'naira', 'devaluation', 'inflation', 'subsidy', 'tariff', 'band-a', 'cbn', 'mpr', 'deregulat', 'import'] as $k) {
+        foreach (['fx', 'dollar', 'naira', 'devaluation', 'inflation', 'subsidy', 'tariff', 'band-a', 'cbn', 'mpr', 'deregulat', 'import', 'lagos', 'highway', 'coastal', 'minister', 'statut'] as $k) {
             if (str_contains($text, $k)) $macroHits++;
         }
         $histScore += min(10.0, $macroHits * 3.5);
