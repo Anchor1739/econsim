@@ -5523,6 +5523,34 @@ function formatLedgerActivity(eventType, kind, amount, serverDesc, serverAccount
   return { title, desc, icon, badgeLabel, badgeStyle };
 }
 
+function formatTransactionDateTime(timestamp) {
+  if (!timestamp) return '<span style="color: var(--muted); font-size: 12px; font-family: monospace;">Just now</span>';
+  const d = parseUtcDate(timestamp);
+  if (!d || isNaN(d.getTime())) {
+    return `<span style="color: var(--muted); font-size: 12px; font-family: monospace;">${escapeHtml(String(timestamp))}</span>`;
+  }
+  
+  const dateStr = d.toLocaleDateString(undefined, {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  });
+  
+  const timeStr = d.toLocaleTimeString(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  });
+
+  return `
+    <div style="font-family: var(--font-mono, monospace); font-size: 12px; line-height: 1.45;" title="Recorded: ${d.toISOString()} (Device Time)">
+      <div style="color: var(--text); font-weight: 600;">${dateStr}</div>
+      <div style="color: var(--muted); font-size: 11px;">${timeStr}</div>
+    </div>
+  `;
+}
+
 async function loadWalletData() {
   const el = document.getElementById('wallet-transactions-table');
   if (el && state.page === 'wallet' && el.querySelector('table')) {
@@ -5545,7 +5573,7 @@ async function loadWalletData() {
               <table style="width: 100%; min-width: 520px; border-collapse: collapse; text-align: left; font-size: 13.5px; white-space: nowrap;">
                 <thead>
                   <tr style="border-bottom: 2px solid var(--line); color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.5px;">
-                    <th style="padding: 12px 10px;">Date &amp; Time</th>
+                    <th style="padding: 12px 10px;">Date &amp; Time <span style="font-size: 9.5px; font-weight: 700; text-transform: uppercase; color: var(--jade); background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.25); padding: 1px 5px; border-radius: 4px; margin-left: 4px; letter-spacing: 0.3px;">Device Time</span></th>
                     <th style="padding: 12px 10px;">Activity &amp; Purpose</th>
                     <th style="padding: 12px 10px;">Ledger Bucket</th>
                     <th style="padding: 12px 10px; text-align: right;">Capital Change</th>
@@ -5562,8 +5590,8 @@ async function loadWalletData() {
 
                     return `
                       <tr style="border-bottom: 1px solid var(--line);">
-                        <td style="padding: 12px 10px; color: var(--muted); font-family: monospace; font-size: 12px;">
-                          ${t.created_at ? t.created_at.substring(0, 16).replace('T', ' ') : 'Just now'}
+                        <td style="padding: 12px 10px;">
+                          ${formatTransactionDateTime(t.created_at_iso || t.created_at)}
                         </td>
                         <td style="padding: 12px 10px;">
                           <div style="display: flex; align-items: center; gap: 8px;">

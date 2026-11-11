@@ -418,6 +418,7 @@ class LedgerService
             $amount = (int)($r['amount_minor'] / 100);
             $event = $r['event_type'] ?? '';
             $kind = $r['kind'] ?? '';
+            $utcTs = !empty($r['created_at']) ? strtotime($r['created_at'] . ' UTC') : null;
             return [
                 'id' => $r['id'],
                 'event_type' => $event,
@@ -428,6 +429,7 @@ class LedgerService
                 'kind' => $kind,
                 'reference_id' => $r['reference_id'],
                 'created_at' => $r['created_at'],
+                'created_at_iso' => $utcTs ? gmdate('Y-m-d\TH:i:s\Z', $utcTs) : null,
                 'formatted' => ($amount >= 0 ? '+' : '') . '₦' . number_format(abs($amount)),
             ];
         }, $rows);
