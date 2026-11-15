@@ -1273,9 +1273,46 @@ class BoardroomService
         $optASummary = !empty($optAText) ? $optAText : "Aggressive / Legal Defense: take swift unilateral action or seek legal protection to shield existing operations.";
         $optBSummary = !empty($optBText) ? $optBText : "Statutory Negotiation / Restructuring: compromise with counterparties or regulators to avoid catastrophic operational disruption.";
 
+        $lowerTitle = strtolower($title);
+        $lowerBody = strtolower($cleanBody);
+
+        // Determine the best everyday analogy so beginners decode the dilemma in 30 seconds
+        if (str_contains($lowerTitle, 'forward') || str_contains($lowerTitle, 'hedge') || str_contains($lowerTitle, 'fx') || str_contains($lowerBody, 'nafem') || str_contains($lowerBody, 'forward contract') || str_contains($lowerBody, 'currency') || str_contains($lowerBody, 'dollar') || str_contains($lowerBody, 'exchange rate')) {
+            $analogy = [
+                'title' => 'The Rare Video Game & Empty Store Metaphor',
+                'story' => "Imagine you borrowed a super rare video game from a friend, and you promised to buy them a brand-new copy in exactly 3 months to replace it. The official shop says the game costs 1,550 points, but their shelves are completely empty—you cannot actually buy it there. Another trusted seller offers you a guaranteed ticket: they promise to sell it to you in 3 months for 1,750 points no matter what happens. But rumors say a sudden panic buy might shoot the price up to 1,900 points or higher!",
+                'moral' => "Do you buy the ticket right now at 1,750 points to lock in certainty and sleep peacefully, or do you cross your fingers, wait 3 months, and pray the official shop magically restocks at 1,550 points?"
+            ];
+        } elseif (str_contains($lowerTitle, 'highway') || str_contains($lowerTitle, 'coastal') || str_contains($lowerTitle, 'buffer') || str_contains($lowerBody, 'demolition') || str_contains($lowerBody, 'right-of-way') || str_contains($lowerBody, 'parking') || str_contains($lowerBody, 'landmark') || str_contains($lowerBody, 'injunction')) {
+            $analogy = [
+                'title' => 'The Superhighway Road Expansion Metaphor',
+                'story' => "Imagine you run a bustling popular restaurant, and the government announces a massive new highway that cuts straight through your front car park where 45 customer vehicles park every day. Option A is rushing to court to get an emergency stop-order against the bulldozers. But if the government wins the lawsuit, they could crush your whole fence overnight. Option B is walking into the road engineer's office right now, proposing to shift the road 10 meters so you keep most parking spots, and negotiating compensation money to build a compact parking deck.",
+                'moral' => "Do you risk a hostile court battle against government bulldozers, or do you strike a smart compromise to protect your customer parking and revenue?"
+            ];
+        } elseif (str_contains($lowerTitle, 'fuel') || str_contains($lowerTitle, 'diesel') || str_contains($lowerTitle, 'power') || str_contains($lowerBody, 'tariff') || str_contains($lowerBody, 'electricity') || str_contains($lowerBody, 'band-a')) {
+            $analogy = [
+                'title' => 'The Generator Fuel vs Solar Grid Metaphor',
+                'story' => "Imagine your neighborhood power grid suddenly triples its electricity bill, but running your backup petrol generator is also becoming insanely expensive because fuel prices just surged. Option A is cutting your operating hours to save power, but customers will walk away to rivals. Option B is investing cash upfront into high-efficiency solar battery backups and adding a small service surcharge to customer bills to protect your profit margin.",
+                'moral' => "Do you cut operating hours and lose customers, or do you spend capital on an energy hedge and adjust your prices to survive?"
+            ];
+        } elseif (str_contains($lowerTitle, 'interest') || str_contains($lowerTitle, 'mpr') || str_contains($lowerTitle, 'loan') || str_contains($lowerBody, 'crr') || str_contains($lowerBody, 'bank') || str_contains($lowerBody, 'debt')) {
+            $analogy = [
+                'title' => 'The Floating-Rate House Rent Metaphor',
+                'story' => "Imagine your house rent increases automatically whenever the central bank raises interest rates, and your landlord just notified you that your monthly payment is going up by 30% next month. Option A is taking out an emergency short-term salary advance loan to pay it, hoping rates fall soon. Option B is cutting all non-essential luxury spending right now, renegotiating for a fixed annual rent, and building a 3-month cash buffer.",
+                'moral' => "Do you borrow more money and gamble that rates drop, or do you immediately cut costs and lock in fixed terms to stay solvent?"
+            ];
+        } else {
+            $analogy = [
+                'title' => 'The Rainy Season Roof Metaphor',
+                'story' => "Imagine your business roof has a visible leak just as the biggest storm season of the decade approaches. Option A is hiring an emergency legal surveyor to dispute the contractor's warranty to avoid spending money. Option B is paying a fixed contingency fee right now to seal the roof and reinforce your cash reserves so business continues uninterrupted.",
+                'moral' => "Do you gamble on a dispute while water pours in, or pay a predictable cost upfront to protect your business?"
+            ];
+        }
+
         return [
             'overview' => $overview,
             'company_role' => !empty($referenceCase['company']) ? $referenceCase['company'] : 'Enterprise Leadership / C-Suite',
+            'everyday_analogy' => $analogy,
             'option_a' => [
                 'label' => 'Option A (Defensive Shield / Legal Action)',
                 'summary' => strlen($optASummary) > 230 ? substr($optASummary, 0, 227) . '...' : $optASummary,

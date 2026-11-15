@@ -5159,15 +5159,32 @@ async function loadLiveChallengeData(challengeId) {
 
           <!-- Simplified Plain English Breakdown -->
           <div id="dilemma-simplified-box" style="display: none; margin-top: 10px; padding: 16px; background: rgba(56, 189, 248, 0.06); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 10px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
               <span style="background: rgba(56, 189, 248, 0.15); color: #0284c7; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 800; letter-spacing: 0.5px;">
                 💡 PLAIN ENGLISH BREAKDOWN
               </span>
               <span style="font-size: 11px; color: var(--muted);">${escapeHtml(s.simplified?.company_role || 'Executive Leadership')}</span>
             </div>
 
+            ${s.simplified?.everyday_analogy ? `
+              <div style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.09), rgba(56, 189, 248, 0.06)); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 8px; padding: 14px; margin-bottom: 14px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                  <span style="font-size: 11px; font-weight: 800; color: #d97706; text-transform: uppercase; letter-spacing: 0.5px; display: inline-flex; align-items: center; gap: 4px;">
+                    <span>🎯</span> 30-SECOND EVERYDAY STORY (ELI5 ANALOGY)
+                  </span>
+                  <span style="font-size: 10.5px; color: var(--muted); font-weight: 600;">For Beginners</span>
+                </div>
+                <p style="font-size: 13.5px; line-height: 1.65; color: var(--text); margin: 0 0 10px;">
+                  ${escapeHtml(s.simplified.everyday_analogy.story || '')}
+                </p>
+                <div style="font-size: 12px; font-weight: 600; color: var(--jade); background: var(--bg); padding: 8px 12px; border-radius: 6px; border: 1px dashed rgba(16, 185, 129, 0.35);">
+                  👉 <b>The Big Question:</b> ${escapeHtml(s.simplified.everyday_analogy.moral || '')}
+                </div>
+              </div>
+            ` : ''}
+
             <p style="font-size: 13.5px; line-height: 1.6; color: var(--text); margin-bottom: 14px;">
-              <b>The Core Crisis:</b> ${escapeHtml(s.simplified?.overview || 'An urgent business dilemma with immediate financial and regulatory consequences.')}
+              <b>The Real-World Crisis:</b> ${escapeHtml(s.simplified?.overview || 'An urgent business dilemma with immediate financial and regulatory consequences.')}
             </p>
 
             <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px;">
