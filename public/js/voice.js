@@ -165,6 +165,27 @@
       if (!this.targetElement) return;
 
       const el = this.targetElement;
+      const maxLen = parseInt(el.getAttribute('maxlength') || '4000', 10);
+      const currentLen = el.value.length;
+
+      if (currentLen >= maxLen) {
+        this.stop();
+        if (window.api && window.api.toast) {
+          window.api.toast(`🛑 Maximum character limit reached (${maxLen.toLocaleString()} chars). Voice dictation stopped.`, 'warning');
+        }
+        this.notify('max_reached', { max: maxLen });
+        return;
+      }
+
+      // If incoming text exceeds remaining room, truncate to fit maxLen
+      const remaining = maxLen - currentLen;
+      let safeText = textToInsert;
+      let reachedLimit = false;
+      if (safeText.length > remaining) {
+        safeText = safeText.substring(0, remaining);
+        reachedLimit = true;
+      }
+
       if (typeof el.selectionStart === 'number' && typeof el.selectionEnd === 'number') {
         const start = el.selectionStart;
         const end = el.selectionEnd;
@@ -174,16 +195,24 @@
         
         // Add a space before if needed
         const needsSpace = before.length > 0 && !before.endsWith(' ') && !before.endsWith('\n');
-        const inserted = (needsSpace ? ' ' : '') + textToInsert;
+        const inserted = (needsSpace ? ' ' : '') + safeText;
 
-        el.value = before + inserted + after;
-        el.selectionStart = el.selectionEnd = start + inserted.length;
+        el.value = (before + inserted + after).substring(0, maxLen);
+        el.selectionStart = el.selectionEnd = Math.min(maxLen, start + inserted.length);
       } else {
-        el.value += (el.value.length > 0 ? ' ' : '') + textToInsert;
+        el.value = (el.value + (el.value.length > 0 ? ' ' : '') + safeText).substring(0, maxLen);
       }
 
       // Trigger input event to update counters & validation
       el.dispatchEvent(new Event('input', { bubbles: true }));
+
+      if (reachedLimit || el.value.length >= maxLen) {
+        this.stop();
+        if (window.api && window.api.toast) {
+          window.api.toast(`🛑 Maximum character limit reached (${maxLen.toLocaleString()} chars). Voice recording stopped automatically so you can review and submit your memo.`, 'warning');
+        }
+        this.notify('max_reached', { max: maxLen });
+      }
     }
 
     start(targetElementOrId) {

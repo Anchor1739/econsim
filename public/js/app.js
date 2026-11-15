@@ -2071,7 +2071,7 @@ function renderAppShell(innerHtml) {
     <div class="app-container">
       <!-- Desktop Sidebar -->
       <aside class="sidebar">
-        <div class="brand">
+        <div class="brand" onclick="navigate('dashboard')" style="cursor: pointer;" title="Go to Dashboard">
           <div class="brand-icon">↗</div>
           <span>econsim<b>.</b></span>
           <span class="live-pill">SIMULATOR</span>
@@ -2236,7 +2236,7 @@ function renderAppShell(innerHtml) {
         <nav class="mobile-bottom-bar" aria-label="Mobile Navigation">
           <button class="mobile-nav-btn ${state.page === 'dashboard' ? 'active' : ''}" onclick="navigate('dashboard')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-            <span>Home</span>
+            <span>Dashboard</span>
           </button>
           <button class="mobile-nav-btn ${['predictor', 'market'].includes(state.page) ? 'active' : ''}" onclick="navigate('predictor')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
@@ -2306,6 +2306,22 @@ function renderAppShell(innerHtml) {
             </div>
 
             <div class="sidebar-label">WORKSPACE</div>
+            <button class="nav-item ${state.page === 'dashboard' ? 'active' : ''}" onclick="navigate('dashboard'); closeMobileDrawer();">
+              <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
+              <span class="text">Dashboard</span>
+            </button>
+            <button class="nav-item ${['predictor', 'market'].includes(state.page) ? 'active' : ''}" onclick="navigate('predictor'); closeMobileDrawer();">
+              <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></span>
+              <span class="text">The Predictor</span>
+            </button>
+            <button class="nav-item ${['boardroom', 'create_challenge', 'waiting_room', 'live_challenge', 'challenge_report'].includes(state.page) ? 'active' : ''}" onclick="navigate('boardroom'); closeMobileDrawer();">
+              <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></span>
+              <span class="text">The Boardroom</span>
+            </button>
+            <button class="nav-item ${state.page === 'wallet' ? 'active' : ''}" onclick="navigate('wallet'); closeMobileDrawer();">
+              <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span>
+              <span class="text">Ledger Wallet</span>
+            </button>
             <button class="nav-item ${state.page === 'mentor' ? 'active' : ''}" onclick="navigate('mentor'); closeMobileDrawer();">
               <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 5.6L20 10l-4.4 4 1.4 6-5-3.2-5 3.2 1.4-6L4 10l5.6-2.4L12 2z"/></svg></span>
               <span class="text">AI Mentor Masterclass</span>
@@ -5281,12 +5297,12 @@ async function loadLiveChallengeData(challengeId) {
 
           <form onsubmit="handleSubmitMemo(event, '${c.id}')">
             <div class="form-group">
-              <textarea class="textarea" id="memo-answer" rows="11" placeholder="1. Immediate Operational Action (First 72 Hours):\n- Concrete burn reduction or working capital measures...\n\n2. Financial & Liquidity Mechanics:\n- Specific figures, runway extensions, revenue or cost calculations...\n\n3. Downside Risk Controls:\n- Mitigating default, counterparty, churn, or FX exposure..." required style="line-height: 1.6; font-size: 13.5px;"></textarea>
+              <textarea class="textarea" id="memo-answer" rows="11" maxlength="4000" placeholder="1. Immediate Operational Action (First 72 Hours):\n- Concrete burn reduction or working capital measures...\n\n2. Financial & Liquidity Mechanics:\n- Specific figures, runway extensions, revenue or cost calculations...\n\n3. Downside Risk Controls:\n- Mitigating default, counterparty, churn, or FX exposure..." required style="line-height: 1.6; font-size: 13.5px;"></textarea>
               <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; color: var(--muted); margin-top: 6px;">
-                <span>Min: 40 chars</span>
+                <span>Min: 40 · Max: 4,000 chars</span>
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <button type="button" id="btn-format-memo" class="btn btn-secondary" style="font-size: 11px; padding: 3px 10px; display: none; border-radius: 6px; touch-action: manipulation;" onclick="autoFormatSpokenMemo(this)">✨ Format Spoken Memo</button>
-                  <span id="char-counter">0 words · 0 chars</span>
+                  <span id="char-counter">0 words · 0 / 4,000 chars</span>
                 </div>
               </div>
             </div>
@@ -5310,10 +5326,38 @@ async function loadLiveChallengeData(challengeId) {
         const chars = tx.value.length;
         const words = tx.value.trim() ? tx.value.trim().split(/\s+/).length : 0;
         const counterEl = document.getElementById('char-counter');
+        const maxLen = 4000;
+
         if (counterEl) {
-          counterEl.innerHTML = `<b>${words}</b> words · ${chars} chars ${words >= 40 ? '✓' : '(aim for 80+)'}`;
-          counterEl.style.color = words >= 40 ? 'var(--jade)' : 'var(--muted)';
+          if (chars >= maxLen) {
+            counterEl.innerHTML = `<b style="color: #ef4444;">${words} words · ${chars.toLocaleString()} / 4,000 (Max limit reached!)</b>`;
+            tx.style.borderColor = '#ef4444';
+          } else if (chars >= 3700) {
+            counterEl.innerHTML = `<span style="color: #f59e0b;"><b>${words}</b> words · ${chars.toLocaleString()} / 4,000 (Approaching limit)</span>`;
+            tx.style.borderColor = '#f59e0b';
+          } else {
+            counterEl.innerHTML = `<b>${words}</b> words · ${chars.toLocaleString()} / 4,000 chars ${words >= 40 ? '✓' : '(aim for 80+)'}`;
+            counterEl.style.color = words >= 40 ? 'var(--jade)' : 'var(--muted)';
+            tx.style.borderColor = '';
+          }
         }
+
+        // Auto-stop voice dictation if user reached or exceeded character ceiling
+        if (chars >= maxLen && window.VoiceEngine && window.VoiceEngine.isRecording) {
+          window.VoiceEngine.stop();
+          const vBtn = document.getElementById('btn-toggle-voice');
+          if (vBtn) {
+            vBtn.classList.remove('btn-voice-recording');
+            const micIcon = document.getElementById('voice-mic-icon');
+            const btnText = document.getElementById('voice-btn-text');
+            if (micIcon) micIcon.innerText = '🎙️';
+            if (btnText) btnText.innerText = 'Voice Dictate';
+          }
+          const vBar = document.getElementById('voice-live-bar');
+          if (vBar) vBar.style.display = 'none';
+          api.toast('🛑 Maximum memo character limit reached (4,000 characters). Dictation stopped.', 'warning');
+        }
+
         updateFormatBtn();
       });
       updateFormatBtn();
@@ -5552,6 +5596,17 @@ function toggleBoardroomVoiceDictation() {
           if (barStatus) {
             barStatus.innerText = `Recorded ${data.totalSpoken} words. Keep speaking or tap Stop.`;
           }
+        } else if (event === 'max_reached') {
+          const vBtn = document.getElementById('btn-toggle-voice');
+          if (vBtn) {
+            vBtn.classList.remove('btn-voice-recording');
+            const micIcon = document.getElementById('voice-mic-icon');
+            const btnText = document.getElementById('voice-btn-text');
+            if (micIcon) micIcon.innerText = '🎙️';
+            if (btnText) btnText.innerText = 'Voice Dictate';
+          }
+          const vBar = document.getElementById('voice-live-bar');
+          if (vBar) vBar.style.display = 'none';
         } else if (event === 'error') {
           api.toast(data.message || 'Microphone error', 'error');
           const vBtn = document.getElementById('btn-toggle-voice');
@@ -7265,13 +7320,41 @@ async function handleAuthSubmit(e, type) {
       });
       api.toast('Signed in successfully!', 'success');
       state.user = res.data;
-      if (res.data?.seen_tours && typeof res.data.seen_tours === 'object') {
-        state.seenTours = Object.assign({}, res.data.seen_tours);
+      if (res.data?.user_id && !state.user.id) state.user.id = res.data.user_id;
+
+      // Hydrate full authenticated profile, balances, and preferences
+      try {
+        const meRes = await api.get('/auth/me');
+        if (meRes?.data) {
+          state.user = meRes.data;
+          if (meRes.data.wallet) state.wallet = meRes.data.wallet;
+          if (meRes.data.stats) state.stats = meRes.data.stats;
+          if (meRes.data.theme) applyTheme(meRes.data.theme);
+        }
+      } catch (meErr) {}
+
+      if (state.user?.seen_tours && typeof state.user.seen_tours === 'object') {
+        state.seenTours = Object.assign({}, state.user.seen_tours);
         Object.keys(state.seenTours).forEach(pg => {
           if (state.seenTours[pg]) localStorage.setItem('econsim-tour-seen-' + pg, 'true');
         });
       }
+
+      syncServerNotifications();
+      if (!window.serverNotifInterval) {
+        window.serverNotifInterval = setInterval(() => {
+          if (!document.hidden) syncServerNotifications();
+        }, 15000);
+      }
+
       navigate('dashboard');
+
+      // Seamless fallback: if SPA navigate didn't transition away from auth screen, force redirect
+      setTimeout(() => {
+        if (document.querySelector('.auth-wrap') || ['welcome', 'login'].includes(state.page)) {
+          window.location.href = '/?page=dashboard';
+        }
+      }, 350);
     } else if (type === 'signup') {
       const res = await api.post('/auth/register', {
         email: emailEl.value,
@@ -7300,7 +7383,12 @@ async function handleAuthSubmit(e, type) {
       navigate('login');
     }
   } catch (err) {
+    console.error('Authentication error:', err);
     if (btn) { btn.disabled = false; btn.innerHTML = origText; }
+    // If login cookie was already saved but an unexpected exception occurred during DOM render, redirect cleanly
+    if (document.cookie.includes('econsim_session')) {
+      window.location.href = '/?page=dashboard';
+    }
   }
 }
 
