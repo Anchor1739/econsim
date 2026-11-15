@@ -1329,11 +1329,43 @@ class BoardroomService
 
     public static function buildMasterclassDebrief(string $title, string $body, ?array $referenceCase = null): array
     {
-        $company = $referenceCase['company'] ?? 'Tier-1 Hospitality & Commercial Enterprise';
-        $precedent = $referenceCase['precedent'] ?? 'Federal Infrastructure Right-of-Way Corridor Settlement';
+        $company = !empty($referenceCase['company']) ? $referenceCase['company'] : null;
+        $precedent = !empty($referenceCase['precedent']) ? $referenceCase['precedent'] : null;
 
-        $isCoastal = stripos($title, 'coastal') !== false || stripos($title, 'highway') !== false || stripos($body, 'right-of-way') !== false || stripos($body, 'landmark') !== false;
+        $lowerTitle = strtolower($title);
+        $lowerBody = strtolower($body);
 
+        // 1. Currency & FX Forward Hedging / NDF Dilemmas
+        $isFx = str_contains($lowerTitle, 'forward') || str_contains($lowerTitle, 'hedge') || str_contains($lowerTitle, 'fx') || str_contains($lowerTitle, 'currency') || str_contains($lowerBody, 'nafem') || str_contains($lowerBody, 'forward contract') || str_contains($lowerBody, 'ndf') || str_contains($lowerBody, 'dollar debt') || str_contains($lowerBody, '1,750') || str_contains($lowerBody, '1,550');
+        if ($isFx) {
+            return [
+                'model_memo' => [
+                    'executive_summary' => "MEMORANDUM TO THE BOARD OF DIRECTORS\nSUBJECT: TREASURY RISK MITIGATION VIA NON-DELIVERABLE FORWARD (NDF) HEDGE\nRECOMMENDATION: Lock in the 3-month Non-Deliverable Forward (NDF) contract at ₦1,750/$ immediately. Do not speculate on official NAFEM liquidity or pray for central bank market intervention.",
+                    'action_plan' => [
+                        'First 72 Hours: Formally instruct the Chief Treasury Officer to execute the ₦2.0bn forward hedge at ₦1,750/$, establishing a deterministic, fixed repayment schedule for the upcoming dollar debt maturity.',
+                        'Financial & Liquidity Mechanics: Accept the ₦200/$ spread (₦2.0bn liability) as an essential insurance cost. Model this predictable expenditure directly into Q3 operational cash flow. Speculating at the theoretical ₦1,550/$ rate carries an existential variance risk if parallel rates shoot toward ₦1,900/$, which would inflict over ₦3.5bn in unhedged translation losses.',
+                        'Downside Risk Controls: Establish a dedicated escrow allocation for foreign currency obligations and initiate a staggered 6% quarterly price adjustment across high-elasticity product lines to offset import cost increases.',
+                        'Long-Term Capital Preservation: Insulate company balance sheet solvency and maintain strong credit ratings with syndicate lenders by demonstrating disciplined risk management over currency speculation.'
+                    ]
+                ],
+                'real_world_precedent' => [
+                    'company' => $company ?: 'Corporate FMCG & Telecom Conglomerates (Nigeria FX Liberalization Crisis)',
+                    'what_executives_did' => 'Following the 2023/2024 unification and floating of the foreign exchange window, major conglomerates (including MTN Nigeria, Nigerian Breweries, and Nestle Nigeria) faced hundreds of billions in foreign exchange paper losses from unhedged foreign-currency liabilities. Corporate treasuries that locked in forward derivative hedges and renegotiated dollar-denominated trade facilities early prevented insolvency and protected operating cash flow.',
+                    'the_financial_outcome' => 'Treasuries that locked in forward contracts safely contained their downside liabilities, while unhedged firms suffered severe shareholder equity erosion and multi-billion naira revaluation write-downs.'
+                ],
+                'strategic_lesson' => [
+                    'best_move' => 'The Winning Move: Lock in the Forward Hedge at ₦1,750/$. In corporate treasury management, the primary executive mandate is capital preservation and variance reduction, not currency speculation. Relying on an official window with scarce liquidity is a speculative gamble; locking in a predictable expense turns an open-ended existential threat into a planned, manageable operating line item.',
+                    'key_takeaways' => [
+                        'Capital preservation precedes margin maximization: Never gamble the solvency of an operating business on macroeconomic predictions.',
+                        'Official rates without liquidity are an illusion: If the market cannot deliver physical volume at ₦1,550/$, that rate does not exist for risk planning.',
+                        'Variance kills corporate debt covenants: Lenders reward predictable cash flow coverage over volatile, speculative bets.'
+                    ]
+                ]
+            ];
+        }
+
+        // 2. Coastal Right-of-Way / Infrastructure Demolition & Buffer Realignment
+        $isCoastal = str_contains($lowerTitle, 'coastal') || str_contains($lowerTitle, 'highway') || str_contains($lowerTitle, 'buffer') || str_contains($lowerBody, 'right-of-way') || str_contains($lowerBody, 'landmark') || str_contains($lowerBody, 'demolition') || str_contains($lowerBody, 'parking');
         if ($isCoastal) {
             return [
                 'model_memo' => [
@@ -1361,26 +1393,95 @@ class BoardroomService
             ];
         }
 
+        // 3. Power Grid / Band A Electricity Tariff Surge & Energy Hedging
+        $isPower = str_contains($lowerTitle, 'power') || str_contains($lowerTitle, 'tariff') || str_contains($lowerTitle, 'electricity') || str_contains($lowerTitle, 'fuel') || str_contains($lowerTitle, 'diesel') || str_contains($lowerBody, 'band a') || str_contains($lowerBody, 'band-a') || str_contains($lowerBody, 'disco') || str_contains($lowerBody, 'kwh');
+        if ($isPower) {
+            return [
+                'model_memo' => [
+                    'executive_summary' => "MEMORANDUM TO THE BOARD OF DIRECTORS\nSUBJECT: ENERGY COST CONTAINMENT & CAPTIVE POWER GENERATION PIVOT\nRECOMMENDATION: Shift energy-intensive production runs to off-peak tariff windows and initiate phased CapEx investment into captive solar/gas hybrid power.",
+                    'action_plan' => [
+                        'First 72 Hours: Reschedule heavy manufacturing shifts to night cycles (10:00 PM – 6:00 AM) to exploit off-peak DisCo rates and cut peak power consumption by 28%.',
+                        'Financial & Liquidity Mechanics: Allocate ₦85M from auxiliary capex towards a 1.2MW solar/gas microgrid, lowering blended energy cost from ₦225/kWh to ₦145/kWh with an amortized payback period of 14.5 months.',
+                        'Downside Risk Controls: Install smart sub-metering on individual industrial lines and pass through a 4.5% transparent energy surcharge on high-volume B2B contract clients.',
+                        'Operational Longevity: Decouple factory uptime from unreliable public grid feeders, preventing costly production line stops and equipment thermal shocks.'
+                    ]
+                ],
+                'real_world_precedent' => [
+                    'company' => $company ?: 'Industrial Manufacturing Sector (BUA Foods & MAN DisCo Tariff Confrontation)',
+                    'what_executives_did' => 'Following the 240% surge in Nigerian Band-A electricity tariffs in 2024, tier-1 manufacturers faced massive cost inflation. Rather than shutting down or relying on volatile diesel generators, executive teams renegotiated Power Purchase Agreements (PPAs) with independent gas plants and invested in rooftop solar setups.',
+                    'the_financial_outcome' => 'Stabilized factory operating margins, avoided factory shut-ins that ruined smaller rivals, and cut kilowatt-hour costs by 34% below grid peak tariffs.'
+                ],
+                'strategic_lesson' => [
+                    'best_move' => 'The Winning Move: Operational Load Shifting with Captive Hybrid Energy Investments. In high-inflation regimes, energy costs cannot be casually passed to customers. The winning playbook combines demand-side management (off-peak shifts) with supply-side energy sovereignty.',
+                    'key_takeaways' => [
+                        'Load timing is free margin: Moving heavy machinery schedules to off-peak periods immediately reduces billing without CapEx spend.',
+                        'Captive power is an asset class: Energy reliability directly impacts asset turnover and equipment lifespan.',
+                        'Implement contract energy indexing: Always include energy escalation clauses in multi-quarter customer supply agreements.'
+                    ]
+                ]
+            ];
+        }
+
+        // 4. Monetary Policy / MPR Rate Hikes & Syndicate Debt Refinancing
+        $isMonetary = str_contains($lowerTitle, 'interest') || str_contains($lowerTitle, 'mpr') || str_contains($lowerTitle, 'loan') || str_contains($lowerTitle, 'debt') || str_contains($lowerBody, 'crr') || str_contains($lowerBody, 'bank') || str_contains($lowerBody, 'syndicate') || str_contains($lowerBody, 'refinanc');
+        if ($isMonetary) {
+            return [
+                'model_memo' => [
+                    'executive_summary' => "MEMORANDUM TO THE BOARD OF DIRECTORS\nSUBJECT: CAPITAL STRUCTURE DE-LEVERAGING & INTEREST RATE HEDGING\nRECOMMENDATION: Retire high-interest floating bank lines via a commercial paper issuance and launch a structured rights issue to eliminate debt service drag.",
+                    'action_plan' => [
+                        'First 72 Hours: Engage bank syndicate steering committee to cap floating benchmark margin at MPR+2.5% and waive pre-payment penalties.',
+                        'Financial & Liquidity Mechanics: Issue ₦6.5bn in 270-day Commercial Paper at a fixed 22% rate to retire 31% floating overdrafts, saving ₦585M in annualized debt financing charges.',
+                        'Downside Risk Controls: Compress customer Days Sales Outstanding (DSO) from 62 days to 38 days via 2% prompt-payment discounts, accelerating ₦800M in immediate cash inflow.',
+                        'Balance Sheet Health: Restore debt service coverage ratio (DSCR) above 2.4x, ensuring full covenant compliance and preventing distressed equity dilution.'
+                    ]
+                ],
+                'real_world_precedent' => [
+                    'company' => $company ?: 'Corporate Consumer Goods Sector (Cadbury Nigeria & Nigerian Breweries Debt Restructuring)',
+                    'what_executives_did' => 'When the Central Bank of Nigeria hiked the Monetary Policy Rate (MPR) past 27%, finance directors confronted crushing borrowing expenses. Instead of rolling over bank debt at over 30%, executive teams recapitalized through parent debt-to-equity conversions and corporate debt markets.',
+                    'the_financial_outcome' => 'Wiped out hundreds of millions in interest obligations, restored working capital solvency, and protected core operating cash flow.'
+                ],
+                'strategic_lesson' => [
+                    'best_move' => 'The Winning Move: Aggressive Balance Sheet De-leveraging & Fixed Commercial Paper Substitution. Relying on floating debt during a hawkish central bank cycle is financial suicide. Top executives replace variable loans with fixed instruments and internal cash acceleration.',
+                    'key_takeaways' => [
+                        'Never fight the central bank with floating credit: Rising benchmark rates compound interest expense faster than operating profits can grow.',
+                        'Cash conversion cycles are your cheapest debt: Shortening receivables collections provides zero-cost working capital.',
+                        'Decisive recapitalization wins market share: Companies that de-leverage early acquire distressed competitor assets at deep discounts.'
+                    ]
+                ]
+            ];
+        }
+
+        // 5. Dynamic Adaptive Case Solver (Extracts specifics from dilemma body)
+        $optASummary = 'Maintain defensive posture and preserve operational continuity.';
+        $optBSummary = 'Execute strategic compromise with structured realignment.';
+        if (preg_match('/Option A:?\s*([^\n\r]+)/i', $body, $m)) {
+            $optASummary = trim($m[1]);
+        }
+        if (preg_match('/Option B:?\s*([^\n\r]+)/i', $body, $m)) {
+            $optBSummary = trim($m[1]);
+        }
+
         return [
             'model_memo' => [
-                'executive_summary' => "MEMORANDUM TO THE BOARD OF DIRECTORS\nSUBJECT: STRATEGIC CAPITAL ALLOCATION & DOWNSIDE RISK CONTAINMENT\nRECOMMENDATION: Execute a disciplined operational pivot balancing liquidity preservation with decisive counterparty restructuring under macroeconomic headwinds.",
+                'executive_summary' => "MEMORANDUM TO THE BOARD OF DIRECTORS\nSUBJECT: STRATEGIC CAPITAL ALLOCATION & VALUE PRESERVATION\nRECOMMENDATION: Choose Option B ({$optBSummary}) supported by disciplined working capital containment and proactive stakeholder realignment.",
                 'action_plan' => [
-                    'Immediate 72-Hour Measures: Establish a weekly Cash Steering Committee, freeze all discretionary non-operational CapEx, and initiate proactive debt service talks with banking syndicates.',
-                    'Financial Calculations & Unit Economics: Target a 15-20% OpEx rationalization to extend operating cash runway by 4.5 months, while hedging floating-rate debt liabilities against benchmark interest rate hikes.',
-                    'Risk Mitigation Controls: Establish multi-vendor sourcing to eliminate single-point concentration vulnerabilities and enforce rigorous receivables collection terms (reducing DSO from 65 days to 40 days).'
+                    "Immediate 72-Hour Measures: Establish an Executive Crisis Committee, freeze non-critical discretionary outlays, and formalize implementation terms for {$optBSummary}.",
+                    "Financial Calculations & Cash Runway: Reallocate internal reserves to finance the transition cost, extending operating cash runway by 4.5 months while safeguarding core revenue-generating operations.",
+                    "Downside Risk Containment: Establish rigid milestone triggers, multi-vendor redundancies, and tight customer receivables terms to prevent operational contagion.",
+                    "Long-Term Strategic Advantage: Position the enterprise to emerge from industry disruption with an optimized cost structure and expanded competitive moat."
                 ]
             ],
             'real_world_precedent' => [
-                'company' => $company,
-                'what_executives_did' => "Executive leadership in {$precedent} tackled similar macro volatility by avoiding binary high-risk gambles. Instead, managing directors restructured working capital, renegotiated supplier contracts with volume indexation, and hedged core margin exposure.",
-                'the_financial_outcome' => 'Stabilized operating margin from -8% back to +14% within 3 quarters, successfully outlasting competitor defaults and securing market leadership.'
+                'company' => $company ?: 'Leading Enterprise Conglomerate',
+                'what_executives_did' => "Executive leadership in " . ($precedent ?: "comparable emerging market macro crises") . " confronted similar trade-offs. Rather than taking binary all-or-nothing risks under {$optASummary}, managing directors executed a measured compromise, restructured supplier and banking terms, and focused on core cash flow preservation.",
+                'the_financial_outcome' => 'Stabilized gross margins, protected company balance sheets from insolvency, and maintained unbroken operational delivery.'
             ],
             'strategic_lesson' => [
-                'best_move' => 'The Winning Move: Disciplined Counterparty Renegotiation & Working Capital Preservation. Elite executives do not panic into emergency liquidations or rigid lawsuits; they recalibrate cost structures, preserve liquid cash buffers, and secure strategic alignment.',
+                'best_move' => "The Winning Move: Strategic Compromise & Working Capital Discipline. Seasoned executives avoid high-variance gambles. Selecting the path of planned certainty ({$optBSummary}) coupled with aggressive cash preservation delivers vastly superior risk-adjusted returns.",
                 'key_takeaways' => [
-                    'Cash runway is paramount: In macro disruptions, liquidity buys the strategic flexibility required to outmaneuver competitors.',
-                    'Quantify trade-offs with precision: Board decisions must be backed by exact numbers, unit economics, and risk triggers rather than emotional declarations.',
-                    'Sequence execution ruthlessly: 72-hour operational stabilization must precede long-term CapEx expansion.'
+                    'Uncertainty is more expensive than compromise: Fixed, predictable costs are always superior to unquantified catastrophic risks.',
+                    'Prioritize cash flow over ego: Tactical compromises that protect daily operating capital preserve the business to fight another day.',
+                    'Execute in clear phases: 72-hour operational stabilization must always precede long-term expansion.'
                 ]
             ]
         ];
