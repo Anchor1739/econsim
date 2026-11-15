@@ -243,18 +243,65 @@
 
     formatAsExecutiveMemo(text) {
       if (!text || !text.trim()) return text;
-      let lines = text.split('\n').map(l => l.trim()).filter(Boolean);
       
-      // Auto-structure sentences into executive memo bullet points if it's one large unstructured paragraph
-      if (lines.length === 1 && lines[0].split(/[.!?]\s+/).length > 2) {
-        const sentences = lines[0].split(/(?<=[.!?])\s+/);
-        return sentences.map((s, idx) => {
-          s = s.trim();
-          if (!s) return '';
-          return `${idx + 1}. ${s.charAt(0).toUpperCase() + s.slice(1)}`;
-        }).join('\n\n');
+      let raw = text.trim();
+      
+      // If already formatted with numbered points, preserve
+      if (/^\s*1[\.\)]\s+/m.test(raw)) {
+        return raw;
       }
-      return text;
+
+      let items = [];
+
+      // 1. Try splitting on standard sentence terminators (. ! ?)
+      let sentenceCandidates = raw.split(/[.!?]+[\s\n]+/);
+      if (sentenceCandidates.length >= 2 && sentenceCandidates.every(s => s.trim().length > 4)) {
+        items = sentenceCandidates.map(s => s.trim()).filter(Boolean);
+      } else {
+        // 2. Mobile speech-to-text without punctuation: split on discourse markers & conjunctions
+        const markerRegex = /\b(?:first(?:ly)?|second(?:ly)?|third(?:ly)?|finally|furthermore|moreover|in addition|also|we should|i recommend|my recommendation is|option [ab]|regarding|on the other hand)\b/gi;
+        
+        let splitIndices = [];
+        let match;
+        while ((match = markerRegex.exec(raw)) !== null) {
+          if (match.index > 15) {
+            splitIndices.push(match.index);
+          }
+        }
+
+        if (splitIndices.length >= 1) {
+          let lastIdx = 0;
+          for (let idx of splitIndices) {
+            let chunk = raw.substring(lastIdx, idx).trim();
+            if (chunk) items.push(chunk);
+            lastIdx = idx;
+          }
+          let lastChunk = raw.substring(lastIdx).trim();
+          if (lastChunk) items.push(lastChunk);
+        } else {
+          // 3. Fallback for continuous unpunctuated voice stream: chunk every 16-22 words
+          let words = raw.split(/\s+/);
+          if (words.length > 12) {
+            let chunkSize = Math.max(12, Math.min(20, Math.ceil(words.length / 3)));
+            for (let i = 0; i < words.length; i += chunkSize) {
+              items.push(words.slice(i, i + chunkSize).join(' '));
+            }
+          } else {
+            items = [raw];
+          }
+        }
+      }
+
+      if (items.length <= 1) {
+        let clean = items[0] || raw;
+        return `1. ${clean.charAt(0).toUpperCase() + clean.slice(1).replace(/[.]+$/, '')}.`;
+      }
+
+      return items.map((item, idx) => {
+        let clean = item.trim().replace(/^[\d\.\-\*\•\)\s]+/, '');
+        clean = clean.charAt(0).toUpperCase() + clean.slice(1).replace(/[.]+$/, '');
+        return `${idx + 1}. ${clean}.`;
+      }).join('\n\n');
     }
 
     getStats() {

@@ -37,12 +37,27 @@ class FeatureService
         }
 
         $pdo = Database::getConnection();
+
+        // Self-healing check for premium feature flag and users.is_premium
+        static $featureSchemaChecked = false;
+        if (!$featureSchemaChecked) {
+            try {
+                $pdo->exec("INSERT IGNORE INTO platform_features (code, enabled, updated_at) VALUES ('boardroom_masterclass_premium', 0, NOW(3))");
+                $chkPrem = $pdo->query("SHOW COLUMNS FROM users LIKE 'is_premium'")->fetch();
+                if (!$chkPrem) {
+                    $pdo->exec("ALTER TABLE users ADD COLUMN is_premium TINYINT(1) NOT NULL DEFAULT 0");
+                }
+                $featureSchemaChecked = true;
+            } catch (\Throwable $e) {}
+        }
+
         $stmt = $pdo->query("SELECT code, enabled FROM platform_features");
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         $map = [
             'demo_mode' => true,
             'scenario_lab' => false,
+            'boardroom_masterclass_premium' => false,
             'real_mode' => false,
             'real_funding' => false,
             'real_payouts' => false,

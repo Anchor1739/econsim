@@ -5145,9 +5145,57 @@ async function loadLiveChallengeData(challengeId) {
 
       <div class="two-col">
         <div class="panel boardroom-no-select">
-          <div class="eyebrow">CONFIDENTIAL CASE DILEMMA</div>
-          <div style="font-size: 14.5px; line-height: 1.75; white-space: pre-line; margin-top: 10px; color: var(--text);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+            <div class="eyebrow" style="margin-bottom: 0;">CONFIDENTIAL CASE DILEMMA</div>
+            <button type="button" id="btn-toggle-simplify" class="btn btn-secondary" style="font-size: 11.5px; padding: 4px 10px; display: inline-flex; align-items: center; gap: 5px; border-radius: 6px; font-weight: 600;" onclick="toggleSimplifiedDilemma()">
+              <span>💡</span> <span id="simplify-btn-text">Explain in Plain English</span>
+            </button>
+          </div>
+
+          <!-- Formal Legal & Financial Dilemma -->
+          <div id="dilemma-formal-body" style="font-size: 14.5px; line-height: 1.75; white-space: pre-line; margin-top: 10px; color: var(--text);">
             ${s.body}
+          </div>
+
+          <!-- Simplified Plain English Breakdown -->
+          <div id="dilemma-simplified-box" style="display: none; margin-top: 10px; padding: 16px; background: rgba(56, 189, 248, 0.06); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <span style="background: rgba(56, 189, 248, 0.15); color: #0284c7; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 800; letter-spacing: 0.5px;">
+                💡 PLAIN ENGLISH BREAKDOWN
+              </span>
+              <span style="font-size: 11px; color: var(--muted);">${escapeHtml(s.simplified?.company_role || 'Executive Leadership')}</span>
+            </div>
+
+            <p style="font-size: 13.5px; line-height: 1.6; color: var(--text); margin-bottom: 14px;">
+              <b>The Core Crisis:</b> ${escapeHtml(s.simplified?.overview || 'An urgent business dilemma with immediate financial and regulatory consequences.')}
+            </p>
+
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px;">
+              <div style="background: var(--bg); border: 1px solid var(--line); border-left: 3px solid #0284c7; border-radius: 6px; padding: 10px 12px; font-size: 13px;">
+                <b style="color: #0284c7; font-size: 12px; text-transform: uppercase; display: block; margin-bottom: 2px;">
+                  ${escapeHtml(s.simplified?.option_a?.label || 'Option A')}
+                </b>
+                <div style="color: var(--text); line-height: 1.5;">${escapeHtml(s.simplified?.option_a?.summary || '')}</div>
+                <div style="color: var(--muted); font-size: 11.5px; margin-top: 4px;">
+                  <b>Risk:</b> ${escapeHtml(s.simplified?.option_a?.key_tradeoff || '')}
+                </div>
+              </div>
+
+              <div style="background: var(--bg); border: 1px solid var(--line); border-left: 3px solid var(--jade); border-radius: 6px; padding: 10px 12px; font-size: 13px;">
+                <b style="color: var(--jade); font-size: 12px; text-transform: uppercase; display: block; margin-bottom: 2px;">
+                  ${escapeHtml(s.simplified?.option_b?.label || 'Option B')}
+                </b>
+                <div style="color: var(--text); line-height: 1.5;">${escapeHtml(s.simplified?.option_b?.summary || '')}</div>
+                <div style="color: var(--muted); font-size: 11.5px; margin-top: 4px;">
+                  <b>Risk:</b> ${escapeHtml(s.simplified?.option_b?.key_tradeoff || '')}
+                </div>
+              </div>
+            </div>
+
+            <div style="background: rgba(16, 185, 129, 0.08); border-radius: 6px; padding: 10px 12px; font-size: 12.5px; line-height: 1.5; color: var(--text);">
+              <b style="color: var(--jade); font-size: 11px; text-transform: uppercase; display: block; margin-bottom: 2px;">What the Board is Asking You to Write:</b>
+              ${escapeHtml(s.simplified?.core_question || 'Deliver your recommendation, 72-hour operational actions, and quantitative cash protection steps.')}
+            </div>
           </div>
 
           ${s.reference_case ? `
@@ -5220,7 +5268,7 @@ async function loadLiveChallengeData(challengeId) {
               <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; color: var(--muted); margin-top: 6px;">
                 <span>Min: 40 chars</span>
                 <div style="display: flex; align-items: center; gap: 8px;">
-                  <button type="button" id="btn-format-memo" class="btn btn-secondary" style="font-size: 10.5px; padding: 2px 8px; display: none;" onclick="autoFormatSpokenMemo(this)">✨ Format Spoken Memo</button>
+                  <button type="button" id="btn-format-memo" class="btn btn-secondary" style="font-size: 11px; padding: 3px 10px; display: none; border-radius: 6px; touch-action: manipulation;" onclick="autoFormatSpokenMemo(this)">✨ Format Spoken Memo</button>
                   <span id="char-counter">0 words · 0 chars</span>
                 </div>
               </div>
@@ -5234,6 +5282,13 @@ async function loadLiveChallengeData(challengeId) {
 
     const tx = document.getElementById('memo-answer');
     if (tx) {
+      const updateFormatBtn = () => {
+        const fBtn = document.getElementById('btn-format-memo');
+        if (fBtn) {
+          fBtn.style.display = (tx.value.trim().length >= 15) ? 'inline-flex' : 'none';
+        }
+      };
+
       tx.addEventListener('input', () => {
         const chars = tx.value.length;
         const words = tx.value.trim() ? tx.value.trim().split(/\s+/).length : 0;
@@ -5242,7 +5297,9 @@ async function loadLiveChallengeData(challengeId) {
           counterEl.innerHTML = `<b>${words}</b> words · ${chars} chars ${words >= 40 ? '✓' : '(aim for 80+)'}`;
           counterEl.style.color = words >= 40 ? 'var(--jade)' : 'var(--muted)';
         }
+        updateFormatBtn();
       });
+      updateFormatBtn();
 
       // ── Boardroom integrity: prevent paste into answer textarea ──────
       tx.addEventListener('paste', (ev) => {
@@ -5507,6 +5564,76 @@ function toggleBoardroomVoiceDictation() {
 }
 window.toggleBoardroomVoiceDictation = toggleBoardroomVoiceDictation;
 
+function toggleSimplifiedDilemma() {
+  const formal = document.getElementById('dilemma-formal-body');
+  const simple = document.getElementById('dilemma-simplified-box');
+  const btnText = document.getElementById('simplify-btn-text');
+  if (!simple) return;
+
+  const isHidden = simple.style.display === 'none' || !simple.style.display;
+  if (isHidden) {
+    simple.style.display = 'block';
+    if (formal) formal.style.display = 'none';
+    if (btnText) btnText.innerText = 'View Formal Memo 📄';
+  } else {
+    simple.style.display = 'none';
+    if (formal) formal.style.display = 'block';
+    if (btnText) btnText.innerText = 'Explain in Plain English 💡';
+  }
+}
+window.toggleSimplifiedDilemma = toggleSimplifiedDilemma;
+
+function formatTextAsExecutiveMemo(text) {
+  if (!text || !text.trim()) return text;
+  let raw = text.trim();
+  if (/^\s*1[\.\)]\s+/m.test(raw)) return raw;
+
+  let items = [];
+  let sentenceCandidates = raw.split(/[.!?]+[\s\n]+/);
+  if (sentenceCandidates.length >= 2 && sentenceCandidates.every(s => s.trim().length > 4)) {
+    items = sentenceCandidates.map(s => s.trim()).filter(Boolean);
+  } else {
+    const markerRegex = /\b(?:first(?:ly)?|second(?:ly)?|third(?:ly)?|finally|furthermore|moreover|in addition|also|we should|i recommend|my recommendation is|option [ab]|regarding|on the other hand)\b/gi;
+    let splitIndices = [];
+    let match;
+    while ((match = markerRegex.exec(raw)) !== null) {
+      if (match.index > 15) splitIndices.push(match.index);
+    }
+    if (splitIndices.length >= 1) {
+      let lastIdx = 0;
+      for (let idx of splitIndices) {
+        let chunk = raw.substring(lastIdx, idx).trim();
+        if (chunk) items.push(chunk);
+        lastIdx = idx;
+      }
+      let lastChunk = raw.substring(lastIdx).trim();
+      if (lastChunk) items.push(lastChunk);
+    } else {
+      let words = raw.split(/\s+/);
+      if (words.length > 12) {
+        let chunkSize = Math.max(12, Math.min(20, Math.ceil(words.length / 3)));
+        for (let i = 0; i < words.length; i += chunkSize) {
+          items.push(words.slice(i, i + chunkSize).join(' '));
+        }
+      } else {
+        items = [raw];
+      }
+    }
+  }
+
+  if (items.length <= 1) {
+    let clean = items[0] || raw;
+    return `1. ${clean.charAt(0).toUpperCase() + clean.slice(1).replace(/[.]+$/, '')}.`;
+  }
+
+  return items.map((item, idx) => {
+    let clean = item.trim().replace(/^[\d\.\-\*\•\)\s]+/, '');
+    clean = clean.charAt(0).toUpperCase() + clean.slice(1).replace(/[.]+$/, '');
+    return `${idx + 1}. ${clean}.`;
+  }).join('\n\n');
+}
+window.formatTextAsExecutiveMemo = formatTextAsExecutiveMemo;
+
 async function autoFormatSpokenMemo(btnEl) {
   const btn = btnEl || document.getElementById('btn-format-memo');
   const tx = document.getElementById('memo-answer');
@@ -5521,15 +5648,15 @@ async function autoFormatSpokenMemo(btnEl) {
     btn.innerHTML = '<span class="spinner" style="width: 10px; height: 10px; margin-right: 4px;"></span> Formatting...';
   }
 
-  // Provide smooth spinner feedback
   await new Promise(r => setTimeout(r, 400));
 
   try {
-    if (window.VoiceEngine) {
-      tx.value = window.VoiceEngine.formatAsExecutiveMemo(tx.value);
-      tx.dispatchEvent(new Event('input', { bubbles: true }));
-      api.toast('Memo structured into executive numbered points.', 'success');
-    }
+    const formatFn = (window.VoiceEngine && typeof window.VoiceEngine.formatAsExecutiveMemo === 'function')
+      ? window.VoiceEngine.formatAsExecutiveMemo.bind(window.VoiceEngine)
+      : formatTextAsExecutiveMemo;
+    tx.value = formatFn(tx.value);
+    tx.dispatchEvent(new Event('input', { bubbles: true }));
+    api.toast('Memo structured into executive numbered points.', 'success');
   } catch (err) {
     api.toast('Formatting failed: ' + err.message, 'error');
   } finally {
@@ -5738,9 +5865,143 @@ async function loadChallengeReportData(challengeId) {
         <div class="eyebrow" style="color: var(--jade);">COMPOSITE ADJUDICATION: ${sc.total} / 100</div>
         <h2 style="margin: 8px 0 12px;">Strategic Assessment Feedback</h2>
         <p style="line-height: 1.7; font-size: 14.5px;">${r.explanation || 'Executive evaluation complete.'}</p>
+        ${r.evidence && Array.isArray(r.evidence) && r.evidence.length ? `
+          <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line);">
+            <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: var(--muted); margin-bottom: 8px;">Adjudicator Findings & Recommendations:</div>
+            <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: var(--text); line-height: 1.6;">
+              ${r.evidence.map(e => `<li>${escapeHtml(e)}</li>`).join('')}
+            </ul>
+          </div>
+        ` : ''}
       </div>
+
+      <!-- Executive Masterclass & Real-World Precedent Debrief -->
+      ${renderBoardroomMasterclassSection(r.masterclass, challengeId)}
     `;
   } catch (e) {}
+}
+
+function switchMasterclassTab(tab) {
+  const panes = ['memo', 'precedent', 'lessons'];
+  panes.forEach(p => {
+    const el = document.getElementById('masterclass-pane-' + p);
+    const btn = document.getElementById('btn-masterclass-tab-' + p);
+    if (el) el.style.display = (p === tab) ? 'block' : 'none';
+    if (btn) btn.className = (p === tab) ? 'btn btn-primary' : 'btn btn-secondary';
+  });
+}
+window.switchMasterclassTab = switchMasterclassTab;
+
+function renderBoardroomMasterclassSection(m, challengeId) {
+  if (!m) return '';
+
+  if (m.is_locked) {
+    return `
+      <div class="panel" style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(16, 185, 129, 0.05)); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 12px; padding: 24px; margin-top: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+          <span style="background: rgba(245, 158, 11, 0.15); color: #d97706; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; letter-spacing: 0.5px; display: inline-flex; align-items: center; gap: 4px;">
+            <span>⭐</span> PREMIUM EXECUTIVE MASTERCLASS
+          </span>
+          <span style="font-size: 12px; color: var(--muted);">Real-World Case Resolution &amp; Model Memo</span>
+        </div>
+        <h2 style="font-size: 18px; margin: 4px 0 8px; color: var(--text);">Unlock The C-Suite Model Solution &amp; Precedent</h2>
+        <p style="color: var(--muted); font-size: 13.5px; line-height: 1.6; margin-bottom: 14px;">
+          See exactly how an elite Managing Director would answer this board dilemma, examine what real-life Nigerian executives at <b>${escapeHtml(m.company_hint || 'Enterprise Case')}</b> did to resolve the crisis, and master the winning strategic trade-offs.
+        </p>
+        <div style="background: var(--bg); border: 1px dashed var(--line); border-radius: 8px; padding: 14px; margin-bottom: 16px; position: relative; overflow: hidden;">
+          <div style="font-size: 11.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; margin-bottom: 6px;">Excerpt from Model Executive Memo:</div>
+          <div style="font-size: 13px; color: var(--text); line-height: 1.6; filter: blur(2px); user-select: none;">
+            ${escapeHtml(m.preview_excerpt || 'Immediate 72-Hour Measures: Form executive crisis delegation to submit formal request for statutory realignment under the Federal Highways Act, ring-fencing ₦45M working capital...')}
+          </div>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+          <button class="btn btn-primary" onclick="api.toast('Executive Masterclass is currently a premium tier feature. Check back soon for subscription upgrades!', 'info')" style="font-size: 13px; padding: 8px 18px; font-weight: 700;">
+            Unlock Premium Masterclass ↗
+          </button>
+          <small style="color: var(--muted); font-size: 12px;">Feature Flag: Platform Features &gt; Boardroom Masterclass (Premium)</small>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="panel" style="margin-top: 24px; border: 1px solid var(--line); border-radius: 12px; padding: 24px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
+        <div>
+          <div class="eyebrow" style="color: var(--jade); display: inline-flex; align-items: center; gap: 4px; margin-bottom: 2px;">
+            <span>🎓</span> EXECUTIVE MASTERCLASS &amp; CASE RESOLUTION
+          </div>
+          <h2 style="margin: 0; font-size: 19px;">The Winning Move: Model Solution &amp; Precedent</h2>
+        </div>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+          <button class="btn btn-primary" id="btn-masterclass-tab-memo" style="font-size: 11.5px; padding: 5px 12px; border-radius: 6px;" onclick="switchMasterclassTab('memo')">🏆 Model Memo</button>
+          <button class="btn btn-secondary" id="btn-masterclass-tab-precedent" style="font-size: 11.5px; padding: 5px 12px; border-radius: 6px;" onclick="switchMasterclassTab('precedent')">🏛️ Real-World Precedent</button>
+          <button class="btn btn-secondary" id="btn-masterclass-tab-lessons" style="font-size: 11.5px; padding: 5px 12px; border-radius: 6px;" onclick="switchMasterclassTab('lessons')">🎯 Strategic Lesson</button>
+        </div>
+      </div>
+
+      <!-- Tab 1: Model Executive Memo -->
+      <div id="masterclass-pane-memo" style="display: block;">
+        <div style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 8px; padding: 16px; margin-bottom: 14px;">
+          <div style="font-size: 11px; text-transform: uppercase; font-weight: 800; color: var(--jade); letter-spacing: 0.5px; margin-bottom: 6px;">
+            GOLD STANDARD C-SUITE MEMORANDUM
+          </div>
+          <div style="font-family: monospace; font-size: 13px; line-height: 1.65; white-space: pre-line; color: var(--text);">
+            ${escapeHtml(m.model_memo?.executive_summary || '')}
+          </div>
+        </div>
+        <h3 style="font-size: 14px; margin-bottom: 10px; color: var(--text);">Sequenced Action Plan:</h3>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          ${(m.model_memo?.action_plan || []).map((step, idx) => `
+            <div style="background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; font-size: 13px; line-height: 1.6; display: flex; gap: 10px; align-items: flex-start;">
+              <span style="background: var(--jade); color: #fff; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0;">${idx+1}</span>
+              <div>${escapeHtml(step)}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- Tab 2: Real-World Case Precedent -->
+      <div id="masterclass-pane-precedent" style="display: none;">
+        <div style="background: rgba(56, 189, 248, 0.06); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 16px; margin-bottom: 14px;">
+          <div style="font-size: 11px; text-transform: uppercase; font-weight: 800; color: #0284c7; letter-spacing: 0.5px; margin-bottom: 6px;">
+            ACTUAL HISTORICAL PRECEDENT
+          </div>
+          <div style="font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 8px;">
+            ${escapeHtml(m.real_world_precedent?.company || 'Corporate Case')}
+          </div>
+          <p style="font-size: 13.5px; line-height: 1.7; color: var(--text); margin-bottom: 12px;">
+            ${escapeHtml(m.real_world_precedent?.what_executives_did || '')}
+          </p>
+          <div style="background: var(--bg); border-radius: 6px; padding: 10px 14px; font-size: 13px; border-left: 3px solid var(--jade);">
+            <b style="color: var(--jade); font-size: 11.5px; text-transform: uppercase; display: block; margin-bottom: 2px;">The Financial &amp; Operational Outcome:</b>
+            ${escapeHtml(m.real_world_precedent?.the_financial_outcome || '')}
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 3: Strategic Masterclass -->
+      <div id="masterclass-pane-lessons" style="display: none;">
+        <div style="background: rgba(147, 51, 234, 0.06); border: 1px solid rgba(147, 51, 234, 0.25); border-radius: 8px; padding: 16px; margin-bottom: 14px;">
+          <div style="font-size: 11px; text-transform: uppercase; font-weight: 800; color: #9333ea; letter-spacing: 0.5px; margin-bottom: 6px;">
+            THE OPTIMAL STRATEGIC MOVE
+          </div>
+          <p style="font-size: 14px; line-height: 1.7; font-weight: 600; color: var(--text); margin-bottom: 14px;">
+            ${escapeHtml(m.strategic_lesson?.best_move || '')}
+          </p>
+        </div>
+        <h3 style="font-size: 14px; margin-bottom: 10px; color: var(--text);">Key Pedagogical Takeaways for Strategists:</h3>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          ${(m.strategic_lesson?.key_takeaways || []).map((lesson, idx) => `
+            <div style="background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; font-size: 13px; line-height: 1.6; display: flex; gap: 10px; align-items: flex-start;">
+              <span style="color: var(--jade); font-weight: 700; font-size: 16px; line-height: 1;">✦</span>
+              <div>${escapeHtml(lesson)}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 async function handleRefreshReport(btnEl, challengeId) {
