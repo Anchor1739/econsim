@@ -1031,7 +1031,13 @@ class BoardroomService
 
         $masterclassPayload = null;
         if ($isComplete) {
-            $masterclassFull = self::buildMasterclassDebrief((string)$chg['scenario_title'], (string)($chg['confidential_body'] ?? ''), $refCase);
+            $masterclassFull = self::buildMasterclassDebrief(
+                (string)$chg['scenario_title'],
+                (string)($chg['confidential_body'] ?? ''),
+                $refCase,
+                $challengeId,
+                $chg['scenario_id'] ?? null
+            );
             $isPremiumGated = FeatureService::isEnabled('boardroom_masterclass_premium');
 
             $userStmt = $pdo->prepare("SELECT is_premium, status FROM users WHERE id = ?");
@@ -1327,18 +1333,139 @@ class BoardroomService
         ];
     }
 
-    public static function buildMasterclassDebrief(string $title, string $body, ?array $referenceCase = null): array
-    {
+    public static function buildMasterclassDebrief(
+        string $title,
+        string $body,
+        ?array $referenceCase = null,
+        ?string $challengeId = null,
+        ?string $scenarioId = null
+    ): array {
+        $pdo = Database::getConnection();
+        $cacheKey = !empty($challengeId) ? "mc_chg_{$challengeId}" : (!empty($scenarioId) ? "mc_scn_{$scenarioId}" : null);
+
+        // 1. Fast path: check persistent database cache
+        if ($cacheKey) {
+            try {
+                $stmt = $pdo->prepare("SELECT value FROM platform_settings WHERE `key` = ? LIMIT 1");
+                $stmt->execute([$cacheKey]);
+                $cachedVal = $stmt->fetchColumn();
+                if ($cachedVal) {
+                    $decoded = json_decode((string)$cachedVal, true);
+                    if (is_array($decoded) && isset($decoded['model_memo']) && isset($decoded['real_world_precedent']) && isset($decoded['strategic_lesson'])) {
+                        return $decoded;
+                    }
+                }
+            } catch (\Throwable $e) {}
+        }
+
+        // 2. High-precision dynamic AI generation (Tailored uniquely to this EXACT challenge)
+        $apiKey = (string)Env::get('NVIDIA_API_KEY', '');
+        if (!empty($apiKey)) {
+            try {
+                $activeModel = FeatureService::getActiveAiModel();
+                $refCompany = $referenceCase['company'] ?? 'Verified Industry Leader';
+                $refPrecedent = $referenceCase['precedent'] ?? 'Historical Macroeconomic Precedent';
+
+                $prompt = "You are the Chief Strategy Officer and Lead Case Writer for EconSim Executive Boardroom.
+Generate an authoritative, bespoke Executive Masterclass & Case Resolution uniquely tailored to this EXACT corporate dilemma:
+
+### Scenario Title:
+{$title}
+
+### Confidential Dilemma Details:
+{$body}
+
+### Reference Precedent Context:
+Company/Sector: {$refCompany}
+Precedent Hint: {$refPrecedent}
+
+TASK:
+Write a comprehensive, rigorous case resolution specifically solving the numbers, operational trade-offs, and variables described above.
+You must return valid JSON ONLY with this exact schema:
+{
+  \"model_memo\": {
+    \"executive_summary\": \"Formal C-suite memo stating the definitive strategic decision and clear executive rationale with exact numbers from this dilemma.\",
+    \"action_plan\": [
+      \"First 72 Hours: Specific tactical steps to arrest operational bleeding or execute the decision...\",
+      \"Financial & Liquidity Mechanics: Precise financial figures, cash runway impacts, or cost/yield calculations matching this case...\",
+      \"Downside Risk Controls: Concrete hedging, covenant renegotiation, supplier terms, or buffer allocations...\",
+      \"Long-Term Value Capture: Post-crisis positioning to turn this dilemma into a competitive advantage...\"
+    ]
+  },
+  \"real_world_precedent\": {
+    \"company\": \"Exact company name or leading sector enterprise that faced this real-world scenario\",
+    \"what_executives_did\": \"Comprehensive paragraph explaining how executive management in real life navigated this crisis and what trade-offs they chose\",
+    \"the_financial_outcome\": \"The concrete financial and operational outcome (e.g. avoided insolvency, protected 18% margins, preserved \$X million in enterprise value)\"
+  },
+  \"strategic_lesson\": {
+    \"best_move\": \"The Winning Move: [Action Name]. Detailed executive explanation of why this specific choice is the mathematically and operationally optimal move over alternatives.\",
+    \"key_takeaways\": [
+      \"Core strategic insight 1 teaching how an executive should evaluate this risk...\",
+      \"Core strategic insight 2 on working capital, variance reduction, or regulatory management...\",
+      \"Core strategic insight 3 on execution sequencing and long-term shareholder value...\"
+    ]
+  }
+}";
+
+                $url = (string)Env::get('NVIDIA_NIM_BASE_URL', 'https://integrate.api.nvidia.com/v1') . '/chat/completions';
+                $ch = curl_init($url);
+                curl_setopt_array($ch, [
+                    CURLOPT_POST => true,
+                    CURLOPT_POSTFIELDS => json_encode([
+                        'model' => $activeModel,
+                        'messages' => [
+                            ['role' => 'system', 'content' => 'You are an elite corporate strategy case writer. Return valid JSON only with no conversational preamble or markdown code blocks outside JSON.'],
+                            ['role' => 'user', 'content' => $prompt]
+                        ],
+                        'temperature' => 0.2,
+                        'max_tokens' => 1400,
+                    ]),
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_HTTPHEADER => [
+                        'Content-Type: application/json',
+                        "Authorization: Bearer {$apiKey}"
+                    ],
+                    CURLOPT_TIMEOUT => 18,
+                    CURLOPT_SSL_VERIFYPEER => false,
+                ]);
+                $raw = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+
+                if ($httpCode >= 200 && $httpCode < 300 && !empty($raw)) {
+                    $resp = json_decode($raw, true);
+                    $content = $resp['choices'][0]['message']['content'] ?? '';
+                    if (preg_match('/\{[\s\S]*\}/', $content, $m)) {
+                        $parsed = json_decode($m[0], true);
+                        if ($parsed && isset($parsed['model_memo']) && isset($parsed['real_world_precedent']) && isset($parsed['strategic_lesson'])) {
+                            // Persist to cache so this challenge's unique solution is saved forever
+                            if ($cacheKey) {
+                                $ins = $pdo->prepare(
+                                    "INSERT INTO platform_settings (`key`, `value`, `updated_at`) 
+                                     VALUES (:k, :v, NOW(3)) 
+                                     ON DUPLICATE KEY UPDATE `value` = :v2, `updated_at` = NOW(3)"
+                                );
+                                $jsonVal = json_encode($parsed, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                                $ins->execute([':k' => $cacheKey, ':v' => $jsonVal, ':v2' => $jsonVal]);
+                            }
+                            return $parsed;
+                        }
+                    }
+                }
+            } catch (\Throwable $aiErr) {}
+        }
+
+        // 3. Fallback: Context-Aware Synthesizer (Extracts specifics from dilemma body)
         $company = !empty($referenceCase['company']) ? $referenceCase['company'] : null;
         $precedent = !empty($referenceCase['precedent']) ? $referenceCase['precedent'] : null;
 
         $lowerTitle = strtolower($title);
         $lowerBody = strtolower($body);
 
-        // 1. Currency & FX Forward Hedging / NDF Dilemmas
+        // A. Currency & FX Forward Hedging / NDF Dilemmas
         $isFx = str_contains($lowerTitle, 'forward') || str_contains($lowerTitle, 'hedge') || str_contains($lowerTitle, 'fx') || str_contains($lowerTitle, 'currency') || str_contains($lowerBody, 'nafem') || str_contains($lowerBody, 'forward contract') || str_contains($lowerBody, 'ndf') || str_contains($lowerBody, 'dollar debt') || str_contains($lowerBody, '1,750') || str_contains($lowerBody, '1,550');
         if ($isFx) {
-            return [
+            $fxDebrief = [
                 'model_memo' => [
                     'executive_summary' => "MEMORANDUM TO THE BOARD OF DIRECTORS\nSUBJECT: TREASURY RISK MITIGATION VIA NON-DELIVERABLE FORWARD (NDF) HEDGE\nRECOMMENDATION: Lock in the 3-month Non-Deliverable Forward (NDF) contract at ₦1,750/$ immediately. Do not speculate on official NAFEM liquidity or pray for central bank market intervention.",
                     'action_plan' => [
@@ -1362,12 +1489,20 @@ class BoardroomService
                     ]
                 ]
             ];
+            if ($cacheKey) {
+                try {
+                    $ins = $pdo->prepare("INSERT INTO platform_settings (`key`, `value`, `updated_at`) VALUES (:k, :v, NOW(3)) ON DUPLICATE KEY UPDATE `value` = :v2, `updated_at` = NOW(3)");
+                    $jsonVal = json_encode($fxDebrief, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                    $ins->execute([':k' => $cacheKey, ':v' => $jsonVal, ':v2' => $jsonVal]);
+                } catch (\Throwable $e) {}
+            }
+            return $fxDebrief;
         }
 
-        // 2. Coastal Right-of-Way / Infrastructure Demolition & Buffer Realignment
+        // B. Coastal Right-of-Way / Infrastructure Demolition & Buffer Realignment
         $isCoastal = str_contains($lowerTitle, 'coastal') || str_contains($lowerTitle, 'highway') || str_contains($lowerTitle, 'buffer') || str_contains($lowerBody, 'right-of-way') || str_contains($lowerBody, 'landmark') || str_contains($lowerBody, 'demolition') || str_contains($lowerBody, 'parking');
         if ($isCoastal) {
-            return [
+            $coastalDebrief = [
                 'model_memo' => [
                     'executive_summary' => "MEMORANDUM TO THE BOARD OF DIRECTORS\nSUBJECT: STATUTORY ALIGNMENT COMPROMISE & CASH FLOW PRESERVATION STRATEGY\nRECOMMENDATION: Pursue structured statutory negotiation under the Federal Highways Act while concurrently filing a standstill caveat, securing an operational buffer realignment to preserve commercial parking assets.",
                     'action_plan' => [
@@ -1391,12 +1526,20 @@ class BoardroomService
                     ]
                 ]
             ];
+            if ($cacheKey) {
+                try {
+                    $ins = $pdo->prepare("INSERT INTO platform_settings (`key`, `value`, `updated_at`) VALUES (:k, :v, NOW(3)) ON DUPLICATE KEY UPDATE `value` = :v2, `updated_at` = NOW(3)");
+                    $jsonVal = json_encode($coastalDebrief, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                    $ins->execute([':k' => $cacheKey, ':v' => $jsonVal, ':v2' => $jsonVal]);
+                } catch (\Throwable $e) {}
+            }
+            return $coastalDebrief;
         }
 
-        // 3. Power Grid / Band A Electricity Tariff Surge & Energy Hedging
+        // C. Power Grid / Band A Electricity Tariff Surge & Energy Hedging
         $isPower = str_contains($lowerTitle, 'power') || str_contains($lowerTitle, 'tariff') || str_contains($lowerTitle, 'electricity') || str_contains($lowerTitle, 'fuel') || str_contains($lowerTitle, 'diesel') || str_contains($lowerBody, 'band a') || str_contains($lowerBody, 'band-a') || str_contains($lowerBody, 'disco') || str_contains($lowerBody, 'kwh');
         if ($isPower) {
-            return [
+            $powerDebrief = [
                 'model_memo' => [
                     'executive_summary' => "MEMORANDUM TO THE BOARD OF DIRECTORS\nSUBJECT: ENERGY COST CONTAINMENT & CAPTIVE POWER GENERATION PIVOT\nRECOMMENDATION: Shift energy-intensive production runs to off-peak tariff windows and initiate phased CapEx investment into captive solar/gas hybrid power.",
                     'action_plan' => [
@@ -1420,12 +1563,20 @@ class BoardroomService
                     ]
                 ]
             ];
+            if ($cacheKey) {
+                try {
+                    $ins = $pdo->prepare("INSERT INTO platform_settings (`key`, `value`, `updated_at`) VALUES (:k, :v, NOW(3)) ON DUPLICATE KEY UPDATE `value` = :v2, `updated_at` = NOW(3)");
+                    $jsonVal = json_encode($powerDebrief, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                    $ins->execute([':k' => $cacheKey, ':v' => $jsonVal, ':v2' => $jsonVal]);
+                } catch (\Throwable $e) {}
+            }
+            return $powerDebrief;
         }
 
-        // 4. Monetary Policy / MPR Rate Hikes & Syndicate Debt Refinancing
+        // D. Monetary Policy / MPR Rate Hikes & Syndicate Debt Refinancing
         $isMonetary = str_contains($lowerTitle, 'interest') || str_contains($lowerTitle, 'mpr') || str_contains($lowerTitle, 'loan') || str_contains($lowerTitle, 'debt') || str_contains($lowerBody, 'crr') || str_contains($lowerBody, 'bank') || str_contains($lowerBody, 'syndicate') || str_contains($lowerBody, 'refinanc');
         if ($isMonetary) {
-            return [
+            $monetaryDebrief = [
                 'model_memo' => [
                     'executive_summary' => "MEMORANDUM TO THE BOARD OF DIRECTORS\nSUBJECT: CAPITAL STRUCTURE DE-LEVERAGING & INTEREST RATE HEDGING\nRECOMMENDATION: Retire high-interest floating bank lines via a commercial paper issuance and launch a structured rights issue to eliminate debt service drag.",
                     'action_plan' => [
@@ -1449,9 +1600,17 @@ class BoardroomService
                     ]
                 ]
             ];
+            if ($cacheKey) {
+                try {
+                    $ins = $pdo->prepare("INSERT INTO platform_settings (`key`, `value`, `updated_at`) VALUES (:k, :v, NOW(3)) ON DUPLICATE KEY UPDATE `value` = :v2, `updated_at` = NOW(3)");
+                    $jsonVal = json_encode($monetaryDebrief, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                    $ins->execute([':k' => $cacheKey, ':v' => $jsonVal, ':v2' => $jsonVal]);
+                } catch (\Throwable $e) {}
+            }
+            return $monetaryDebrief;
         }
 
-        // 5. Dynamic Adaptive Case Solver (Extracts specifics from dilemma body)
+        // E. Dynamic Adaptive Case Solver (Extracts exact specifics from dilemma body)
         $optASummary = 'Maintain defensive posture and preserve operational continuity.';
         $optBSummary = 'Execute strategic compromise with structured realignment.';
         if (preg_match('/Option A:?\s*([^\n\r]+)/i', $body, $m)) {
@@ -1461,19 +1620,26 @@ class BoardroomService
             $optBSummary = trim($m[1]);
         }
 
-        return [
+        // Extract key numerical figures from body
+        $figures = [];
+        if (preg_match_all('/(₦\s*[\d,\.]+\s*(?:m|b|million|billion|k)?|\$\s*[\d,\.]+\s*(?:m|b|million|billion|k)?|\b\d+(?:\.\d+)?%\b|\b\d+\s*days?\b|\b\d+\s*hours?\b)/i', $body, $m)) {
+            $figures = array_unique(array_slice($m[0], 0, 4));
+        }
+        $metricsSnippet = !empty($figures) ? implode(' and ', $figures) : 'working capital targets';
+
+        $adaptiveDebrief = [
             'model_memo' => [
-                'executive_summary' => "MEMORANDUM TO THE BOARD OF DIRECTORS\nSUBJECT: STRATEGIC CAPITAL ALLOCATION & VALUE PRESERVATION\nRECOMMENDATION: Choose Option B ({$optBSummary}) supported by disciplined working capital containment and proactive stakeholder realignment.",
+                'executive_summary' => "MEMORANDUM TO THE BOARD OF DIRECTORS\nSUBJECT: STRATEGIC CAPITAL ALLOCATION & VALUE PRESERVATION ({$title})\nRECOMMENDATION: Choose Option B ({$optBSummary}) supported by disciplined working capital containment and proactive stakeholder realignment.",
                 'action_plan' => [
-                    "Immediate 72-Hour Measures: Establish an Executive Crisis Committee, freeze non-critical discretionary outlays, and formalize implementation terms for {$optBSummary}.",
-                    "Financial Calculations & Cash Runway: Reallocate internal reserves to finance the transition cost, extending operating cash runway by 4.5 months while safeguarding core revenue-generating operations.",
-                    "Downside Risk Containment: Establish rigid milestone triggers, multi-vendor redundancies, and tight customer receivables terms to prevent operational contagion.",
-                    "Long-Term Strategic Advantage: Position the enterprise to emerge from industry disruption with an optimized cost structure and expanded competitive moat."
+                    "First 72 Hours: Convene an Executive Crisis Committee, freeze non-essential discretionary outlays, and formalize operational execution terms for {$optBSummary}.",
+                    "Financial & Liquidity Mechanics: Ring-fence internal liquidity around {$metricsSnippet} to fund immediate transition costs, extending operating runway while safeguarding core revenue-generating operations.",
+                    "Downside Risk Controls: Establish rigid milestone triggers, multi-vendor redundancies, and tightened customer receivables terms to prevent balance sheet contagion.",
+                    "Long-Term Value Capture: Position the enterprise to emerge from industry disruption with an optimized cost structure and expanded competitive moat."
                 ]
             ],
             'real_world_precedent' => [
-                'company' => $company ?: 'Leading Enterprise Conglomerate',
-                'what_executives_did' => "Executive leadership in " . ($precedent ?: "comparable emerging market macro crises") . " confronted similar trade-offs. Rather than taking binary all-or-nothing risks under {$optASummary}, managing directors executed a measured compromise, restructured supplier and banking terms, and focused on core cash flow preservation.",
+                'company' => $company ?: ($precedent ? "Enterprises in {$precedent}" : 'Leading Emerging Market Conglomerate'),
+                'what_executives_did' => "Executive leadership in " . ($precedent ?: "comparable corporate macro crises") . " confronted similar trade-offs. Rather than taking binary all-or-nothing risks under {$optASummary}, managing directors executed a measured compromise, restructured supplier and banking terms, and focused on core cash flow preservation.",
                 'the_financial_outcome' => 'Stabilized gross margins, protected company balance sheets from insolvency, and maintained unbroken operational delivery.'
             ],
             'strategic_lesson' => [
@@ -1485,6 +1651,16 @@ class BoardroomService
                 ]
             ]
         ];
+
+        if ($cacheKey) {
+            try {
+                $ins = $pdo->prepare("INSERT INTO platform_settings (`key`, `value`, `updated_at`) VALUES (:k, :v, NOW(3)) ON DUPLICATE KEY UPDATE `value` = :v2, `updated_at` = NOW(3)");
+                $jsonVal = json_encode($adaptiveDebrief, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                $ins->execute([':k' => $cacheKey, ':v' => $jsonVal, ':v2' => $jsonVal]);
+            } catch (\Throwable $e) {}
+        }
+
+        return $adaptiveDebrief;
     }
 
     public static function checkNonsenseOrIrrelevant(string $answer, string $title = '', string $body = ''): ?array
